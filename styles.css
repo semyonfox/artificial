@@ -1,0 +1,461 @@
+:root {
+	--primary-color: #2c3e50;
+	--secondary-color: #3498db;
+	--background-dark: #1a1a1a;
+	--text-light: #ecf0f1;
+	--container-width: 1200px; /* Increased width for better spacing */
+}
+
+body {
+	margin: 0;
+	background: var(--background-dark);
+	color: var(--text-light);
+	font-family: 'Arial', sans-serif;
+	height: 100vh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+/* Cutscene Styles */
+#cutscene-container {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100vh;
+	background: #000;
+	z-index: 1000;
+	overflow: hidden;
+}
+
+.scene {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	display: none;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	opacity: 0;
+	transition: opacity 1s ease-in-out;
+	padding: 20px;
+	color: white;
+	background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%);
+	border-radius: 15px;
+	box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+}
+
+.scene.active {
+	display: flex;
+	opacity: 1;
+}
+
+.scene h1 {
+	font-size: 2.5rem;
+	margin-bottom: 1.5rem;
+	text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.scene p {
+	font-size: 1.2rem;
+	line-height: 1.6;
+	max-width: 600px;
+}
+
+.scene-next {
+	margin-top: 2rem;
+	padding: 12px 30px;
+	background: linear-gradient(to right, var(--secondary-color), #2980b9);
+	border: none;
+	border-radius: 25px;
+	color: white;
+	cursor: pointer;
+	transition: transform 0.1s;
+	box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.scene-next:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.scene-progress {
+	width: 300px;
+	height: 6px;
+	background: rgba(255, 255, 255, 0.1);
+	margin: 30px 0;
+	border-radius: 3px;
+	overflow: hidden;
+}
+
+.scene-progress::after {
+	content: '';
+	display: block;
+	width: var(--progress-width, 0%);
+	height: 100%;
+	background: var(--secondary-color);
+	transition: width 0.5s ease-in-out;
+}
+
+/* Game UI Styles */
+#game-container {
+	width: var(--container-width); /* Increased width */
+	max-width: 100%;
+	padding: 20px;
+	margin: 0 auto;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+#era-display {
+	font-size: 1.8rem;
+	margin-bottom: 20px;
+	text-align: center;
+}
+
+#era-details {
+	margin: 20px;
+	padding: 15px;
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 5px;
+	color: var(--text-light);
+	width: 100%;
+	max-width: var(--container-width);
+	text-align: center;
+}
+
+#resource-display {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	margin: 20px 0;
+	width: 100%;
+}
+
+.resource {
+	font-size: 1.2rem;
+	margin: 5px;
+	padding: 10px 15px;
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 5px;
+	display: inline-block;
+}
+
+#action-buttons-container {
+	display: flex;
+	justify-content: center;
+	gap: 15px;
+	margin: 20px 0;
+}
+
+.action-wrapper {
+	position: relative;
+	display: inline-block;
+	margin: 10px 5px;
+}
+
+.action-progress {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: 0%;
+	height: 4px;
+	background: rgba(255, 255, 255, 0.5);
+	border-radius: 0 0 10px 10px;
+	transition: width linear;
+}
+
+button {
+	font-size: 1.2rem;
+	padding: 12px 24px;
+	margin: 10px;
+	background: var(--secondary-color);
+	border: none;
+	border-radius: 10px;
+	color: white;
+	cursor: pointer;
+	transition: all 0.2s;
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+button:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
+}
+
+button:disabled {
+	opacity: 0.7;
+	cursor: not-allowed;
+	transform: none;
+}
+
+.hidden {
+	display: none !important;
+}
+
+#workers-container {
+	margin-top: 20px;
+	width: 100%;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+}
+
+.hire-worker {
+	margin: 10px;
+}
+
+#worker-status {
+	margin-top: 20px;
+	font-size: 1.2rem;
+	text-align: center;
+}
+
+#upgrades {
+	width: 100%;
+	max-width: var(--container-width);
+	margin-top: 20px;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 15px; /* Add spacing between upgrade boxes */
+}
+
+.upgrade-item {
+	padding: 15px;
+	margin: 10px;
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 10px;
+	cursor: pointer;
+	transition: transform 0.2s, background 0.2s;
+	width: calc(30% - 20px); /* Ensure proper spacing */
+	box-sizing: border-box;
+	text-align: center;
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Add shadow for better visibility */
+}
+
+.upgrade-item h3 {
+	font-size: 1.2rem;
+	margin-bottom: 10px;
+	color: var(--text-light);
+}
+
+.upgrade-item p {
+	font-size: 0.9rem;
+	margin-bottom: 10px;
+	color: var(--text-light);
+}
+
+.upgrade-item div {
+	font-size: 0.85rem;
+	margin-bottom: 10px;
+	color: var(--text-light);
+}
+
+.upgrade-item button {
+	padding: 8px 15px;
+	background: var(--secondary-color);
+	color: white;
+	border: none;
+	border-radius: 5px;
+	cursor: pointer;
+	transition: background 0.2s;
+}
+
+.upgrade-item button:hover {
+	background: #2980b9;
+}
+
+.upgrade-item.available {
+	background: rgba(46, 204, 113, 0.8); /* Green for available upgrades */
+	color: white;
+	transform: scale(1.02);
+}
+
+.upgrade-item.locked {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.upgrade-item.maxed-out {
+	background: #d3d3d3; /* Light grey for maxed-out upgrades */
+	color: #7f8c8d; /* Muted text color */
+	cursor: not-allowed;
+}
+
+.upgrade-item button.buyable {
+	background: #3498db; /* Blue for buyable upgrades */
+	color: white;
+	cursor: pointer;
+}
+
+.upgrade-item button.unaffordable {
+	background: #bdc3c7; /* Grey for unaffordable upgrades */
+	color: #7f8c8d;
+	cursor: not-allowed;
+}
+
+.upgrade-item button.maxed {
+	background: #95a5a6; /* Muted grey for maxed-out upgrades */
+	color: white;
+	cursor: not-allowed;
+}
+
+/* Add hover effect for upgrade boxes */
+.upgrade-item:hover {
+	transform: translateY(-5px);
+	box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2);
+}
+
+#event-log,
+#disaster-log {
+	margin: 10px;
+	padding: 10px;
+	background: rgba(255, 0, 0, 0.1);
+	border-radius: 5px;
+	color: var(--text-light);
+	width: 100%;
+	max-width: var(--container-width);
+}
+
+.buy-btn,
+.buy-max-btn {
+	margin-top: 10px;
+	padding: 5px 10px;
+	border: none;
+	border-radius: 4px;
+	color: white;
+	cursor: pointer;
+}
+
+.buy-btn {
+	background: #27ae60;
+}
+
+.buy-max-btn {
+	background: #2980b9;
+	margin-left: 5px;
+}
+
+#log-menu {
+	position: fixed;
+	right: 0;
+	top: 0;
+	width: 300px;
+	height: 100%;
+	background: rgba(0, 0, 0, 0.8);
+	color: var(--text-light);
+	overflow-y: auto;
+	transition: transform 0.3s ease-in-out;
+	transform: translateX(100%);
+	box-shadow: -2px 0 5px rgba(0, 0, 0, 0.5);
+	z-index: 1000;
+}
+
+#log-menu.collapsed {
+	transform: translateX(0);
+}
+
+#log-toggle {
+	position: fixed; /* Ensure it stays visible */
+	left: 10px; /* Adjust position to always be on screen */
+	top: 20px;
+	width: 40px;
+	height: 40px;
+	background: var(--secondary-color);
+	color: white;
+	border: none;
+	border-radius: 5px;
+	cursor: pointer;
+	box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+	z-index: 1100; /* Ensure it is above other elements */
+}
+
+.log-section {
+	padding: 10px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.log-section h3 {
+	margin: 0 0 10px;
+	font-size: 1.2rem;
+	text-align: center;
+}
+
+.log-entry {
+	margin-bottom: 10px;
+	padding: 10px;
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 5px;
+}
+
+.log-entry h4 {
+	margin: 0 0 5px;
+	font-size: 1rem;
+	color: var(--secondary-color);
+}
+
+.log-entry p {
+	margin: 0;
+	font-size: 0.9rem;
+	line-height: 1.4;
+}
+
+#notification-container {
+	position: fixed;
+	top: 20px;
+	right: 20px;
+	width: 300px;
+	z-index: 2000;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.notification {
+	padding: 10px 15px;
+	background: rgba(0, 0, 0, 0.8);
+	color: var(--text-light);
+	border-radius: 5px;
+	box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+	font-size: 0.9rem;
+	animation: fadeInOut 3s ease-in-out;
+}
+
+.notification.success {
+	background: rgba(46, 204, 113, 0.8); /* Green for success */
+}
+
+.notification.warning {
+	background: rgba(241, 196, 15, 0.8); /* Yellow for warnings */
+}
+
+.notification.error {
+	background: rgba(231, 76, 60, 0.8); /* Red for errors */
+}
+
+@keyframes fadeInOut {
+	0% {
+		opacity: 0;
+		transform: translateY(-10px);
+	}
+	10%,
+	90% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	100% {
+		opacity: 0;
+		transform: translateY(-10px);
+	}
+}
+
+.worker-progress-bar {
+	height: 5px;
+	background-color: #4caf50;
+	margin: 2px 0;
+	transition: width 0.1s linear;
+}

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Evolution Clicker</title>
+		<link
+			rel="stylesheet"
+			type="text/css"
+			href="styles.css" />
+	</head>
+	<body>
+		<!-- Cutscene Container -->
+		<div id="cutscene-container">
+			<div
+				class="scene active"
+				data-scene="1">
+				<h1>🌌 4.5 Billion Years BCE</h1>
+				<p>Stellar dust coalesces...</p>
+				<div class="scene-progress"></div>
+				<button class="scene-next">▶️ Continue</button>
+			</div>
+			<div
+				class="scene"
+				data-scene="2">
+				<h1>🌍 3.8 Billion Years BCE</h1>
+				<p>Primordial soup bubbles...</p>
+				<div class="scene-progress"></div>
+				<button class="scene-next">▶️ Continue</button>
+			</div>
+			<div
+				class="scene"
+				data-scene="3">
+				<h1>🌿 600 Million Years BCE</h1>
+				<p>Symbiosis begins...</p>
+				<div class="scene-progress"></div>
+				<button class="scene-next">▶️ Continue</button>
+			</div>
+			<div
+				class="scene"
+				data-scene="4">
+				<h1>🦍 2 Million Years BCE</h1>
+				<p>Stone tools appear...</p>
+				<div class="scene-progress"></div>
+				<button class="scene-next">▶️ Begin Civilization</button>
+			</div>
+		</div>
+
+		<!-- Game UI (Initially Hidden) -->
+		<div
+			id="game-container"
+			class="hidden">
+			<div id="era-display">Era: Hunter-Gatherer</div>
+			<div id="era-details"></div>
+			<div
+				id="log-menu"
+				class="collapsed">
+				<button id="log-toggle">📜 Logs</button>
+				<div
+					id="event-log"
+					class="log-section">
+					<h3>Events</h3>
+				</div>
+				<div
+					id="disaster-log"
+					class="log-section">
+					<h3>Disasters</h3>
+				</div>
+			</div>
+			<div id="action-buttons-container">
+				<div class="action-wrapper">
+					<button id="forage-button">🌿 Forage</button>
+					<div class="action-progress"></div>
+				</div>
+				<div class="action-wrapper">
+					<button
+						id="hunt-button"
+						class="hidden">
+						🏹 Hunt
+					</button>
+					<div class="action-progress"></div>
+				</div>
+				<div class="action-wrapper">
+					<button
+						id="cook-button"
+						class="hidden">
+						🍖 Cook Meat
+					</button>
+					<div class="action-progress"></div>
+				</div>
+			</div>
+			<div id="resource-display"></div>
+			<div id="workers-container">
+				<button
+					id="hire-woodcutter"
+					class="hire-worker">
+					Hire Woodcutter
+				</button>
+				<button
+					id="hire-miner"
+					class="hire-worker">
+					Hire Miner
+				</button>
+				<button
+					id="hire-hunter"
+					class="hire-worker">
+					Hire Hunter
+				</button>
+				<button
+					id="hire-cook"
+					class="hire-worker">
+					Hire Cook
+				</button>
+				<div id="worker-status"></div>
+			</div>
+			<div id="upgrades"></div>
+			<div id="items"></div>
+			<!-- Add this new container for items -->
+		</div>
+
+		<div id="notification-container"></div>
+
+		<script
+			type="module"
+			src="./game.js"></script>
+	</body>
+</html>
