@@ -5,21 +5,42 @@ export const gameProgressionData = {
 			dateRange: '2.5M BCE - 10,000 BCE',
 			keyResources: ['sticks', 'stones', 'rawMeat', 'fur', 'bones'],
 			keyFeatures: ['Basic stone tools', 'Hunting & gathering', 'Fire mastery'],
-			workers: {
-				forager: { cost: { meat: 3 }, effect: { sticks: 1, stones: 0.3 } },
-				hunter: { cost: { sticks: 5 }, effect: { rawMeat: 1, bones: 0.5 } },
-				cook: { cost: { stones: 3 }, effect: { cookedMeat: 1 } },
-			},
-			upgrades: [
+			workers: [
 				{
-					name: 'Fire Control',
-					effect: 'Reduces meat burning chance by 50%',
-					cost: { sticks: 30, stones: 20 },
+					id: 'forager',
+					name: 'Forager',
+					cost: { meat: 3 },
+					effect: { sticks: 1, stones: 0.3 },
 				},
 				{
+					id: 'hunter',
+					name: 'Hunter',
+					cost: { sticks: 5 },
+					effect: { rawMeat: 1, bones: 0.5 },
+				},
+				{
+					id: 'cook',
+					name: 'Cook',
+					cost: { stones: 3 },
+					effect: { cookedMeat: 1 },
+				},
+			],
+			upgrades: [
+				{
+					id: 'fireControl',
+					name: 'Fire Control',
+					description: 'Reduces meat burning chance by 50%',
+					cost: { sticks: 30, stones: 20 },
+					effect: { burnChance: -0.5 },
+					maxCount: 1,
+				},
+				{
+					id: 'boneTools',
 					name: 'Bone Tools',
-					effect: '+1 stick/stone per gather',
+					description: '+1 stick/stone per gather',
 					cost: { bones: 15 },
+					effect: { workerBonusStick: 1, workerBonusStone: 1 },
+					maxCount: 1,
 				},
 			],
 			events: [
@@ -42,15 +63,28 @@ export const gameProgressionData = {
 				'Permanent settlements',
 				'Domestication',
 			],
-			workers: {
-				farmer: { cost: { cookedMeat: 5 }, effect: { grain: 2 } },
-				potter: { cost: { clay: 3 }, effect: { pottery: 1 } },
-			},
+			workers: [
+				{
+					id: 'farmer',
+					name: 'Farmer',
+					cost: { cookedMeat: 5 },
+					effect: { grain: 2 },
+				},
+				{
+					id: 'potter',
+					name: 'Potter',
+					cost: { clay: 3 },
+					effect: { pottery: 1 },
+				},
+			],
 			upgrades: [
 				{
+					id: 'irrigation',
 					name: 'Irrigation',
-					effect: 'Double grain production',
+					description: 'Double grain production',
 					cost: { pottery: 5, sticks: 20 },
+					effect: { grainMultiplier: 2 },
+					maxCount: 1,
 				},
 			],
 			transitionText: 'Farming surplus enables civilization...',
@@ -65,21 +99,42 @@ export const gameProgressionData = {
 				'Early writing systems',
 				'Trade networks',
 			],
-			workers: {
-				copperMiner: { cost: { tools: 2 }, effect: { copper: 3 } },
-				tinTrader: { cost: { bronze: 1 }, effect: { tin: 2 } },
-				scribe: { cost: { clayTablets: 1 }, effect: { research: 0.5 } },
-			},
-			upgrades: [
+			workers: [
 				{
-					name: 'Bronze Casting',
-					effect: '1 copper + 1 tin → 2 bronze',
-					cost: { clayTablets: 5 },
+					id: 'copperMiner',
+					name: 'Copper Miner',
+					cost: { tools: 2 },
+					effect: { copper: 3 },
 				},
 				{
+					id: 'tinTrader',
+					name: 'Tin Trader',
+					cost: { bronze: 1 },
+					effect: { tin: 2 },
+				},
+				{
+					id: 'scribe',
+					name: 'Scribe',
+					cost: { clayTablets: 1 },
+					effect: { research: 0.5 },
+				},
+			],
+			upgrades: [
+				{
+					id: 'bronzeCasting',
+					name: 'Bronze Casting',
+					description: '1 copper + 1 tin → 2 bronze',
+					cost: { clayTablets: 5 },
+					effect: { bronzeMultiplier: 2 },
+					maxCount: 1,
+				},
+				{
+					id: 'tradeRoutes',
 					name: 'Trade Routes',
-					effect: 'Double tin acquisition',
+					description: 'Double tin acquisition',
 					cost: { bronze: 20 },
+					effect: { tinMultiplier: 2 },
+					maxCount: 1,
 				},
 			],
 			events: [
@@ -107,21 +162,42 @@ export const gameProgressionData = {
 				'Empire expansion',
 				'Currency systems',
 			],
-			workers: {
-				blacksmith: { cost: { iron: 5 }, effect: { steel: 1 } },
-				farmer: { cost: { tools: 1 }, effect: { grainSurplus: 3 } },
-				soldier: { cost: { steel: 2 }, effect: { defense: 5 } },
-			},
-			upgrades: [
+			workers: [
 				{
-					name: 'Blast Furnace',
-					effect: 'Double steel production',
-					cost: { iron: 100, coal: 50 },
+					id: 'blacksmith',
+					name: 'Blacksmith',
+					cost: { iron: 5 },
+					effect: { steel: 1 },
 				},
 				{
+					id: 'farmer',
+					name: 'Farmer',
+					cost: { tools: 1 },
+					effect: { grainSurplus: 3 },
+				},
+				{
+					id: 'soldier',
+					name: 'Soldier',
+					cost: { steel: 2 },
+					effect: { defense: 5 },
+				},
+			],
+			upgrades: [
+				{
+					id: 'blastFurnace',
+					name: 'Blast Furnace',
+					description: 'Double steel production',
+					cost: { iron: 100, coal: 50 },
+					effect: { steelMultiplier: 2 },
+					maxCount: 1,
+				},
+				{
+					id: 'imperialRoads',
 					name: 'Imperial Roads',
-					effect: '50% faster resource transport',
+					description: '50% faster resource transport',
 					cost: { stone: 500 },
+					effect: { transportSpeed: 1.5 },
+					maxCount: 1,
 				},
 			],
 			events: [
@@ -153,21 +229,42 @@ export const gameProgressionData = {
 			dateRange: '1760 CE - 1940 CE',
 			keyResources: ['coal', 'steamParts', 'factoryGoods'],
 			keyFeatures: ['Steam power', 'Mass production', 'Global trade'],
-			workers: {
-				coalMiner: { cost: { tools: 5 }, effect: { coal: 10 } },
-				engineer: { cost: { steel: 3 }, effect: { steamParts: 2 } },
-				factoryWorker: { cost: { coal: 5 }, effect: { factoryGoods: 4 } },
-			},
-			upgrades: [
+			workers: [
 				{
-					name: 'Steam Engine',
-					effect: 'Triple factory output',
-					cost: { steamParts: 50, iron: 200 },
+					id: 'coalMiner',
+					name: 'Coal Miner',
+					cost: { tools: 5 },
+					effect: { coal: 10 },
 				},
 				{
+					id: 'engineer',
+					name: 'Engineer',
+					cost: { steel: 3 },
+					effect: { steamParts: 2 },
+				},
+				{
+					id: 'factoryWorker',
+					name: 'Factory Worker',
+					cost: { coal: 5 },
+					effect: { factoryGoods: 4 },
+				},
+			],
+			upgrades: [
+				{
+					id: 'steamEngine',
+					name: 'Steam Engine',
+					description: 'Triple factory output',
+					cost: { steamParts: 50, iron: 200 },
+					effect: { factoryOutput: 3 },
+					maxCount: 1,
+				},
+				{
+					id: 'railNetwork',
 					name: 'Rail Network',
-					effect: 'Double trade efficiency',
+					description: 'Double trade efficiency',
 					cost: { steel: 1000, coal: 500 },
+					effect: { tradeEfficiency: 2 },
+					maxCount: 1,
 				},
 			],
 			events: [
@@ -198,15 +295,28 @@ export const gameProgressionData = {
 			dateRange: '1990 CE - 2040 CE',
 			keyResources: ['silicon', 'energy', 'data'],
 			keyFeatures: ['Global internet', 'Digital revolution', 'Early AI'],
-			workers: {
-				programmer: { cost: { energy: 10 }, effect: { data: 5 } },
-				engineer: { cost: { silicon: 3 }, effect: { energy: 2 } },
-			},
+			workers: [
+				{
+					id: 'programmer',
+					name: 'Programmer',
+					cost: { energy: 10 },
+					effect: { data: 5 },
+				},
+				{
+					id: 'engineer',
+					name: 'Engineer',
+					cost: { silicon: 3 },
+					effect: { energy: 2 },
+				},
+			],
 			upgrades: [
 				{
+					id: 'quantumComputing',
 					name: 'Quantum Computing',
-					effect: '10x data processing',
+					description: '10x data processing',
 					cost: { silicon: 100, energy: 500 },
+					effect: { dataProcessing: 10 },
+					maxCount: 1,
 				},
 			],
 			transitionText: 'Digital networks connect humanity globally...',
@@ -221,15 +331,28 @@ export const gameProgressionData = {
 				'Planetary engineering',
 				'Star harvesting',
 			],
-			workers: {
-				solarEngineer: { cost: { energy: 1000 }, effect: { solarPlasma: 10 } },
-				swarmBot: { cost: { solarPlasma: 50 }, effect: { dysonSwarm: 1 } },
-			},
+			workers: [
+				{
+					id: 'solarEngineer',
+					name: 'Solar Engineer',
+					cost: { energy: 1000 },
+					effect: { solarPlasma: 10 },
+				},
+				{
+					id: 'swarmBot',
+					name: 'Swarm Bot',
+					cost: { solarPlasma: 50 },
+					effect: { dysonSwarm: 1 },
+				},
+			],
 			upgrades: [
 				{
+					id: 'fusionContainment',
 					name: 'Fusion Containment',
-					effect: 'Double plasma yield',
+					description: 'Double plasma yield',
 					cost: { dysonSwarm: 5 },
+					effect: { plasmaYield: 2 },
+					maxCount: 1,
 				},
 			],
 			transitionText:
@@ -245,13 +368,20 @@ export const gameProgressionData = {
 				'Galactic civilization',
 				'Matter transmutation',
 			],
-			workers: {
-				singularityEngineer: {
+			workers: [
+				{
+					id: 'singularityEngineer',
+					name: 'Singularity Engineer',
 					cost: { darkMatter: 1 },
 					effect: { singularityCores: 0.1 },
 				},
-				voidMiner: { cost: { singularityCores: 1 }, effect: { darkMatter: 5 } },
-			},
+				{
+					id: 'voidMiner',
+					name: 'Void Miner',
+					cost: { singularityCores: 1 },
+					effect: { darkMatter: 5 },
+				},
+			],
 			transitionText:
 				'Mastering galactic resources unlocks universal control...',
 		},
@@ -265,13 +395,20 @@ export const gameProgressionData = {
 				'Entropy reversal',
 				'Reality engineering',
 			],
-			workers: {
-				realityArchitect: {
+			workers: [
+				{
+					id: 'realityArchitect',
+					name: 'Reality Architect',
 					cost: { cosmicStrings: 1 },
 					effect: { entropy: -0.1 },
 				},
-				chronoEngineer: { cost: { entropy: 10 }, effect: { cosmicStrings: 1 } },
-			},
+				{
+					id: 'chronoEngineer',
+					name: 'Chrono Engineer',
+					cost: { entropy: 10 },
+					effect: { cosmicStrings: 1 },
+				},
+			],
 			transitionText:
 				'Transcending spacetime itself, humanity becomes eternal...',
 		},

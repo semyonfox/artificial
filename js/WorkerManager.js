@@ -1,4 +1,5 @@
 import { config } from './config.js';
+import { gameProgressionData } from './gamedata.js';
 
 export class WorkerManager {
 	constructor(state, uiManager, updateUI) {
@@ -75,19 +76,37 @@ export class WorkerManager {
 	}
 
 	getWorkerCost(workerType) {
-		const baseCost = config.workerTimers[workerType] || { cookedMeat: 10 };
+		const worker = gameProgressionData.eras[this.state.age].workers.find(
+			(w) => w.id === workerType
+		);
 		const multiplier = 1.5;
 		const workerCount = this.state.workers[workerType] || 0;
 
 		const cost = {};
-		Object.entries(baseCost).forEach(([resource, amount]) => {
+		Object.entries(worker.cost).forEach(([resource, amount]) => {
 			cost[resource] = Math.ceil(amount * Math.pow(multiplier, workerCount));
 		});
 		return cost;
 	}
 
 	hireWorker(workerType) {
+		const worker = gameProgressionData.eras[this.state.age].workers.find(
+			(w) => w.id === workerType
+		);
+
+		if (!worker) {
+			this.uiManager.showNotification(
+				'Worker type not available in this era',
+				'error'
+			);
+			return;
+		}
+
 		const cost = this.getWorkerCost(workerType);
+
+		if (!cost) {
+			return;
+		}
 
 		// Check if the player can afford the worker
 		const canAfford = Object.entries(cost).every(
@@ -105,10 +124,17 @@ export class WorkerManager {
 				(this.state.workers[workerType] || 0) + 1;
 
 			// Start or update the automated task for the worker
+			const effect = worker.effect;
+			const [resourceType, baseYield] = Object.entries(effect)[0];
+			const bonusKey = `workerBonus${
+				workerType.charAt(0).toUpperCase() + workerType.slice(1)
+			}`;
 			this.startWorkerTask(workerType, resourceType, baseYield, bonusKey);
 
 			// Update the UI
 			this.updateUI();
+		} else {
+			this.uiManager.showNotification('Cannot afford worker', 'error');
 		}
 	}
 

@@ -4,24 +4,27 @@ import { UIManager } from './UIManager.js';
 import { WorkerManager } from './WorkerManager.js';
 import { gameProgressionData } from './gamedata.js';
 
+/**
+ * Manages the overall game state, progression, and interactions.
+ * Handles resources, workers, upgrades, events, disasters, and era transitions.
+ */
 export class GameManager {
 	constructor() {
-		// Initialize game state
+		// Initialize the game state
 		this.state = {
 			resources: {
 				sticks: 0,
 				stones: 0,
 				meat: 0,
 				cookedMeat: 0,
-				bones: 0, // Initialize bones
-				fur: 0, // Initialize fur
+				bones: 0,
+				fur: 0,
 			},
 			upgrades: {},
-			age: 'prehistoric',
+			age: 'prehistoric', // Make sure this matches an era in gameProgressionData
 			progress: 0,
 			workers: {
-				woodcutter: 0,
-				miner: 0,
+				forager: 0, // Update worker types to match prehistoric era
 				hunter: 0,
 				cook: 0,
 			},
@@ -64,7 +67,9 @@ export class GameManager {
 	// Era Management
 	// ------------------------------
 
-	// Initialize the current era
+	/**
+	 * Initializes the current era by updating the UI and scheduling events/disasters.
+	 */
 	initEra() {
 		const era = this.eraData[this.currentEra];
 		if (!era) return;
@@ -75,7 +80,9 @@ export class GameManager {
 		this.scheduleRandomDisaster();
 	}
 
-	// Transition to the next era
+	/**
+	 * Advances the game to the next era if available.
+	 */
 	advanceToNextEra() {
 		const eras = Object.keys(this.eraData);
 		const currentIndex = eras.indexOf(this.currentEra);
@@ -89,7 +96,9 @@ export class GameManager {
 	// Event and Disaster Management
 	// ------------------------------
 
-	// Schedule a random event
+	/**
+	 * Schedules a random event for the current era.
+	 */
 	scheduleRandomEvent() {
 		clearTimeout(this.eventTimer);
 		const era = this.eraData[this.currentEra];
@@ -103,7 +112,9 @@ export class GameManager {
 		}, Math.random() * 90000 + 90000); // Random interval between 90-180 seconds
 	}
 
-	// Schedule a random disaster
+	/**
+	 * Schedules a random disaster for the current era.
+	 */
 	scheduleRandomDisaster() {
 		clearTimeout(this.disasterTimer);
 		const era = this.eraData[this.currentEra];
@@ -117,14 +128,20 @@ export class GameManager {
 		}, Math.random() * 120000 + 120000); // Random interval between 120-240 seconds
 	}
 
-	// Process an event
+	/**
+	 * Processes a triggered event by applying its effects and logging it.
+	 * @param {Object} event - The event to process.
+	 */
 	processEvent(event) {
 		this.uiManager.logEvent(event);
 		this.applyEffect(event.effect);
 		this.uiManager.updateUI();
 	}
 
-	// Process a disaster
+	/**
+	 * Processes a triggered disaster by applying its effects and logging it.
+	 * @param {Object} disaster - The disaster to process.
+	 */
 	processDisaster(disaster) {
 		this.uiManager.logDisaster(disaster);
 		this.applyEffect(disaster.effect);
@@ -135,7 +152,10 @@ export class GameManager {
 	// Resource and Upgrade Management
 	// ------------------------------
 
-	// Apply effects to the game state
+	/**
+	 * Applies an effect to the game state.
+	 * @param {Object} effect - The effect to apply.
+	 */
 	applyEffect(effect) {
 		Object.entries(effect).forEach(([key, value]) => {
 			if (key in this.state.resources) {
@@ -157,7 +177,10 @@ export class GameManager {
 		});
 	}
 
-	// Adjust population and handle worker limits
+	/**
+	 * Adjusts the population and handles worker limits.
+	 * @param {number} value - The population adjustment value.
+	 */
 	adjustPopulation(value) {
 		this.state.population = Math.floor((this.state.population || 0) + value);
 		if (this.state.population < 0) {
@@ -171,34 +194,12 @@ export class GameManager {
 		}
 	}
 
-	// Apply the effects of an upgrade or item
-	applyUpgradeOrItemEffect(effect) {
-		if (effect.unlocks) {
-			effect.unlocks.forEach((feature) => {
-				this.state.upgrades[feature] = true;
-
-				const era = this.eraData[this.state.age];
-				if (era) {
-					if (era.items?.some((item) => item.id === feature)) {
-						this.state.upgrades[`${feature}_unlocked`] = true;
-					} else if (feature === 'hunting') {
-						this.state.upgrades.hunting_unlocked = true;
-					} else if (feature === 'cooking') {
-						this.state.upgrades.cooking_unlocked = true;
-					}
-				}
-			});
-		}
-		if (effect.buff || effect) {
-			this.applyEffect(effect.buff || effect);
-		}
-		this.uiManager.updateUI();
-	}
-
-	// Update the progress of the current era and transition to the next era if needed
+	/**
+	 * Updates the progress of the current era and transitions to the next era if requirements are met.
+	 * @param {number} increment - The progress increment value.
+	 */
 	updateProgress(increment) {
 		this.state.progress += increment;
-		const currentEraData = this.eraData[this.currentEra];
 		const progressionRequirements =
 			gameProgressionData.progressionRequirements[this.currentEra];
 
@@ -207,26 +208,14 @@ export class GameManager {
 				([resource, amount]) => this.state.resources[resource] >= amount
 			)
 		) {
-			const allUpgradesBought = currentEraData.upgrades.every(
-				(upgrade) =>
-					(this.state.upgrades[`${upgrade.id}_count`] || 0) >=
-					(upgrade.maxCount || 1)
-			);
-			const allItemsBought = currentEraData.items.every(
-				(item) =>
-					(this.state.upgrades[`${item.id}_count`] || 0) >= (item.maxCount || 1)
-			);
-
-			if (allUpgradesBought && allItemsBought) {
-				this.uiManager.cutsceneManager.triggerEraCutscene(
-					this.eraData[this.currentEra]
-				);
-				this.advanceToNextEra();
-			}
+			this.advanceToNextEra();
 		}
 	}
 
-	// Purchase an upgrade
+	/**
+	 * Purchases an upgrade if affordable and applies its effects.
+	 * @param {string} id - The ID of the upgrade to purchase.
+	 */
 	buyUpgrade(id) {
 		const upgrade = this.getUpgradeById(id);
 		if (!upgrade || !this.canAfford(upgrade.cost)) {
@@ -248,79 +237,21 @@ export class GameManager {
 		this.uiManager.updateUI();
 	}
 
-	// Apply the effects of an upgrade based on its level
-	applyUpgradeEffect(upgrade, level) {
-		if (upgrade.effectPerLevel) {
-			Object.entries(upgrade.effectPerLevel).forEach(([stat, value]) => {
-				this.state[stat] = (this.state[stat] || 0) + value * level;
-			});
-		}
-	}
-
-	// Purchase the maximum number of upgrades possible
-	buyMax(id) {
-		while (this.canAffordUpgrade(id)) {
-			this.buyUpgrade(id);
-		}
-	}
-
-	// Check if an upgrade can be afforded
-	canAffordUpgrade(upgrade) {
-		if (!upgrade || !upgrade.cost) return false;
-		return Object.entries(upgrade.cost).every(
-			([r, a]) => this.state.resources[r] >= a
-		);
-	}
-
-	// Purchase an item if resources are sufficient
-	buyItem(id) {
-		const item = this.getItemById(id);
-		if (!item || !this.canAfford(item.cost)) {
-			this.uiManager.showNotification('Cannot afford this item!', 'error');
-			return;
-		}
-
-		const currentCount = this.state.upgrades[`${id}_count`] || 0;
-		if (currentCount >= (item.maxCount || 1)) {
-			this.uiManager.showNotification('Item is maxed out!', 'error');
-			return;
-		}
-
-		// Deduct resources and apply effects
-		this.deductResources(item.cost);
-		this.applyUpgradeOrItemEffect(item.effect || {});
-		this.incrementUpgradeCount(id);
-
-		this.uiManager.showNotification(`${item.name} purchased!`, 'success');
-		this.uiManager.updateUI();
-	}
-
-	// Check if an item can be afforded
-	canAffordItem(item) {
-		if (!item || !item.cost) return false;
-		return Object.entries(item.cost).every(
-			([r, a]) => this.state.resources[r] >= a
-		);
-	}
-
+	/**
+	 * Retrieves an upgrade by its ID.
+	 * @param {string} id - The ID of the upgrade.
+	 * @returns {Object} The upgrade object.
+	 */
 	getUpgradeById(id) {
 		return gameProgressionData.eras[this.currentEra].upgrades.find(
 			(upgrade) => upgrade.id === id
 		);
 	}
 
-	getItemById(id) {
-		return gameProgressionData.eras[this.currentEra].items.find(
-			(item) => item.id === id
-		);
-	}
-
-	canAfford(cost) {
-		return Object.entries(cost).every(
-			([resource, amount]) => (this.state.resources[resource] || 0) >= amount
-		);
-	}
-
+	/**
+	 * Deducts resources from the game state.
+	 * @param {Object} cost - The cost object containing resource amounts.
+	 */
 	deductResources(cost) {
 		Object.entries(cost).forEach(([resource, amount]) => {
 			if ((this.state.resources[resource] || 0) >= amount) {
@@ -331,119 +262,24 @@ export class GameManager {
 		});
 	}
 
-	incrementUpgradeCount(id) {
-		this.state.upgrades[`${id}_count`] =
-			(this.state.upgrades[`${id}_count`] || 0) + 1;
-	}
-
-	// Find food and add it to the resources
-	findFood() {
-		const foodReward = Math.floor(Math.random() * 4) + 2;
-		this.state.resources.meat += foodReward;
-		this.uiManager.updateUI();
-	}
-
-	// ------------------------------
-	// Worker Management
-	// ------------------------------
-
-	// Hire a worker of a specific type if resources are sufficient
-	hireWorker(workerType) {
-		const baseCost = config.workerTimers[workerType] || 10; // Use config for base cost
-		const multiplier = 1.5;
-		const workerCount = this.state.workers[workerType] || 0;
-
-		const cost = Math.ceil(baseCost * Math.pow(multiplier, workerCount));
-
-		if (this.state.resources.cookedMeat >= cost) {
-			this.state.resources.cookedMeat -= cost;
-			this.state.workers[workerType] =
-				(this.state.workers[workerType] || 0) + 1;
-
-			const efficiencyLevel = this.state.upgrades.efficiency || 0;
-			this.workerManager.startWorkerTask(workerType, efficiencyLevel);
-
-			this.uiManager.updateUI();
-		} else {
-			this.uiManager.showNotification(
-				`Not enough food to hire a ${workerType}!`,
-				'error'
-			);
-		}
-	}
-
-	// ------------------------------
-	// UI Management
-	// ------------------------------
-
-	// Update the visibility and text of buttons based on the game state
-	updateButtons() {
-		this.uiManager.elements.huntButton.classList.toggle(
-			'hidden',
-			!this.state.upgrades.hunting_unlocked
+	/**
+	 * Checks if the player can afford a given cost.
+	 * @param {Object} cost - The cost object containing resource amounts.
+	 * @returns {boolean} True if affordable, false otherwise.
+	 */
+	canAfford(cost) {
+		return Object.entries(cost).every(
+			([resource, amount]) => (this.state.resources[resource] || 0) >= amount
 		);
-		this.uiManager.elements.cookButton.classList.toggle(
-			'hidden',
-			!this.state.upgrades.cooking_unlocked
-		);
-		Object.entries(this.uiManager.elements.hireButtons).forEach(
-			([type, button]) => {
-				button.textContent = `Hire ${
-					type.charAt(0).toUpperCase() + type.slice(1)
-				} (${this.formatCost(this.workerManager.getWorkerCost(type))})`;
-			}
-		);
-		this.uiManager.renderUpgrades();
-		this.uiManager.renderItems();
-	}
-
-	// Perform an action with a delay and update the UI
-	performAction(button, action, delay) {
-		const wrapper = button.closest('.action-wrapper');
-		const progress = wrapper ? wrapper.querySelector('.action-progress') : null;
-		button.disabled = true;
-		if (progress) {
-			progress.style.width = '0%';
-			progress.style.transition = `width ${delay}ms linear`;
-			progress.offsetHeight;
-			progress.style.width = '100%';
-		}
-		setTimeout(() => {
-			action();
-
-			if (button.id === 'forage-button') {
-				this.workerManager.triggerWorkerAction(
-					'woodcutter',
-					'sticks',
-					config.yields.huntYield,
-					'workerBonusStick'
-				);
-			} else if (button.id === 'hunt-button') {
-				this.workerManager.triggerWorkerAction(
-					'hunter',
-					'meat',
-					config.yields.huntYield,
-					'workerBonusMeat'
-				);
-			} else if (button.id === 'cook-button') {
-				this.workerManager.triggerWorkerAction(
-					'cook',
-					'cookedMeat',
-					config.yields.huntYield,
-					'workerBonusCook'
-				);
-			}
-
-			button.disabled = false;
-			if (progress) progress.style.width = '0%';
-		}, delay);
 	}
 
 	// ------------------------------
 	// Game Loop
 	// ------------------------------
 
-	// Start the game loop
+	/**
+	 * Starts the main game loop, updating the UI and managing workers.
+	 */
 	startGameLoop() {
 		Object.keys(config.workerTimers).forEach((workerType) => {
 			const efficiencyLevel = this.state.upgrades.efficiency || 0;

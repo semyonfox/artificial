@@ -116,21 +116,40 @@ export class UIManager {
 	}
 
 	updateButtons() {
+		const eraData = gameProgressionData.eras[this.state.age];
+
+		// Update action buttons visibility
 		this.elements.huntButton.classList.toggle(
 			'hidden',
-			!this.state.upgrades[config.upgradeDefinitions.spear.unlocks[0]] // Use config for unlocks
+			!this.state.upgrades[
+				eraData?.upgrades?.find((u) => u.id === 'fireControl')?.effect
+					?.unlockFeature
+			]
 		);
 		this.elements.cookButton.classList.toggle(
 			'hidden',
-			!this.state.upgrades[config.upgradeDefinitions.fire.unlocks[0]] // Use config for unlocks
+			!this.state.upgrades[
+				eraData?.upgrades?.find((u) => u.id === 'fireControl')?.effect
+					?.unlockFeature
+			]
 		);
+
+		// Update hire buttons with proper worker data
 		Object.entries(this.elements.hireButtons).forEach(([type, button]) => {
-			button.textContent = `Hire ${
-				type.charAt(0).toUpperCase() + type.slice(1)
-			} (${this.gameManager.workerManager.getWorkerCost(type).cookedMeat} ${
-				config.resourceIcons.cookedMeat
-			})`; // Use config for icons
+			// Find the worker data for this type
+			const worker = eraData?.workers?.find((w) => w.id === type);
+
+			// If worker exists for this era, show the button with cost, otherwise hide it
+			if (worker) {
+				button.textContent = `Hire ${worker.name} (${this.formatCost(
+					worker.cost
+				)})`;
+				button.classList.remove('hidden');
+			} else {
+				button.classList.add('hidden');
+			}
 		});
+
 		this.elements.logToggle.style.display = 'block';
 	}
 

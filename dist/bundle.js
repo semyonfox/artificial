@@ -148,57 +148,96 @@
 		},
 	};
 
+	/**
+	 * Manages all resource-related operations in the game.
+	 * Handles resource gathering, processing, and worker production.
+	 */
 	class ResourceManager {
+		/**
+		 * Creates a new ResourceManager instance.
+		 * @param {Object} state - The game state object
+		 * @param {Function} updateProgressCallback - Callback for updating progression
+		 * @param {Object} uiManager - The UI manager instance
+		 */
 		constructor(state, updateProgressCallback, uiManager) {
 			this.state = state;
 			this.updateProgress = updateProgressCallback;
 			this.uiManager = uiManager;
 		}
 
+		/**
+		 * Core resource gathering method used by all gathering operations.
+		 * @param {string} resourceType - Type of resource to gather
+		 * @param {number} baseYield - Base amount to gather
+		 * @param {string} workerType - Type of worker performing the gathering
+		 * @param {string} bonusKey - Key for any applicable bonuses
+		 * @param {string} chanceKey - Key for probability checks
+		 */
 		gatherResource(resourceType, baseYield, workerType, bonusKey, chanceKey) {
+			// Feed workers and calculate active workers
 			let fedWorkers = 0;
 			const workers = this.state.workers[workerType];
 			for (let i = 0; i < workers; i++) {
 				if (this.state.resources.cookedMeat >= 1) {
-					this.state.resources.cookedMeat -= 1; // Deduct cooked meat for each worker
+					this.state.resources.cookedMeat -= 1;
 					fedWorkers++;
 				}
 			}
 			this.state.workers[workerType] = fedWorkers;
 
-			const bonus = fedWorkers * (config.workerBonuses[bonusKey] || 0); // Use config for bonuses
+			// Calculate total yield with bonuses
+			const bonus = fedWorkers * (config.workerBonuses[bonusKey] || 0);
 			const chanceBonus =
-				chanceKey && Math.random() < (config.probabilities[chanceKey] || 0) // Use config for probabilities
+				chanceKey && Math.random() < (config.probabilities[chanceKey] || 0)
 					? 1
 					: 0;
+			const efficiencyMultiplier = this.getEfficiencyMultiplier(resourceType);
 
-			const efficiencyMultiplier =
-				resourceType === 'meat'
-					? config.gameVariables.meatProduction
-					: resourceType === 'food'
-					? config.gameVariables.foodProduction
-					: 1;
-
+			// Apply yield and update state
 			this.state.resources[resourceType] +=
 				(baseYield + bonus + chanceBonus) * efficiencyMultiplier;
 			this.updateProgress(1);
 			this.uiManager.updateUI();
 
+			// Handle special cases for meat gathering
 			if (resourceType === 'meat') {
-				// Always give 1 bone per hunt
-				this.state.resources.bones = (this.state.resources.bones || 0) + 1;
-
-				// Randomly give 0-3 fur
-				const furYield = Math.floor(Math.random() * 4); // Random between 0 and 3
-				this.state.resources.fur = (this.state.resources.fur || 0) + furYield;
-
-				this.uiManager.showNotification(
-					`You hunted and got 1 bone and ${furYield} fur!`,
-					'success'
-				);
+				this.handleMeatGatheringExtras();
 			}
 		}
 
+		/**
+		 * Gets the efficiency multiplier for a resource type.
+		 * @param {string} resourceType - The type of resource
+		 * @returns {number} The efficiency multiplier
+		 */
+		getEfficiencyMultiplier(resourceType) {
+			if (resourceType === 'meat') return config.gameVariables.meatProduction;
+			if (resourceType === 'food') return config.gameVariables.foodProduction;
+			return 1;
+		}
+
+		/**
+		 * Handles additional resources from meat gathering (bones, fur).
+		 */
+		handleMeatGatheringExtras() {
+			this.state.resources.bones = (this.state.resources.bones || 0) + 1;
+			const furYield = Math.floor(Math.random() * 4);
+			this.state.resources.fur = (this.state.resources.fur || 0) + furYield;
+
+			this.uiManager.showNotification(
+				`You hunted and got 1 bone and ${furYield} fur!`,
+				'success'
+			);
+		}
+
+		/**
+		 * Gathers resources based on the specified parameters.
+		 * @param {string} resourceType - Type of resource to gather
+		 * @param {number} baseYield - Base amount to gather
+		 * @param {string} workerType - Type of worker performing the gathering
+		 * @param {string} bonusKey - Key for any applicable bonuses
+		 * @param {string} chanceKey - Key for probability checks
+		 */
 		gather(resourceType, baseYield, workerType, bonusKey, chanceKey = null) {
 			this.gatherResource(
 				resourceType,
@@ -209,12 +248,10 @@
 			);
 
 			if (resourceType === 'meat') {
-				// Always give 1 bone per hunt
 				this.state.resources.bones = (this.state.resources.bones || 0) + 1;
 
-				// Randomly give fur based on the configured drop chance
 				if (Math.random() < config.probabilities.furDropChance) {
-					const furYield = Math.floor(Math.random() * 4) + 1; // Random between 1 and 4
+					const furYield = Math.floor(Math.random() * 4) + 1;
 					this.state.resources.fur = (this.state.resources.fur || 0) + furYield;
 
 					this.uiManager.showNotification(
@@ -230,32 +267,45 @@
 			}
 		}
 
+		/**
+		 * Specialized method for gathering sticks with possible stone finds.
+		 */
 		gatherSticks() {
 			this.gather(
 				'sticks',
-				1 + (this.state.upgrades.stickEfficiency || 0), // Apply stick efficiency upgrade
+				1 + (this.state.upgrades.stickEfficiency || 0),
 				'woodcutter',
 				'workerBonusStick',
 				'stoneChanceFromSticks'
 			);
 		}
 
+		/**
+		 * Specialized method for mining stones.
+		 */
 		mineStone() {
 			this.gather(
 				'stones',
-				1 + (this.state.upgrades.stoneEfficiency || 0), // Apply stone efficiency upgrade
+				1 + (this.state.upgrades.stoneEfficiency || 0),
 				'miner',
 				'workerBonusStone'
 			);
 		}
 
+		/**
+		 * Specialized method for hunting animals.
+		 */
 		huntAnimal() {
 			this.gather('meat', config.yields.huntYield, 'hunter', 'workerBonusMeat');
 		}
 
+		/**
+		 * Crafts clothes from fur if resources are available.
+		 */
 		craftClothes() {
-			if (this.state.resources.fur >= 5) {
-				this.state.resources.fur -= 5;
+			const REQUIRED_FUR = 5;
+			if (this.state.resources.fur >= REQUIRED_FUR) {
+				this.state.resources.fur -= REQUIRED_FUR;
 				this.state.resources.clothes = (this.state.resources.clothes || 0) + 1;
 				this.uiManager.showNotification('You crafted clothes!', 'success');
 			} else {
@@ -266,15 +316,21 @@
 			}
 		}
 
+		/**
+		 * Applies clothing bonus to a worker type if available.
+		 * @param {string} workerType - The type of worker to buff
+		 */
 		applyClothesToWorker(workerType) {
 			if (
 				this.state.resources.clothes > 0 &&
 				this.state.workers[workerType] > 0
 			) {
 				this.state.resources.clothes -= 1;
-				config.workerBonuses[
-					`workerBonus${workerType.charAt(0).toUpperCase() + workerType.slice(1)}`
-				] *= 2;
+				const bonusKey = `workerBonus${
+				workerType.charAt(0).toUpperCase() + workerType.slice(1)
+			}`;
+				config.workerBonuses[bonusKey] *= 2;
+
 				this.uiManager.showNotification(
 					`${
 					workerType.charAt(0).toUpperCase() + workerType.slice(1)
@@ -289,54 +345,66 @@
 			}
 		}
 
+		/**
+		 * Processes raw meat into cooked meat with possible burning.
+		 */
 		cookMeatClick() {
-			const cookEfficiency = this.state.upgrades.cookEfficiency || 1; // Base cooking efficiency
+			if (this.state.resources.meat <= 0) {
+				this.uiManager.showNotification('No raw meat to cook!', 'error');
+				return;
+			}
+
+			const cookEfficiency = this.state.upgrades.cookEfficiency || 1;
+			let cookedCount = this.processCooking(cookEfficiency);
+
+			this.uiManager.showNotification(
+				`You successfully cooked ${cookedCount} meat!`,
+				'success'
+			);
+			this.updateProgress(1);
+			this.uiManager.updateUI();
+		}
+
+		/**
+		 * Processes a batch of cooking operations.
+		 * @param {number} cookEfficiency - The cooking efficiency modifier
+		 * @returns {number} The amount of successfully cooked meat
+		 */
+		processCooking(cookEfficiency) {
 			let cookedCount = 0;
 
-			if (this.state.resources.meat > 0) {
-				// Cook meat manually
-				for (
-					let i = 0;
-					i < cookEfficiency && this.state.resources.meat > 0;
-					i++
-				) {
-					this.state.resources.meat -= 1;
-					if (Math.random() >= config.probabilities.burnChance) {
-						this.state.resources.cookedMeat += 1;
-						cookedCount++;
-					} else {
-						this.uiManager.showNotification('A piece of meat burned!', 'warning');
-					}
-				}
+			// Manual cooking
+			for (let i = 0; i < cookEfficiency && this.state.resources.meat > 0; i++) {
+				if (this.attemptCooking()) cookedCount++;
+			}
 
-				// Let cook workers assist
-				const cooks = this.state.workers.cook || 0;
-				for (let i = 0; i < cooks; i++) {
-					if (this.state.resources.meat > 0) {
-						this.state.resources.meat -= 1;
-						if (Math.random() >= config.probabilities.burnChance) {
-							this.state.resources.cookedMeat += 1;
-							cookedCount++;
-						} else {
-							this.uiManager.showNotification(
-								'A piece of meat burned!',
-								'warning'
-							);
-						}
-					}
-				}
+			// Worker cooking
+			const cooks = this.state.workers.cook || 0;
+			for (let i = 0; i < cooks && this.state.resources.meat > 0; i++) {
+				if (this.attemptCooking()) cookedCount++;
+			}
 
-				this.uiManager.showNotification(
-					`You successfully cooked ${cookedCount} meat!`,
-					'success'
-				);
-				this.updateProgress(1);
-				this.uiManager.updateUI();
+			return cookedCount;
+		}
+
+		/**
+		 * Attempts to cook a single piece of meat.
+		 * @returns {boolean} Whether the cooking was successful
+		 */
+		attemptCooking() {
+			this.state.resources.meat -= 1;
+			if (Math.random() >= config.probabilities.burnChance) {
+				this.state.resources.cookedMeat += 1;
+				return true;
 			} else {
-				this.uiManager.showNotification('No raw meat to cook!', 'error');
+				this.uiManager.showNotification('A piece of meat burned!', 'warning');
+				return false;
 			}
 		}
 
+		/**
+		 * Forages for sticks with a chance to find stones.
+		 */
 		forage() {
 			const stickYield = 1 + (this.state.upgrades.stickEfficiency || 0); // Apply stick efficiency upgrade
 			const stoneChance =
@@ -354,6 +422,429 @@
 			this.uiManager.updateUI();
 		}
 	}
+
+	const gameProgressionData = {
+		eras: {
+			prehistoric: {
+				name: 'Prehistoric Era',
+				dateRange: '2.5M BCE - 10,000 BCE',
+				keyResources: ['sticks', 'stones', 'rawMeat', 'fur', 'bones'],
+				keyFeatures: ['Basic stone tools', 'Hunting & gathering', 'Fire mastery'],
+				workers: [
+					{
+						id: 'forager',
+						name: 'Forager',
+						cost: { meat: 3 },
+						effect: { sticks: 1, stones: 0.3 },
+					},
+					{
+						id: 'hunter',
+						name: 'Hunter',
+						cost: { sticks: 5 },
+						effect: { rawMeat: 1, bones: 0.5 },
+					},
+					{
+						id: 'cook',
+						name: 'Cook',
+						cost: { stones: 3 },
+						effect: { cookedMeat: 1 },
+					},
+				],
+				upgrades: [
+					{
+						id: 'fireControl',
+						name: 'Fire Control',
+						description: 'Reduces meat burning chance by 50%',
+						cost: { sticks: 30, stones: 20 },
+						effect: { burnChance: -0.5 },
+						maxCount: 1,
+					},
+					{
+						id: 'boneTools',
+						name: 'Bone Tools',
+						description: '+1 stick/stone per gather',
+						cost: { bones: 15 },
+						effect: { workerBonusStick: 1, workerBonusStone: 1 },
+						maxCount: 1,
+					},
+				],
+				events: [
+					{
+						name: 'Wolf Attack!',
+						effect: 'Lose 1 hunter (25% chance)',
+						trigger: { action: 'hunting', chance: 0.25 },
+					},
+				],
+				transitionText:
+					'Mastering fire and tools leads to settled communities...',
+			},
+
+			stoneAge: {
+				name: 'Stone Age',
+				dateRange: '10,000 BCE - 3,000 BCE',
+				keyResources: ['grain', 'clay', 'pottery'],
+				keyFeatures: [
+					'Agriculture development',
+					'Permanent settlements',
+					'Domestication',
+				],
+				workers: [
+					{
+						id: 'farmer',
+						name: 'Farmer',
+						cost: { cookedMeat: 5 },
+						effect: { grain: 2 },
+					},
+					{
+						id: 'potter',
+						name: 'Potter',
+						cost: { clay: 3 },
+						effect: { pottery: 1 },
+					},
+				],
+				upgrades: [
+					{
+						id: 'irrigation',
+						name: 'Irrigation',
+						description: 'Double grain production',
+						cost: { pottery: 5, sticks: 20 },
+						effect: { grainMultiplier: 2 },
+						maxCount: 1,
+					},
+				],
+				transitionText: 'Farming surplus enables civilization...',
+			},
+
+			bronzeAge: {
+				name: 'Bronze Age',
+				dateRange: '3300 BCE - 1200 BCE',
+				keyResources: ['copper', 'tin', 'bronze', 'clayTablets'],
+				keyFeatures: [
+					'Alloy metallurgy',
+					'Early writing systems',
+					'Trade networks',
+				],
+				workers: [
+					{
+						id: 'copperMiner',
+						name: 'Copper Miner',
+						cost: { tools: 2 },
+						effect: { copper: 3 },
+					},
+					{
+						id: 'tinTrader',
+						name: 'Tin Trader',
+						cost: { bronze: 1 },
+						effect: { tin: 2 },
+					},
+					{
+						id: 'scribe',
+						name: 'Scribe',
+						cost: { clayTablets: 1 },
+						effect: { research: 0.5 },
+					},
+				],
+				upgrades: [
+					{
+						id: 'bronzeCasting',
+						name: 'Bronze Casting',
+						description: '1 copper + 1 tin → 2 bronze',
+						cost: { clayTablets: 5 },
+						effect: { bronzeMultiplier: 2 },
+						maxCount: 1,
+					},
+					{
+						id: 'tradeRoutes',
+						name: 'Trade Routes',
+						description: 'Double tin acquisition',
+						cost: { bronze: 20 },
+						effect: { tinMultiplier: 2 },
+						maxCount: 1,
+					},
+				],
+				events: [
+					{
+						name: 'Tin Shortage',
+						effect: 'Tin production halved for 1h',
+						trigger: { resource: 'tin', chance: 0.3 },
+					},
+					{
+						name: 'Conquest',
+						effect: 'Gain 100 bronze instantly',
+						trigger: { military: 3, chance: 0.2 },
+					},
+				],
+				transitionText:
+					'Mastery of metalworking forges the path to empire building...',
+			},
+
+			ironAge: {
+				name: 'Iron Age',
+				dateRange: '1200 BCE - 500 CE',
+				keyResources: ['iron', 'steel', 'grainSurplus'],
+				keyFeatures: [
+					'Iron tools/weapons',
+					'Empire expansion',
+					'Currency systems',
+				],
+				workers: [
+					{
+						id: 'blacksmith',
+						name: 'Blacksmith',
+						cost: { iron: 5 },
+						effect: { steel: 1 },
+					},
+					{
+						id: 'farmer',
+						name: 'Farmer',
+						cost: { tools: 1 },
+						effect: { grainSurplus: 3 },
+					},
+					{
+						id: 'soldier',
+						name: 'Soldier',
+						cost: { steel: 2 },
+						effect: { defense: 5 },
+					},
+				],
+				upgrades: [
+					{
+						id: 'blastFurnace',
+						name: 'Blast Furnace',
+						description: 'Double steel production',
+						cost: { iron: 100, coal: 50 },
+						effect: { steelMultiplier: 2 },
+						maxCount: 1,
+					},
+					{
+						id: 'imperialRoads',
+						name: 'Imperial Roads',
+						description: '50% faster resource transport',
+						cost: { stone: 500 },
+						effect: { transportSpeed: 1.5 },
+						maxCount: 1,
+					},
+				],
+				events: [
+					{
+						name: 'Barbarian Invasion',
+						effect: 'Lose 20% resources (50% chance)',
+						trigger: {
+							condition: 'defenseLessThan',
+							threshold: 5,
+							chance: 0.5,
+						},
+					},
+					{
+						name: 'Golden Age',
+						effect: 'All production +25% for 2h',
+						trigger: {
+							condition: 'happinessGreaterThan',
+							threshold: 80,
+							chance: 0.1,
+						},
+					},
+				],
+				transitionText:
+					'Iron mastery and imperial administration birth lasting civilizations...',
+			},
+
+			industrialAge: {
+				name: 'Industrial Age',
+				dateRange: '1760 CE - 1940 CE',
+				keyResources: ['coal', 'steamParts', 'factoryGoods'],
+				keyFeatures: ['Steam power', 'Mass production', 'Global trade'],
+				workers: [
+					{
+						id: 'coalMiner',
+						name: 'Coal Miner',
+						cost: { tools: 5 },
+						effect: { coal: 10 },
+					},
+					{
+						id: 'engineer',
+						name: 'Engineer',
+						cost: { steel: 3 },
+						effect: { steamParts: 2 },
+					},
+					{
+						id: 'factoryWorker',
+						name: 'Factory Worker',
+						cost: { coal: 5 },
+						effect: { factoryGoods: 4 },
+					},
+				],
+				upgrades: [
+					{
+						id: 'steamEngine',
+						name: 'Steam Engine',
+						description: 'Triple factory output',
+						cost: { steamParts: 50, iron: 200 },
+						effect: { factoryOutput: 3 },
+						maxCount: 1,
+					},
+					{
+						id: 'railNetwork',
+						name: 'Rail Network',
+						description: 'Double trade efficiency',
+						cost: { steel: 1000, coal: 500 },
+						effect: { tradeEfficiency: 2 },
+						maxCount: 1,
+					},
+				],
+				events: [
+					{
+						name: 'Industrial Accident',
+						effect: 'Lose 10% workers',
+						trigger: {
+							condition: 'safetyLessThan',
+							threshold: 3,
+							chance: 0.25,
+						},
+					},
+					{
+						name: 'Export Boom',
+						effect: 'Double trade income for 24h',
+						trigger: {
+							condition: 'tradeRoutesGreaterThan',
+							threshold: 5,
+							chance: 0.15,
+						},
+					},
+				],
+				transitionText:
+					'The roar of machinery propels humanity into the technological age...',
+			},
+			informationAge: {
+				name: 'Information Age',
+				dateRange: '1990 CE - 2040 CE',
+				keyResources: ['silicon', 'energy', 'data'],
+				keyFeatures: ['Global internet', 'Digital revolution', 'Early AI'],
+				workers: [
+					{
+						id: 'programmer',
+						name: 'Programmer',
+						cost: { energy: 10 },
+						effect: { data: 5 },
+					},
+					{
+						id: 'engineer',
+						name: 'Engineer',
+						cost: { silicon: 3 },
+						effect: { energy: 2 },
+					},
+				],
+				upgrades: [
+					{
+						id: 'quantumComputing',
+						name: 'Quantum Computing',
+						description: '10x data processing',
+						cost: { silicon: 100, energy: 500 },
+						effect: { dataProcessing: 10 },
+						maxCount: 1,
+					},
+				],
+				transitionText: 'Digital networks connect humanity globally...',
+			},
+
+			stellarDominion: {
+				name: 'Stellar Dominion (Type I)',
+				dateRange: '2200 CE - 3000 CE',
+				keyResources: ['solarPlasma', 'dysonSwarm'],
+				keyFeatures: [
+					'Dyson sphere construction',
+					'Planetary engineering',
+					'Star harvesting',
+				],
+				workers: [
+					{
+						id: 'solarEngineer',
+						name: 'Solar Engineer',
+						cost: { energy: 1000 },
+						effect: { solarPlasma: 10 },
+					},
+					{
+						id: 'swarmBot',
+						name: 'Swarm Bot',
+						cost: { solarPlasma: 50 },
+						effect: { dysonSwarm: 1 },
+					},
+				],
+				upgrades: [
+					{
+						id: 'fusionContainment',
+						name: 'Fusion Containment',
+						description: 'Double plasma yield',
+						cost: { dysonSwarm: 5 },
+						effect: { plasmaYield: 2 },
+						maxCount: 1,
+					},
+				],
+				transitionText:
+					"Harnessing a star's full energy enables galactic expansion...",
+			},
+
+			galacticFederation: {
+				name: 'Galactic Federation (Type II)',
+				dateRange: '3000 CE - 10,000 CE',
+				keyResources: ['darkMatter', 'singularityCores'],
+				keyFeatures: [
+					'Black hole engineering',
+					'Galactic civilization',
+					'Matter transmutation',
+				],
+				workers: [
+					{
+						id: 'singularityEngineer',
+						name: 'Singularity Engineer',
+						cost: { darkMatter: 1 },
+						effect: { singularityCores: 0.1 },
+					},
+					{
+						id: 'voidMiner',
+						name: 'Void Miner',
+						cost: { singularityCores: 1 },
+						effect: { darkMatter: 5 },
+					},
+				],
+				transitionText:
+					'Mastering galactic resources unlocks universal control...',
+			},
+
+			universalAscendancy: {
+				name: 'Universal Ascendancy (Type III)',
+				dateRange: '10,000 CE+',
+				keyResources: ['entropy', 'cosmicStrings'],
+				keyFeatures: [
+					'Multiverse travel',
+					'Entropy reversal',
+					'Reality engineering',
+				],
+				workers: [
+					{
+						id: 'realityArchitect',
+						name: 'Reality Architect',
+						cost: { cosmicStrings: 1 },
+						effect: { entropy: -0.1 },
+					},
+					{
+						id: 'chronoEngineer',
+						name: 'Chrono Engineer',
+						cost: { entropy: 10 },
+						effect: { cosmicStrings: 1 },
+					},
+				],
+				transitionText:
+					'Transcending spacetime itself, humanity becomes eternal...',
+			},
+		},
+		progressionRequirements: {
+			prehistoric: { population: 50 },
+			stoneAge: { grain: 1000 },
+			stellarDominion: { dysonSwarm: 100 },
+			galacticFederation: { darkMatter: 1e6 },
+			universalAscendancy: { entropy: -100 }, // Negative entropy = order creation
+		}};
 
 	class UIManager {
 		constructor(state, gameManager) {
@@ -427,8 +918,7 @@
 			this.updateResources();
 			this.updateEraDisplay();
 
-			// Merge items and upgrades into a single list for rendering
-			const eraData = this.gameManager.eraData[this.state.age];
+			const eraData = gameProgressionData.eras[this.state.age];
 			const elements = [...(eraData?.upgrades || []), ...(eraData?.items || [])];
 			this.renderElements(
 				elements,
@@ -471,20 +961,26 @@
 		}
 
 		updateButtons() {
+			const eraData = gameProgressionData.eras[this.state.age];
 			this.elements.huntButton.classList.toggle(
 				'hidden',
-				!this.state.upgrades[config.upgradeDefinitions.spear.unlocks[0]] // Use config for unlocks
+				!this.state.upgrades[
+					eraData.upgrades.find((u) => u.id === 'fireControl')?.effect
+						?.unlockFeature
+				]
 			);
 			this.elements.cookButton.classList.toggle(
 				'hidden',
-				!this.state.upgrades[config.upgradeDefinitions.fire.unlocks[0]] // Use config for unlocks
+				!this.state.upgrades[
+					eraData.upgrades.find((u) => u.id === 'fireControl')?.effect
+						?.unlockFeature
+				]
 			);
 			Object.entries(this.elements.hireButtons).forEach(([type, button]) => {
-				button.textContent = `Hire ${
-				type.charAt(0).toUpperCase() + type.slice(1)
-			} (${this.gameManager.workerManager.getWorkerCost(type).cookedMeat} ${
-				config.resourceIcons.cookedMeat
-			})`; // Use config for icons
+				const worker = eraData.workers.find((w) => w.id === type);
+				button.textContent = `Hire ${worker.name} (${this.formatCost(
+				worker.cost
+			)})`;
 			});
 			this.elements.logToggle.style.display = 'block';
 		}
@@ -682,13 +1178,14 @@
 		}
 
 		getWorkerCost(workerType) {
-			const baseCost = { cookedMeat: 10 }; // Base cost for hiring a worker
-			const multiplier = 1.5; // Cost multiplier for each additional worker
+			const worker = gameProgressionData.eras[this.state.age].workers.find(
+				(w) => w.id === workerType
+			);
+			const multiplier = 1.5;
 			const workerCount = this.state.workers[workerType] || 0;
 
-			// Calculate the cost dynamically for each resource
 			const cost = {};
-			Object.entries(baseCost).forEach(([resource, amount]) => {
+			Object.entries(worker.cost).forEach(([resource, amount]) => {
 				cost[resource] = Math.ceil(amount * Math.pow(multiplier, workerCount));
 			});
 			return cost;
@@ -725,303 +1222,27 @@
 		}
 	}
 
-	const gameProgressionData = {
-		eras: {
-			prehistoric: {
-				name: 'Prehistoric Era',
-				dateRange: '2.5M BCE - 10,000 BCE',
-				keyResources: ['sticks', 'stones', 'rawMeat', 'fur', 'bones'],
-				keyFeatures: ['Basic stone tools', 'Hunting & gathering', 'Fire mastery'],
-				workers: {
-					forager: { cost: { meat: 3 }, effect: { sticks: 1, stones: 0.3 } },
-					hunter: { cost: { sticks: 5 }, effect: { rawMeat: 1, bones: 0.5 } },
-					cook: { cost: { stones: 3 }, effect: { cookedMeat: 1 } },
-				},
-				upgrades: [
-					{
-						name: 'Fire Control',
-						effect: 'Reduces meat burning chance by 50%',
-						cost: { sticks: 30, stones: 20 },
-					},
-					{
-						name: 'Bone Tools',
-						effect: '+1 stick/stone per gather',
-						cost: { bones: 15 },
-					},
-				],
-				events: [
-					{
-						name: 'Wolf Attack!',
-						effect: 'Lose 1 hunter (25% chance)',
-						trigger: { action: 'hunting', chance: 0.25 },
-					},
-				],
-				transitionText:
-					'Mastering fire and tools leads to settled communities...',
-			},
-
-			stoneAge: {
-				name: 'Stone Age',
-				dateRange: '10,000 BCE - 3,000 BCE',
-				keyResources: ['grain', 'clay', 'pottery'],
-				keyFeatures: [
-					'Agriculture development',
-					'Permanent settlements',
-					'Domestication',
-				],
-				workers: {
-					farmer: { cost: { cookedMeat: 5 }, effect: { grain: 2 } },
-					potter: { cost: { clay: 3 }, effect: { pottery: 1 } },
-				},
-				upgrades: [
-					{
-						name: 'Irrigation',
-						effect: 'Double grain production',
-						cost: { pottery: 5, sticks: 20 },
-					},
-				],
-				transitionText: 'Farming surplus enables civilization...',
-			},
-
-			bronzeAge: {
-				name: 'Bronze Age',
-				dateRange: '3300 BCE - 1200 BCE',
-				keyResources: ['copper', 'tin', 'bronze', 'clayTablets'],
-				keyFeatures: [
-					'Alloy metallurgy',
-					'Early writing systems',
-					'Trade networks',
-				],
-				workers: {
-					copperMiner: { cost: { tools: 2 }, effect: { copper: 3 } },
-					tinTrader: { cost: { bronze: 1 }, effect: { tin: 2 } },
-					scribe: { cost: { clayTablets: 1 }, effect: { research: 0.5 } },
-				},
-				upgrades: [
-					{
-						name: 'Bronze Casting',
-						effect: '1 copper + 1 tin → 2 bronze',
-						cost: { clayTablets: 5 },
-					},
-					{
-						name: 'Trade Routes',
-						effect: 'Double tin acquisition',
-						cost: { bronze: 20 },
-					},
-				],
-				events: [
-					{
-						name: 'Tin Shortage',
-						effect: 'Tin production halved for 1h',
-						trigger: { resource: 'tin', chance: 0.3 },
-					},
-					{
-						name: 'Conquest',
-						effect: 'Gain 100 bronze instantly',
-						trigger: { military: 3, chance: 0.2 },
-					},
-				],
-				transitionText:
-					'Mastery of metalworking forges the path to empire building...',
-			},
-
-			ironAge: {
-				name: 'Iron Age',
-				dateRange: '1200 BCE - 500 CE',
-				keyResources: ['iron', 'steel', 'grainSurplus'],
-				keyFeatures: [
-					'Iron tools/weapons',
-					'Empire expansion',
-					'Currency systems',
-				],
-				workers: {
-					blacksmith: { cost: { iron: 5 }, effect: { steel: 1 } },
-					farmer: { cost: { tools: 1 }, effect: { grainSurplus: 3 } },
-					soldier: { cost: { steel: 2 }, effect: { defense: 5 } },
-				},
-				upgrades: [
-					{
-						name: 'Blast Furnace',
-						effect: 'Double steel production',
-						cost: { iron: 100, coal: 50 },
-					},
-					{
-						name: 'Imperial Roads',
-						effect: '50% faster resource transport',
-						cost: { stone: 500 },
-					},
-				],
-				events: [
-					{
-						name: 'Barbarian Invasion',
-						effect: 'Lose 20% resources (50% chance)',
-						trigger: {
-							condition: 'defenseLessThan',
-							threshold: 5,
-							chance: 0.5,
-						},
-					},
-					{
-						name: 'Golden Age',
-						effect: 'All production +25% for 2h',
-						trigger: {
-							condition: 'happinessGreaterThan',
-							threshold: 80,
-							chance: 0.1,
-						},
-					},
-				],
-				transitionText:
-					'Iron mastery and imperial administration birth lasting civilizations...',
-			},
-
-			industrialAge: {
-				name: 'Industrial Age',
-				dateRange: '1760 CE - 1940 CE',
-				keyResources: ['coal', 'steamParts', 'factoryGoods'],
-				keyFeatures: ['Steam power', 'Mass production', 'Global trade'],
-				workers: {
-					coalMiner: { cost: { tools: 5 }, effect: { coal: 10 } },
-					engineer: { cost: { steel: 3 }, effect: { steamParts: 2 } },
-					factoryWorker: { cost: { coal: 5 }, effect: { factoryGoods: 4 } },
-				},
-				upgrades: [
-					{
-						name: 'Steam Engine',
-						effect: 'Triple factory output',
-						cost: { steamParts: 50, iron: 200 },
-					},
-					{
-						name: 'Rail Network',
-						effect: 'Double trade efficiency',
-						cost: { steel: 1000, coal: 500 },
-					},
-				],
-				events: [
-					{
-						name: 'Industrial Accident',
-						effect: 'Lose 10% workers',
-						trigger: {
-							condition: 'safetyLessThan',
-							threshold: 3,
-							chance: 0.25,
-						},
-					},
-					{
-						name: 'Export Boom',
-						effect: 'Double trade income for 24h',
-						trigger: {
-							condition: 'tradeRoutesGreaterThan',
-							threshold: 5,
-							chance: 0.15,
-						},
-					},
-				],
-				transitionText:
-					'The roar of machinery propels humanity into the technological age...',
-			},
-			informationAge: {
-				name: 'Information Age',
-				dateRange: '1990 CE - 2040 CE',
-				keyResources: ['silicon', 'energy', 'data'],
-				keyFeatures: ['Global internet', 'Digital revolution', 'Early AI'],
-				workers: {
-					programmer: { cost: { energy: 10 }, effect: { data: 5 } },
-					engineer: { cost: { silicon: 3 }, effect: { energy: 2 } },
-				},
-				upgrades: [
-					{
-						name: 'Quantum Computing',
-						effect: '10x data processing',
-						cost: { silicon: 100, energy: 500 },
-					},
-				],
-				transitionText: 'Digital networks connect humanity globally...',
-			},
-
-			stellarDominion: {
-				name: 'Stellar Dominion (Type I)',
-				dateRange: '2200 CE - 3000 CE',
-				keyResources: ['solarPlasma', 'dysonSwarm'],
-				keyFeatures: [
-					'Dyson sphere construction',
-					'Planetary engineering',
-					'Star harvesting',
-				],
-				workers: {
-					solarEngineer: { cost: { energy: 1000 }, effect: { solarPlasma: 10 } },
-					swarmBot: { cost: { solarPlasma: 50 }, effect: { dysonSwarm: 1 } },
-				},
-				upgrades: [
-					{
-						name: 'Fusion Containment',
-						effect: 'Double plasma yield',
-						cost: { dysonSwarm: 5 },
-					},
-				],
-				transitionText:
-					"Harnessing a star's full energy enables galactic expansion...",
-			},
-
-			galacticFederation: {
-				name: 'Galactic Federation (Type II)',
-				dateRange: '3000 CE - 10,000 CE',
-				keyResources: ['darkMatter', 'singularityCores'],
-				keyFeatures: [
-					'Black hole engineering',
-					'Galactic civilization',
-					'Matter transmutation',
-				],
-				workers: {
-					singularityEngineer: {
-						cost: { darkMatter: 1 },
-						effect: { singularityCores: 0.1 },
-					},
-					voidMiner: { cost: { singularityCores: 1 }, effect: { darkMatter: 5 } },
-				},
-				transitionText:
-					'Mastering galactic resources unlocks universal control...',
-			},
-
-			universalAscendancy: {
-				name: 'Universal Ascendancy (Type III)',
-				dateRange: '10,000 CE+',
-				keyResources: ['entropy', 'cosmicStrings'],
-				keyFeatures: [
-					'Multiverse travel',
-					'Entropy reversal',
-					'Reality engineering',
-				],
-				workers: {
-					realityArchitect: {
-						cost: { cosmicStrings: 1 },
-						effect: { entropy: -0.1 },
-					},
-					chronoEngineer: { cost: { entropy: 10 }, effect: { cosmicStrings: 1 } },
-				},
-				transitionText:
-					'Transcending spacetime itself, humanity becomes eternal...',
-			},
-		}};
-
+	/**
+	 * Manages the overall game state, progression, and interactions.
+	 * Handles resources, workers, upgrades, events, disasters, and era transitions.
+	 */
 	class GameManager {
 		constructor() {
-			// Initialize game state
+			// Initialize the game state
 			this.state = {
 				resources: {
 					sticks: 0,
 					stones: 0,
 					meat: 0,
 					cookedMeat: 0,
-					bones: 0, // Initialize bones
-					fur: 0, // Initialize fur
+					bones: 0,
+					fur: 0,
 				},
 				upgrades: {},
-				age: 'prehistoric',
+				age: 'prehistoric', // Make sure this matches an era in gameProgressionData
 				progress: 0,
 				workers: {
-					woodcutter: 0,
-					miner: 0,
+					forager: 0, // Update worker types to match prehistoric era
 					hunter: 0,
 					cook: 0,
 				},
@@ -1064,7 +1285,9 @@
 		// Era Management
 		// ------------------------------
 
-		// Initialize the current era
+		/**
+		 * Initializes the current era by updating the UI and scheduling events/disasters.
+		 */
 		initEra() {
 			const era = this.eraData[this.currentEra];
 			if (!era) return;
@@ -1075,7 +1298,9 @@
 			this.scheduleRandomDisaster();
 		}
 
-		// Transition to the next era
+		/**
+		 * Advances the game to the next era if available.
+		 */
 		advanceToNextEra() {
 			const eras = Object.keys(this.eraData);
 			const currentIndex = eras.indexOf(this.currentEra);
@@ -1089,7 +1314,9 @@
 		// Event and Disaster Management
 		// ------------------------------
 
-		// Schedule a random event
+		/**
+		 * Schedules a random event for the current era.
+		 */
 		scheduleRandomEvent() {
 			clearTimeout(this.eventTimer);
 			const era = this.eraData[this.currentEra];
@@ -1103,7 +1330,9 @@
 			}, Math.random() * 90000 + 90000); // Random interval between 90-180 seconds
 		}
 
-		// Schedule a random disaster
+		/**
+		 * Schedules a random disaster for the current era.
+		 */
 		scheduleRandomDisaster() {
 			clearTimeout(this.disasterTimer);
 			const era = this.eraData[this.currentEra];
@@ -1117,14 +1346,20 @@
 			}, Math.random() * 120000 + 120000); // Random interval between 120-240 seconds
 		}
 
-		// Process an event
+		/**
+		 * Processes a triggered event by applying its effects and logging it.
+		 * @param {Object} event - The event to process.
+		 */
 		processEvent(event) {
 			this.uiManager.logEvent(event);
 			this.applyEffect(event.effect);
 			this.uiManager.updateUI();
 		}
 
-		// Process a disaster
+		/**
+		 * Processes a triggered disaster by applying its effects and logging it.
+		 * @param {Object} disaster - The disaster to process.
+		 */
 		processDisaster(disaster) {
 			this.uiManager.logDisaster(disaster);
 			this.applyEffect(disaster.effect);
@@ -1135,7 +1370,10 @@
 		// Resource and Upgrade Management
 		// ------------------------------
 
-		// Apply effects to the game state
+		/**
+		 * Applies an effect to the game state.
+		 * @param {Object} effect - The effect to apply.
+		 */
 		applyEffect(effect) {
 			Object.entries(effect).forEach(([key, value]) => {
 				if (key in this.state.resources) {
@@ -1157,7 +1395,10 @@
 			});
 		}
 
-		// Adjust population and handle worker limits
+		/**
+		 * Adjusts the population and handles worker limits.
+		 * @param {number} value - The population adjustment value.
+		 */
 		adjustPopulation(value) {
 			this.state.population = Math.floor((this.state.population || 0) + value);
 			if (this.state.population < 0) {
@@ -1171,64 +1412,28 @@
 			}
 		}
 
-		// Apply the effects of an upgrade or item
-		applyUpgradeOrItemEffect(effect) {
-			if (effect.unlocks) {
-				effect.unlocks.forEach((feature) => {
-					this.state.upgrades[feature] = true;
-
-					const era = this.eraData[this.state.age];
-					if (era) {
-						if (era.items?.some((item) => item.id === feature)) {
-							this.state.upgrades[`${feature}_unlocked`] = true;
-						} else if (feature === 'hunting') {
-							this.state.upgrades.hunting_unlocked = true;
-						} else if (feature === 'cooking') {
-							this.state.upgrades.cooking_unlocked = true;
-						}
-					}
-				});
-			}
-			if (effect.buff || effect) {
-				this.applyEffect(effect.buff || effect);
-			}
-			this.uiManager.updateUI();
-		}
-
-		// Update the progress of the current era and transition to the next era if needed
+		/**
+		 * Updates the progress of the current era and transitions to the next era if requirements are met.
+		 * @param {number} increment - The progress increment value.
+		 */
 		updateProgress(increment) {
 			this.state.progress += increment;
-			const eras = Object.keys(this.eraData);
-			const currentIndex = eras.indexOf(this.currentEra);
-			if (currentIndex < eras.length - 1) {
-				const nextEra = eras[currentIndex + 1];
-				if (this.state.progress >= config.ages[nextEra]) {
-					// Check if all upgrades and items are bought
-					const currentEraData = this.eraData[this.currentEra];
-					const allUpgradesBought = currentEraData.upgrades.every(
-						(upgrade) =>
-							(this.state.upgrades[`${upgrade.id}_count`] || 0) >=
-							(upgrade.maxCount || 1)
-					);
-					const allItemsBought = currentEraData.items.every(
-						(item) =>
-							(this.state.upgrades[`${item.id}_count`] || 0) >=
-							(item.maxCount || 1)
-					);
+			const progressionRequirements =
+				gameProgressionData.progressionRequirements[this.currentEra];
 
-					if (allUpgradesBought && allItemsBought) {
-						// Trigger the cutscene for the next era
-						this.uiManager.cutsceneManager.triggerEraCutscene(
-							this.eraData[nextEra]
-						);
-						this.currentEra = nextEra; // Transition to the next era
-						this.initEra(); // Initialize the new era
-					}
-				}
+			if (
+				Object.entries(progressionRequirements).every(
+					([resource, amount]) => this.state.resources[resource] >= amount
+				)
+			) {
+				this.advanceToNextEra();
 			}
 		}
 
-		// Purchase an upgrade
+		/**
+		 * Purchases an upgrade if affordable and applies its effects.
+		 * @param {string} id - The ID of the upgrade to purchase.
+		 */
 		buyUpgrade(id) {
 			const upgrade = this.getUpgradeById(id);
 			if (!upgrade || !this.canAfford(upgrade.cost)) {
@@ -1250,75 +1455,21 @@
 			this.uiManager.updateUI();
 		}
 
-		// Apply the effects of an upgrade based on its level
-		applyUpgradeEffect(upgrade, level) {
-			if (upgrade.effectPerLevel) {
-				Object.entries(upgrade.effectPerLevel).forEach(([stat, value]) => {
-					this.state[stat] = (this.state[stat] || 0) + value * level;
-				});
-			}
-		}
-
-		// Purchase the maximum number of upgrades possible
-		buyMax(id) {
-			while (this.canAffordUpgrade(id)) {
-				this.buyUpgrade(id);
-			}
-		}
-
-		// Check if an upgrade can be afforded
-		canAffordUpgrade(upgrade) {
-			if (!upgrade || !upgrade.cost) return false;
-			return Object.entries(upgrade.cost).every(
-				([r, a]) => this.state.resources[r] >= a
-			);
-		}
-
-		// Purchase an item if resources are sufficient
-		buyItem(id) {
-			const item = this.getItemById(id);
-			if (!item || !this.canAfford(item.cost)) {
-				this.uiManager.showNotification('Cannot afford this item!', 'error');
-				return;
-			}
-
-			const currentCount = this.state.upgrades[`${id}_count`] || 0;
-			if (currentCount >= (item.maxCount || 1)) {
-				this.uiManager.showNotification('Item is maxed out!', 'error');
-				return;
-			}
-
-			// Deduct resources and apply effects
-			this.deductResources(item.cost);
-			this.applyUpgradeOrItemEffect(item.effect || {});
-			this.incrementUpgradeCount(id);
-
-			this.uiManager.showNotification(`${item.name} purchased!`, 'success');
-			this.uiManager.updateUI();
-		}
-
-		// Check if an item can be afforded
-		canAffordItem(item) {
-			if (!item || !item.cost) return false;
-			return Object.entries(item.cost).every(
-				([r, a]) => this.state.resources[r] >= a
-			);
-		}
-
+		/**
+		 * Retrieves an upgrade by its ID.
+		 * @param {string} id - The ID of the upgrade.
+		 * @returns {Object} The upgrade object.
+		 */
 		getUpgradeById(id) {
-			return gameProgressionData.upgrades[id];
-		}
-
-		getItemById(id) {
-			return gameProgressionData.items[id];
-		}
-
-		canAfford(cost) {
-			return Object.entries(cost).every(
-				([resource, amount]) => (this.state.resources[resource] || 0) >= amount
+			return gameProgressionData.eras[this.currentEra].upgrades.find(
+				(upgrade) => upgrade.id === id
 			);
 		}
 
+		/**
+		 * Deducts resources from the game state.
+		 * @param {Object} cost - The cost object containing resource amounts.
+		 */
 		deductResources(cost) {
 			Object.entries(cost).forEach(([resource, amount]) => {
 				if ((this.state.resources[resource] || 0) >= amount) {
@@ -1329,119 +1480,24 @@
 			});
 		}
 
-		incrementUpgradeCount(id) {
-			this.state.upgrades[`${id}_count`] =
-				(this.state.upgrades[`${id}_count`] || 0) + 1;
-		}
-
-		// Find food and add it to the resources
-		findFood() {
-			const foodReward = Math.floor(Math.random() * 4) + 2;
-			this.state.resources.meat += foodReward;
-			this.uiManager.updateUI();
-		}
-
-		// ------------------------------
-		// Worker Management
-		// ------------------------------
-
-		// Hire a worker of a specific type if resources are sufficient
-		hireWorker(workerType) {
-			const baseCost = config.workerTimers[workerType] || 10; // Use config for base cost
-			const multiplier = 1.5;
-			const workerCount = this.state.workers[workerType] || 0;
-
-			const cost = Math.ceil(baseCost * Math.pow(multiplier, workerCount));
-
-			if (this.state.resources.cookedMeat >= cost) {
-				this.state.resources.cookedMeat -= cost;
-				this.state.workers[workerType] =
-					(this.state.workers[workerType] || 0) + 1;
-
-				const efficiencyLevel = this.state.upgrades.efficiency || 0;
-				this.workerManager.startWorkerTask(workerType, efficiencyLevel);
-
-				this.uiManager.updateUI();
-			} else {
-				this.uiManager.showNotification(
-					`Not enough food to hire a ${workerType}!`,
-					'error'
-				);
-			}
-		}
-
-		// ------------------------------
-		// UI Management
-		// ------------------------------
-
-		// Update the visibility and text of buttons based on the game state
-		updateButtons() {
-			this.uiManager.elements.huntButton.classList.toggle(
-				'hidden',
-				!this.state.upgrades.hunting_unlocked
+		/**
+		 * Checks if the player can afford a given cost.
+		 * @param {Object} cost - The cost object containing resource amounts.
+		 * @returns {boolean} True if affordable, false otherwise.
+		 */
+		canAfford(cost) {
+			return Object.entries(cost).every(
+				([resource, amount]) => (this.state.resources[resource] || 0) >= amount
 			);
-			this.uiManager.elements.cookButton.classList.toggle(
-				'hidden',
-				!this.state.upgrades.cooking_unlocked
-			);
-			Object.entries(this.uiManager.elements.hireButtons).forEach(
-				([type, button]) => {
-					button.textContent = `Hire ${
-					type.charAt(0).toUpperCase() + type.slice(1)
-				} (${this.formatCost(this.workerManager.getWorkerCost(type))})`;
-				}
-			);
-			this.uiManager.renderUpgrades();
-			this.uiManager.renderItems();
-		}
-
-		// Perform an action with a delay and update the UI
-		performAction(button, action, delay) {
-			const wrapper = button.closest('.action-wrapper');
-			const progress = wrapper ? wrapper.querySelector('.action-progress') : null;
-			button.disabled = true;
-			if (progress) {
-				progress.style.width = '0%';
-				progress.style.transition = `width ${delay}ms linear`;
-				progress.offsetHeight;
-				progress.style.width = '100%';
-			}
-			setTimeout(() => {
-				action();
-
-				if (button.id === 'forage-button') {
-					this.workerManager.triggerWorkerAction(
-						'woodcutter',
-						'sticks',
-						config.yields.huntYield,
-						'workerBonusStick'
-					);
-				} else if (button.id === 'hunt-button') {
-					this.workerManager.triggerWorkerAction(
-						'hunter',
-						'meat',
-						config.yields.huntYield,
-						'workerBonusMeat'
-					);
-				} else if (button.id === 'cook-button') {
-					this.workerManager.triggerWorkerAction(
-						'cook',
-						'cookedMeat',
-						config.yields.huntYield,
-						'workerBonusCook'
-					);
-				}
-
-				button.disabled = false;
-				if (progress) progress.style.width = '0%';
-			}, delay);
 		}
 
 		// ------------------------------
 		// Game Loop
 		// ------------------------------
 
-		// Start the game loop
+		/**
+		 * Starts the main game loop, updating the UI and managing workers.
+		 */
 		startGameLoop() {
 			Object.keys(config.workerTimers).forEach((workerType) => {
 				const efficiencyLevel = this.state.upgrades.efficiency || 0;
@@ -1456,35 +1512,49 @@
 	// Expose a global instance for inline onclick handlers
 	window.game = new GameManager();
 
+	/**
+	 * Manages the cutscene flow and transitions between scenes or eras.
+	 * Handles auto-progression, manual progression, and era transitions.
+	 */
 	class CutsceneManager {
 		constructor() {
+			// Select all cutscene elements
 			this.scenes = document.querySelectorAll('.scene');
-			this.currentSceneIndex = 0;
-			this.autoProgressTimer = null;
-			this.init();
+			this.currentSceneIndex = 0; // Tracks the current scene index
+			this.autoProgressTimer = null; // Timer for auto-progression
+			this.init(); // Initialize the cutscene manager
 		}
 
+		/**
+		 * Initializes the cutscene manager by showing the first scene
+		 * and setting up event listeners for progression.
+		 */
 		init() {
-			// Show the first scene
-			this.showScene(0);
+			this.showScene(0); // Display the first scene
 
-			// Add event listeners for cutscene progression
+			// Add click event listeners to all "next" buttons in scenes
 			document.querySelectorAll('.scene-next').forEach((button) => {
 				button.addEventListener('click', () => this.nextScene());
 			});
 
-			// Start auto-progression
-			this.startAutoProgress();
+			this.startAutoProgress(); // Start auto-progression for scenes
 		}
 
+		/**
+		 * Displays a specific scene by index and hides all others.
+		 * @param {number} index - The index of the scene to display.
+		 */
 		showScene(index) {
 			this.scenes.forEach((scene, i) => {
-				scene.classList.toggle('active', i === index);
+				scene.classList.toggle('active', i === index); // Show only the active scene
 			});
-			this.currentSceneIndex = index;
-			this.updateProgressBar();
+			this.currentSceneIndex = index; // Update the current scene index
+			this.updateProgressBar(); // Update the progress bar
 		}
 
+		/**
+		 * Updates the progress bar to reflect the current scene's position.
+		 */
 		updateProgressBar() {
 			const progress = ((this.currentSceneIndex + 1) / this.scenes.length) * 100;
 			document.documentElement.style.setProperty(
@@ -1493,34 +1563,53 @@
 			);
 		}
 
+		/**
+		 * Advances to the next scene. If the last scene is reached, ends the cutscene.
+		 */
 		nextScene() {
 			if (this.currentSceneIndex < this.scenes.length - 1) {
-				this.showScene(this.currentSceneIndex + 1);
-				this.resetAutoProgress();
+				this.showScene(this.currentSceneIndex + 1); // Show the next scene
+				this.resetAutoProgress(); // Reset auto-progression timer
 			} else {
-				this.endCutscene();
+				this.endCutscene(); // End the cutscene if it's the last scene
 			}
 		}
 
+		/**
+		 * Starts auto-progression for scenes, advancing to the next scene after a delay.
+		 */
 		startAutoProgress() {
-			this.autoProgressTimer = setInterval(() => this.nextScene(), 10000);
+			this.autoProgressTimer = setInterval(() => this.nextScene(), 10000); // 10 seconds per scene
 		}
 
+		/**
+		 * Resets the auto-progression timer and restarts it.
+		 */
 		resetAutoProgress() {
-			clearInterval(this.autoProgressTimer);
-			this.startAutoProgress();
+			clearInterval(this.autoProgressTimer); // Clear the existing timer
+			this.startAutoProgress(); // Restart auto-progression
 		}
 
+		/**
+		 * Ends the cutscene, hides the cutscene container, and shows the game UI.
+		 * Initializes the game if it hasn't been started yet.
+		 */
 		endCutscene() {
-			clearInterval(this.autoProgressTimer);
-			document.getElementById('cutscene-container').classList.add('hidden');
-			document.getElementById('game-container').classList.remove('hidden');
+			clearInterval(this.autoProgressTimer); // Stop auto-progression
+			document.getElementById('cutscene-container').classList.add('hidden'); // Hide cutscene
+			document.getElementById('game-container').classList.remove('hidden'); // Show game UI
+
+			// Initialize the game if it hasn't been started
 			if (!window.game) {
-				window.game = new GameManager(); // Initialize the game after the cutscene
+				window.game = new GameManager();
 			}
 		}
 
-		// New method to trigger era transition cutscenes
+		/**
+		 * Triggers a cutscene for transitioning between eras.
+		 * Displays a custom transition message and resets the cutscene flow.
+		 * @param {Object} era - The era data containing the name and transition text.
+		 */
 		triggerEraCutscene(era) {
 			const cutsceneContainer = document.getElementById('cutscene-container');
 			cutsceneContainer.innerHTML = `
@@ -1530,9 +1619,9 @@
 				<button class="scene-next">▶️ Continue</button>
 			</div>
 		`;
-			cutsceneContainer.classList.remove('hidden');
-			document.getElementById('game-container').classList.add('hidden');
-			this.init();
+			cutsceneContainer.classList.remove('hidden'); // Show the cutscene container
+			document.getElementById('game-container').classList.add('hidden'); // Hide the game UI
+			this.init(); // Reinitialize the cutscene manager
 		}
 	}
 
