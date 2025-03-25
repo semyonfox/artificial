@@ -1,5 +1,5 @@
-import { CutsceneManager } from './js/CutsceneManager.js';
+import { CutsceneManager } from './js/systems/CutsceneManager.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-	new CutsceneManager();
+  new CutsceneManager();
 });
