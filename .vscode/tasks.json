@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build and Run Evolution Clicker",
+			"type": "shell",
+			"command": "npm run build && npm run serve",
+			"group": "build",
+			"isBackground": true,
+			"problemMatcher": ["$tsc"],
+			"args": []
+		}
+	]
+}

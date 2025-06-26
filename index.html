@@ -1,157 +1,158 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0"
-    />
-    <title>Evolution Clicker</title>
-    <link
-      rel="stylesheet"
-      href="styles.css"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
-    <!-- Cutscene System -->
-    <div
-      id="cutscene-container"
-      class="hidden"
-    >
-      <div class="scene-progress"></div>
-      <!-- Initial cutscenes will be injected by CutsceneManager -->
-    </div>
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0" />
+		<title>Evolution Clicker</title>
+		<link
+			rel="stylesheet"
+			href="styles.css" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+			rel="stylesheet" />
+	</head>
+	<body>
+		<!-- Cutscene System -->
+		<div
+			id="cutscene-container"
+			style="display: flex">
+			<div class="scene-progress"></div>
+			<!-- Default cutscene scenes -->
+			<div class="scene active">
+				<h1>Welcome to Evolution Clicker</h1>
+				<p>
+					Guide humanity through the ages, from primitive survival to cosmic
+					mastery.
+				</p>
+				<p>
+					Click to gather resources, hire workers, and unlock new technologies.
+				</p>
+				<button class="scene-next">▶️ Begin Your Journey</button>
+			</div>
+			<div class="scene">
+				<h1>The Dawn of Civilization</h1>
+				<p>
+					You start in the Paleolithic Era, where survival is your primary
+					concern.
+				</p>
+				<p>Forage for sticks, hunt for food, and discover the power of fire.</p>
+				<button class="scene-next">▶️ Start Game</button>
+			</div>
+		</div>
 
-    <!-- Era Transition Overlay -->
-    <div
-      id="era-transition-overlay"
-      class="hidden"
-    >
-      <div class="era-transition-card">
-        <h2 class="era-transition-title"></h2>
-        <p class="era-transition-text"></p>
-        <div class="era-transition-progress"></div>
-      </div>
-    </div>
+		<!-- Era Transition Overlay -->
+		<div
+			id="era-transition-overlay"
+			class="hidden">
+			<div class="era-transition-card">
+				<h2 class="era-transition-title"></h2>
+				<p class="era-transition-text"></p>
+				<div class="era-transition-progress"></div>
+			</div>
+		</div>
 
-    <!-- Main Game Interface -->
-    <div
-      id="game-container"
-      class="hidden"
-    >
-      <!-- Header Section -->
-      <header class="game-header">
-        <div id="era-display">
-          <h1 id="current-era-name">Paleolithic Era</h1>
-          <div id="era-progress">
-            <div class="progress-bar"></div>
-            <span class="era-progress-text"></span>
-          </div>
-        </div>
-        <button
-          id="next-era-button"
-          class="tooltip"
-          disabled
-        >
-          ⏩ Advance Era
-          <span class="tooltip-text">Meet requirements to unlock</span>
-        </button>
-      </header>
+		<!-- Main Game Interface -->
+		<div
+			id="game-container"
+			class="hidden"
+			style="display: none">
+			<!-- Header Section -->
+			<header class="game-header">
+				<div id="era-display">
+					<h1 id="current-era-name">Paleolithic Era</h1>
+					<div id="era-progress">
+						<div class="progress-bar"></div>
+						<span class="era-progress-text"></span>
+					</div>
+				</div>
+				<button
+					id="next-era-button"
+					class="tooltip"
+					disabled>
+					⏩ Advance Era
+					<span class="tooltip-text">Meet requirements to unlock</span>
+				</button>
+			</header>
 
-      <!-- Core Gameplay Section -->
-      <main class="game-main">
-        <!-- Resources & Actions -->
-        <section class="game-panel resources-panel">
-          <h2 class="panel-title">Resources</h2>
-          <div
-            id="resource-display"
-            class="resource-grid"
-          ></div>
+			<!-- Core Gameplay Section -->
+			<main class="game-main">
+				<!-- Left Column: Resources & Actions -->
+				<div class="left-column">
+					<section class="game-panel resources-panel">
+						<h2 class="panel-title">Resources</h2>
+						<div
+							id="resource-display"
+							class="resource-grid"></div>
 
-          <div class="action-container">
-            <h2 class="panel-title">Actions</h2>
-            <div
-              id="action-buttons-container"
-              class="action-grid"
-            ></div>
-          </div>
-        </section>
+						<div class="action-container">
+							<h2 class="panel-title">Actions</h2>
+							<div
+								id="action-buttons-container"
+								class="action-grid"></div>
+						</div>
+					</section>
+				</div>
 
-        <!-- Workers & Production -->
-        <section class="game-panel workers-panel">
-          <h2 class="panel-title">Workforce</h2>
-          <div
-            id="workers-container"
-            class="worker-grid"
-          ></div>
-          <div
-            id="worker-status"
-            class="status-display"
-          ></div>
-        </section>
+				<!-- Center Column: Workers -->
+				<div class="center-column">
+					<section class="game-panel workers-panel">
+						<h2 class="panel-title">Workforce</h2>
+						<div
+							id="workers-container"
+							class="worker-grid"></div>
+						<div
+							id="worker-status"
+							class="status-display"></div>
+					</section>
+				</div>
 
-        <!-- Upgrades & Technology -->
-        <section class="game-panel upgrades-panel">
-          <h2 class="panel-title">Technological Advancements</h2>
-          <div
-            id="upgrades"
-            class="upgrade-grid"
-          ></div>
-        </section>
-      </main>
+				<!-- Right Column: Upgrades -->
+				<div class="right-column">
+					<section class="game-panel upgrades-panel">
+						<h2 class="panel-title">Technological Advancements</h2>
+						<div
+							id="upgrades"
+							class="upgrade-grid"></div>
+					</section>
+				</div>
+			</main>
 
-      <!-- Logging & Information -->
-      <aside class="game-sidebar">
-        <button
-          id="log-toggle"
-          class="sidebar-toggle"
-        >
-          📜 Toggle Logs
-        </button>
-        <div
-          id="log-menu"
-          class="collapsed"
-        >
-          <section class="log-section">
-            <h3 class="log-title">📖 Event Chronicle</h3>
-            <div
-              id="event-log"
-              class="log-entries"
-            ></div>
-          </section>
-          <section class="log-section">
-            <h3 class="log-title">⚠️ Disaster Records</h3>
-            <div
-              id="disaster-log"
-              class="log-entries"
-            ></div>
-          </section>
-        </div>
-      </aside>
-    </div>
+			<!-- Logging & Information -->
+			<aside class="game-sidebar">
+				<button
+					id="log-toggle"
+					class="sidebar-toggle">
+					📜 Toggle Logs
+				</button>
+				<div
+					id="log-menu"
+					class="collapsed">
+					<section class="log-section">
+						<h3 class="log-title">📖 Event Chronicle</h3>
+						<div
+							id="event-log"
+							class="log-entries"></div>
+					</section>
+					<section class="log-section">
+						<h3 class="log-title">⚠️ Disaster Records</h3>
+						<div
+							id="disaster-log"
+							class="log-entries"></div>
+					</section>
+				</div>
+			</aside>
+		</div>
 
-    <!-- Notification System -->
-    <div
-      id="notification-container"
-      class="notification-center"
-    ></div>
+		<!-- Notification System -->
+		<div
+			id="notification-container"
+			class="notification-center"></div>
 
-    <!-- Scripts -->
-    <script
-      type="module"
-      src="./js/core/GameManager.js"
-    ></script>
-    <script
-      type="module"
-      src="./js/core/UIManager.js"
-    ></script>
-    <script
-      type="module"
-      src="./js/core/CutsceneManager.js"
-    ></script>
-  </body>
+		<!-- Scripts -->
+		<script
+			type="module"
+			src="./game.js"></script>
+	</body>
 </html>

@@ -1,14 +1,21 @@
 {
 	"name": "artificial",
 	"version": "1.0.0",
-	"description": "",
+	"description": "Evolution Clicker - A civilization progression game",
 	"main": "game.js",
 	"type": "module",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
-		"build": "rollup -c"
+		"build": "rollup -c",
+		"dev": "python -m http.server 8000",
+		"start": "python -m http.server 8000"
 	},
-	"keywords": [],
+	"keywords": [
+		"game",
+		"clicker",
+		"evolution",
+		"civilization"
+	],
 	"author": "",
 	"license": "ISC",
 	"devDependencies": {
