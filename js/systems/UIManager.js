@@ -5,10 +5,9 @@
 import { config } from '../core/config.js';
 
 export class UIManager {
-	constructor(gameState, gameManager, eraRegistry) {
+	constructor(gameState, gameManager) {
 		this.gameState = gameState;
 		this.gameManager = gameManager;
-		this.eraRegistry = eraRegistry;
 
 		this.cacheElements();
 
@@ -40,7 +39,6 @@ export class UIManager {
 			resourceDisplay: document.getElementById('resource-display'),
 
 			// Era display
-			eraDisplay: document.getElementById('era-display'),
 			currentEraName: document.getElementById('current-era-name'),
 			eraProgress: document.getElementById('era-progress'),
 			nextEraButton: document.getElementById('next-era-button'),
@@ -68,25 +66,25 @@ export class UIManager {
 	 */
 	createActionButtons() {
 		this.elements.actionButtonsContainer.innerHTML = `
-      <button id="forage-button" class="action-button" title="Gather sticks and stones from the wilderness">
+      <button id="forage-button" class="btn btn-outline-light d-flex align-items-center gap-2" title="Gather sticks and stones from the wilderness">
         <span class="button-icon">🪵</span>
-        <span class="button-text">
-          <span class="button-title">Forage</span>
-          <span class="button-desc">Gather sticks</span>
+        <span class="button-text text-start">
+          <span class="button-title fw-semibold">Forage</span>
+          <span class="button-desc d-block small text-secondary">Gather sticks</span>
         </span>
       </button>
-      <button id="hunt-button" class="action-button hidden" title="Hunt animals for meat and materials">
+      <button id="hunt-button" class="btn btn-outline-danger d-none d-flex align-items-center gap-2" title="Hunt animals for meat and materials">
         <span class="button-icon">🥩</span>
-        <span class="button-text">
-          <span class="button-title">Hunt</span>
-          <span class="button-desc">Find meat</span>
+        <span class="button-text text-start">
+          <span class="button-title fw-semibold">Hunt</span>
+          <span class="button-desc d-block small text-secondary">Find meat</span>
         </span>
       </button>
-      <button id="cook-button" class="action-button hidden" title="Cook raw meat to make it more nutritious">
+      <button id="cook-button" class="btn btn-outline-warning d-none d-flex align-items-center gap-2" title="Cook raw meat to make it more nutritious">
         <span class="button-icon">🍗</span>
-        <span class="button-text">
-          <span class="button-title">Cook</span>
-          <span class="button-desc">Prepare food</span>
+        <span class="button-text text-start">
+          <span class="button-title fw-semibold">Cook</span>
+          <span class="button-desc d-block small text-secondary">Prepare food</span>
         </span>
       </button>
     `;
@@ -187,25 +185,21 @@ export class UIManager {
 		const resources = gameData.resources;
 
 		this.elements.resourceDisplay.innerHTML = Object.entries(resources)
-			.filter(([_, value]) => value > 0)
+			.filter(([key, value]) => value > 0 && key !== 'fire') // Exclude fire from display
 			.map(
 				([key, value]) => `
-        <div class="resource-item" data-resource="${key}">
-          <div class="resource-info">
-            <span class="resource-icon">${
-							config.resourceIcons[key] || '❓'
-						}</span>
+        <div class="resource-item list-group-item bg-dark text-light d-flex justify-content-between align-items-center">
+          <div class="d-flex align-items-center gap-2">
+            <span class="resource-icon">${config.resourceIcons[key] || '❓'}</span>
             <span class="resource-name">${this.formatResourceName(key)}</span>
           </div>
-          <span class="resource-amount" data-amount="${Math.floor(
-						value
-					)}">${this.formatNumber(Math.floor(value))}</span>
+          <span class="badge bg-secondary rounded-pill" data-amount="${Math.floor(value)}">${this.formatNumber(Math.floor(value))}</span>
         </div>
       `
 			)
 			.join('');
 
-		// Add animation to newly updated resources
+		// Optional: subtle animation hook remains
 		this.animateResourceChanges();
 	}
 
@@ -270,52 +264,30 @@ export class UIManager {
 
 		if (!currentEraData) return;
 
-		// For Paleolithic era
 		if (gameData.currentEra === 'paleolithic') {
-			// Show/hide hunt button based on stone knapping upgrade
-			const hasStoneKnapping =
-				gameData.unlockedUpgrades.includes('stoneKnapping');
-			const hasFireControl = gameData.unlockedUpgrades.includes('fireControl');
+			const hasStoneKnapping = this.gameState.hasUpgrade('stoneKnapping');
+			const hasFireControl = this.gameState.hasUpgrade('fireControl');
 
 			if (this.elements.huntButton) {
-				this.elements.huntButton.classList.toggle('hidden', !hasStoneKnapping);
+				this.elements.huntButton.classList.toggle('d-none', !hasStoneKnapping);
 				if (hasStoneKnapping) {
-					// Update button description to show it's unlocked
-					const huntDesc =
-						this.elements.huntButton.querySelector('.button-desc');
-					if (huntDesc) {
-						huntDesc.textContent = 'Hunt with stone tools';
-					}
+					const huntDesc = this.elements.huntButton.querySelector('.button-desc');
+					if (huntDesc) huntDesc.textContent = 'Hunt with stone tools';
 				}
 			}
 
 			if (this.elements.cookButton) {
-				this.elements.cookButton.classList.toggle('hidden', !hasFireControl);
-
-				// Disable cook button if no raw meat or no fire control
+				this.elements.cookButton.classList.toggle('d-none', !hasFireControl);
 				if (hasFireControl) {
-					this.elements.cookButton.disabled =
-						(gameData.resources.meat || 0) <= 0;
-
-					// Update button description
-					const cookDesc =
-						this.elements.cookButton.querySelector('.button-desc');
-					if (cookDesc) {
-						cookDesc.textContent = 'Cook with fire';
-					}
+					this.elements.cookButton.disabled = (gameData.resources.meat || 0) <= 0;
+					const cookDesc = this.elements.cookButton.querySelector('.button-desc');
+					if (cookDesc) cookDesc.textContent = 'Cook with fire';
 				}
 			}
 		} else {
-			// For later eras, hide basic action buttons
-			if (this.elements.forageButton) {
-				this.elements.forageButton.classList.add('hidden');
-			}
-			if (this.elements.huntButton) {
-				this.elements.huntButton.classList.add('hidden');
-			}
-			if (this.elements.cookButton) {
-				this.elements.cookButton.classList.add('hidden');
-			}
+			if (this.elements.forageButton) this.elements.forageButton.classList.add('d-none');
+			if (this.elements.huntButton) this.elements.huntButton.classList.add('d-none');
+			if (this.elements.cookButton) this.elements.cookButton.classList.add('d-none');
 		}
 	}
 
@@ -327,66 +299,50 @@ export class UIManager {
 
 		const gameData = this.gameState.getState();
 		const currentEraData = this.gameManager.getCurrentEraData();
-
 		if (!currentEraData || !currentEraData.workers) return;
 
 		this.elements.workersContainer.innerHTML = currentEraData.workers
 			.map((worker) => {
 				const workerCount = gameData.workers[worker.id] || 0;
-
-				// Get actual cost including scaling
-				const actualCost =
-					this.gameManager.systems.workerManager.calculateWorkerCost(
-						worker.cost,
-						workerCount
-					);
+				const actualCost = this.gameManager.systems.workerManager.calculateWorkerCost(worker.cost, workerCount);
 				const canAfford = this.gameState.canAfford(actualCost);
-				const hasRequiredUpgrade =
-					!worker.requiresUpgrade ||
-					gameData.unlockedUpgrades.includes(worker.requiresUpgrade);
+				const hasRequiredUpgrade = !worker.requiresUpgrade || this.gameState.hasUpgrade(worker.requiresUpgrade);
 				const canHire = canAfford && hasRequiredUpgrade;
 
 				let statusText = '';
 				if (!hasRequiredUpgrade) {
-					const upgradeName =
-						worker.requiresUpgrade === 'woodenSpear'
-							? 'Wooden Spear'
-							: worker.requiresUpgrade === 'fireControl'
-							? 'Fire Control'
-							: worker.requiresUpgrade;
-					statusText = `<p class="requirement-text">⚠️ Requires: ${upgradeName}</p>`;
+					statusText = `<span class=\"text-warning small\">⚠️ Requires: ${worker.requiresUpgrade}</span>`;
 				} else if (!canAfford) {
-					statusText = `<p class="requirement-text">💰 Need more resources</p>`;
+					statusText = `<span class=\"text-secondary small\">💰 Need more resources</span>`;
 				}
 
 				return `
-          <div class="worker-item ${!hasRequiredUpgrade ? 'locked' : ''}">
-            <h4>${worker.name}</h4>
-            <p class="worker-description">${worker.description}</p>
-            <p class="worker-cost">Cost: ${this.formatCost(actualCost)}</p>
-            <p class="worker-owned">Owned: ${workerCount}</p>
-            ${statusText}
-            <button 
-              class="hire-button ${canHire ? 'available' : 'unavailable'}" 
-              data-worker-type="${worker.id}"
-              ${!canHire ? 'disabled' : ''}
-            >
-              ${!hasRequiredUpgrade ? 'Locked' : `Hire ${worker.name}`}
-            </button>
-          </div>
-        `;
+					<div class="col">
+						<div class="card h-100 bg-dark border-secondary ${!hasRequiredUpgrade ? 'opacity-50' : ''}">
+							<div class="card-body d-flex flex-column">
+								<h4 class="h6 card-title mb-1">${worker.name}</h4>
+								<p class="card-text small text-secondary mb-2">${worker.description}</p>
+								<p class="mb-1"><span class="text-secondary small">Cost:</span> ${this.formatCost(actualCost)}</p>
+								<p class="mb-2"><span class="text-secondary small">Owned:</span> ${workerCount}</p>
+								<div class="mt-auto d-flex justify-content-between align-items-center">
+									${statusText}
+									<button class="hire-button btn btn-sm ${canHire ? 'btn-primary' : 'btn-secondary'}" data-worker-type="${worker.id}" ${!canHire ? 'disabled' : ''}>
+										${!hasRequiredUpgrade ? 'Locked' : `Hire ${worker.name}`}
+									</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				`;
 			})
 			.join('');
 
-		// Add event listeners to hire buttons
-		this.elements.workersContainer
-			.querySelectorAll('.hire-button')
-			.forEach((button) => {
-				button.addEventListener('click', () => {
-					const workerType = button.dataset.workerType;
-					this.gameManager.hireWorker(workerType);
-				});
+		this.elements.workersContainer.querySelectorAll('.hire-button').forEach((button) => {
+			button.addEventListener('click', () => {
+				const workerType = button.dataset.workerType;
+				this.gameManager.hireWorker(workerType);
 			});
+		});
 
 		this.updateWorkerStatus();
 	}
@@ -417,53 +373,48 @@ export class UIManager {
 	 */
 	updateUpgrades() {
 		if (!this.elements.upgradesContainer) return;
-
-		const gameData = this.gameState.getState();
 		const currentEraData = this.gameManager.getCurrentEraData();
-
 		if (!currentEraData || !currentEraData.upgrades) return;
 
 		this.elements.upgradesContainer.innerHTML = currentEraData.upgrades
 			.map((upgrade) => {
-				const isUnlocked = gameData.unlockedUpgrades.includes(upgrade.id);
+				const isUnlocked = this.gameState.hasUpgrade(upgrade.id);
 				const canAfford = !isUnlocked && this.gameState.canAfford(upgrade.cost);
+				const cardState = isUnlocked ? 'border-success' : canAfford ? 'border-primary' : 'border-secondary';
 
 				const historicalInfo = upgrade.historical
-					? `<p class="historical-info">📚 ${upgrade.historical}</p>`
+					? `<p class=\"small text-secondary mb-0\">📚 ${upgrade.historical}</p>`
 					: '';
 
 				return `
-          <div class="upgrade-item ${
-						isUnlocked ? 'unlocked' : canAfford ? 'available' : 'locked'
-					}">
-            <h4>${upgrade.name}</h4>
-            <p class="upgrade-description">${upgrade.description}</p>
-            <p class="upgrade-cost">Cost: ${this.formatCost(upgrade.cost)}</p>
-            <p class="upgrade-effect">Effect: ${upgrade.effect}</p>
-            ${historicalInfo}
-            <button 
-              class="upgrade-button" 
-              data-upgrade-id="${upgrade.id}"
-              ${isUnlocked || !canAfford ? 'disabled' : ''}
-            >
-              ${isUnlocked ? 'Purchased' : 'Buy'}
-            </button>
-          </div>
-        `;
+					<div class="col">
+						<div class="card h-100 bg-dark ${cardState}">
+							<div class="card-body d-flex flex-column">
+								<h4 class="h6 card-title mb-1">${upgrade.name}</h4>
+								<p class="card-text small text-secondary mb-2">${upgrade.description}</p>
+								<p class="mb-1"><span class="text-secondary small">Cost:</span> ${this.formatCost(upgrade.cost)}</p>
+								<p class="mb-2"><span class="text-secondary small">Effect:</span> ${upgrade.effect}</p>
+								${historicalInfo}
+								<div class="mt-auto">
+									<button class="upgrade-button btn btn-sm ${isUnlocked ? 'btn-success' : canAfford ? 'btn-primary' : 'btn-secondary'}" data-upgrade-id="${upgrade.id}" ${isUnlocked || !canAfford ? 'disabled' : ''}>
+										${isUnlocked ? 'Purchased' : 'Buy'}
+									</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				`;
 			})
 			.join('');
 
-		// Add event listeners to upgrade buttons
-		this.elements.upgradesContainer
-			.querySelectorAll('.upgrade-button')
-			.forEach((button) => {
-				if (!button.disabled) {
-					button.addEventListener('click', () => {
-						const upgradeId = button.dataset.upgradeId;
-						this.gameManager.buyUpgrade(upgradeId);
-					});
-				}
-			});
+		this.elements.upgradesContainer.querySelectorAll('.upgrade-button').forEach((button) => {
+			if (!button.disabled) {
+				button.addEventListener('click', () => {
+					const upgradeId = button.dataset.upgradeId;
+					this.gameManager.buyUpgrade(upgradeId);
+				});
+			}
+		});
 	}
 
 	/**
@@ -471,29 +422,12 @@ export class UIManager {
 	 */
 	updateEraProgression() {
 		if (!this.elements.nextEraButton) return;
-
-		const currentEraData = this.gameManager.getCurrentEraData();
-		if (!currentEraData || !currentEraData.advancementCost) {
-			this.elements.nextEraButton.style.display = 'none';
-			return;
-		}
-
-		this.elements.nextEraButton.style.display = 'block';
-
-		// Check if requirements are met
-		const canAdvance = this.gameState.canAfford(currentEraData.advancementCost);
+		const canAdvance = this.gameState.canAdvanceEra();
 		this.elements.nextEraButton.disabled = !canAdvance;
-
-		// Update button text with requirements
-		const costString = Object.entries(currentEraData.advancementCost)
-			.map(([resource, amount]) => `${amount} ${resource}`)
-			.join(', ');
-
-		this.elements.nextEraButton.textContent = canAdvance
-			? 'Advance Era'
-			: `Need: ${costString}`;
-
-		// Add visual indication
+		this.elements.nextEraButton.classList.toggle('btn-success', canAdvance);
+		this.elements.nextEraButton.classList.toggle('btn-secondary', !canAdvance);
+		this.elements.nextEraButton.style.display = 'block';
+		this.elements.nextEraButton.textContent = canAdvance ? 'Advance Era' : 'Advance Era (requirements not met)';
 		this.elements.nextEraButton.classList.toggle('affordable', canAdvance);
 	}
 
@@ -512,7 +446,7 @@ export class UIManager {
 	/**
 	 * Show notification to user
 	 */
-	showNotification(message, type = 'success', duration = 3000) {
+	showNotification(message, type = 'success', duration = 2000) { // Reduced default from 3000 to 2000
 		if (!this.elements.notificationContainer) return;
 
 		const notification = document.createElement('div');

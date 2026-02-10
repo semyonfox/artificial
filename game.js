@@ -9,6 +9,8 @@ class Game {
 	constructor() {
 		this.gameManager = null;
 		this.gameStarted = false;
+		this.currentSceneIndex = 0;
+		this.scenes = [];
 
 		this.init();
 	}
@@ -18,47 +20,124 @@ class Game {
 	 */
 	init() {
 		console.log('🎮 Starting Evolution Clicker...');
+		console.log('DOM readyState:', document.readyState);
 
-		// Show a simple welcome message
-		this.showWelcomeScreen();
-
-		// Start game after a short delay
-		setTimeout(() => {
-			this.startMainGame();
-		}, 3000); // 3 seconds instead of 2
+		// Show cutscenes
+		this.showCutscenes();
 	}
 
 	/**
-	 * Show welcome screen
+	 * Show cutscenes with proper scene transitions
 	 */
-	showWelcomeScreen() {
-		console.log('🎬 Showing welcome screen...');
+	showCutscenes() {
+		console.log('🎬 Showing cutscenes...');
 
 		const cutsceneContainer = document.getElementById('cutscene-container');
 		const gameContainer = document.getElementById('game-container');
 
-		console.log('Cutscene container:', cutsceneContainer);
-		console.log('Game container:', gameContainer);
+		console.log('Cutscene container found:', !!cutsceneContainer);
+		console.log('Game container found:', !!gameContainer);
 
-		if (cutsceneContainer) {
-			cutsceneContainer.classList.remove('hidden');
-			cutsceneContainer.style.display = 'flex'; // Force display
-			console.log('✅ Cutscene container should now be visible');
-
-			// Add click handler to start game immediately
-			cutsceneContainer.addEventListener('click', () => {
-				console.log('🖱️ Cutscene clicked, starting game...');
-				this.startMainGame();
-			});
-		} else {
+		if (!cutsceneContainer) {
 			console.error('❌ Cutscene container not found!');
+			this.startMainGame();
+			return;
 		}
 
 		if (gameContainer) {
-			gameContainer.classList.add('hidden');
-			console.log('✅ Game container hidden');
+			gameContainer.classList.add('d-none');
+		}
+
+		// Show cutscene container (remove d-none if present)
+		cutsceneContainer.classList.remove('d-none');
+
+		// Get all scenes
+		this.scenes = Array.from(cutsceneContainer.querySelectorAll('.scene'));
+		console.log(`Found ${this.scenes.length} scenes:`, this.scenes);
+
+		if (this.scenes.length === 0) {
+			console.warn('⚠️ No scenes found, starting game immediately');
+			this.startMainGame();
+			return;
+		}
+
+		// Show first scene
+		this.currentSceneIndex = 0;
+		this.showScene(0);
+
+		// Use event delegation on the container instead of individual buttons
+		// This ensures events work even if buttons are hidden/shown dynamically
+		cutsceneContainer.addEventListener('click', (e) => {
+			// Check if the clicked element is a scene-next button or inside one
+			const button = e.target.closest('.scene-next');
+			if (button) {
+				console.log('🖱️ Scene next button clicked via delegation');
+				e.preventDefault();
+				e.stopPropagation();
+				this.nextScene();
+			}
+		});
+
+		console.log('✅ Event delegation set up on cutscene container');
+
+		// Update progress bar
+		this.updateSceneProgress();
+	}
+
+	/**
+	 * Show a specific scene
+	 */
+	showScene(index) {
+		console.log(`🎬 Attempting to show scene ${index + 1}`);
+
+		// Hide all scenes using Bootstrap classes
+		this.scenes.forEach((scene, i) => {
+			scene.classList.remove('active');
+			scene.classList.add('d-none');
+			console.log(`  Scene ${i + 1} hidden`);
+		});
+
+		// Show current scene
+		if (this.scenes[index]) {
+			this.scenes[index].classList.remove('d-none');
+			this.scenes[index].classList.add('active');
+			console.log(`✅ Scene ${index + 1} of ${this.scenes.length} is now visible`);
+			console.log('  Scene classes:', this.scenes[index].className);
+		}
+
+		this.updateSceneProgress();
+	}
+
+	/**
+	 * Go to next scene or start game
+	 */
+	nextScene() {
+		console.log(`📍 Current scene index: ${this.currentSceneIndex}`);
+		this.currentSceneIndex++;
+		console.log(`📍 Moving to scene index: ${this.currentSceneIndex}`);
+
+		if (this.currentSceneIndex >= this.scenes.length) {
+			// All scenes done, start game
+			console.log('🎬 All cutscenes complete, starting game...');
+			this.startMainGame();
 		} else {
-			console.error('❌ Game container not found!');
+			// Show next scene
+			console.log(`🎬 Showing next scene (${this.currentSceneIndex + 1}/${this.scenes.length})`);
+			this.showScene(this.currentSceneIndex);
+		}
+	}
+
+	/**
+	 * Update scene progress bar
+	 */
+	updateSceneProgress() {
+		const progressBar = document.querySelector('#cutscene-container .progress-bar');
+		if (progressBar && this.scenes.length > 0) {
+			const progress = ((this.currentSceneIndex + 1) / this.scenes.length) * 100;
+			progressBar.style.width = `${progress}%`;
+			console.log(`📊 Progress updated: ${progress}%`);
+		} else {
+			console.warn('⚠️ Progress bar not found or no scenes');
 		}
 	}
 
@@ -75,21 +154,19 @@ class Game {
 		console.log('🚀 Starting main game...');
 
 		try {
-			// Hide cutscene, show game
+			// Hide cutscene, show game using Bootstrap classes
 			const cutsceneContainer = document.getElementById('cutscene-container');
 			const gameContainer = document.getElementById('game-container');
 
 			console.log('Switching from cutscene to game...');
 
 			if (cutsceneContainer) {
-				cutsceneContainer.classList.add('hidden');
-				cutsceneContainer.style.display = 'none';
+				cutsceneContainer.classList.add('d-none');
 				console.log('✅ Cutscene hidden');
 			}
 
 			if (gameContainer) {
-				gameContainer.classList.remove('hidden');
-				gameContainer.style.display = 'block';
+				gameContainer.classList.remove('d-none');
 				console.log('✅ Game container shown');
 			}
 
@@ -129,34 +206,21 @@ class Game {
     `;
 		errorDiv.innerHTML = `
       <h3>Game Failed to Start</h3>
-      <p>Error: ${error.message}</p>
-      <p style="font-size: 0.8em; margin-top: 10px;">Check browser console for details</p>
-      <button onclick="location.reload()" style="margin-top: 10px; padding: 8px 16px;">
-        Reload Game
-      </button>
+      <p>${error.message}</p>
+      <p style="font-size: 12px; margin-top: 10px;">Check console for details (F12)</p>
     `;
 		document.body.appendChild(errorDiv);
 	}
 }
 
 // Start the game when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-	console.log('🌍 DOM loaded, initializing game...');
-
-	try {
+if (document.readyState === 'loading') {
+	console.log('⏳ Waiting for DOM to load...');
+	document.addEventListener('DOMContentLoaded', () => {
+		console.log('✅ DOM loaded, starting game');
 		new Game();
-	} catch (error) {
-		console.error('Failed to initialize game:', error);
-
-		// Fallback error display
-		document.body.innerHTML = `
-      <div style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #1a1a1a; color: white; font-family: monospace;">
-        <div style="text-align: center; padding: 20px; background: #333; border-radius: 8px;">
-          <h2>Game Failed to Load</h2>
-          <p>Error: ${error.message}</p>
-          <button onclick="location.reload()" style="margin-top: 10px; padding: 8px 16px;">Reload</button>
-        </div>
-      </div>
-    `;
-	}
-});
+	});
+} else {
+	console.log('✅ DOM already loaded, starting game immediately');
+	new Game();
+}

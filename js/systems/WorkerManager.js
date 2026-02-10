@@ -13,6 +13,12 @@ export class WorkerManager {
 		this.workerIntervals = new Map();
 		this.workerTimers = new Map();
 
+		// Accumulate fractional production so small yields (e.g., 0.3 stones) add up
+		this.productionRemainders = {}; // { resource: fractionalRemainder }
+
+		// Track last known food status per worker type for UI display
+		this.lastFoodStatusByWorker = {}; // { workerType: 'wellFed' | 'hungry' | 'starving' }
+
 		console.log('WorkerManager initialized');
 	}
 
@@ -34,8 +40,7 @@ export class WorkerManager {
 	 * Update method called from game loop
 	 */
 	update(deltaTime) {
-		// Update worker timers and check for completed work
-		// This is handled by intervals, but we could add additional logic here
+		// Intervals handle production; no per-frame logic needed yet
 	}
 
 	/**
@@ -152,92 +157,90 @@ export class WorkerManager {
 
 	/**
 	 * Perform work for a specific worker type
+	 * - Consumes food proportional to this worker type only
+	 * - Applies efficiency and accumulates fractional production
+	 * - Suppresses per-tick notifications (UI will show per-second deltas)
 	 */
 	performWorkerWork(workerType, workerData) {
 		const gameData = this.gameState.getState();
 		const workerCount = gameData.workers[workerType] || 0;
-
 		if (workerCount === 0) {
 			this.stopWorkerAutomation(workerType);
 			return;
 		}
 
-		// Check worker food status and efficiency
-		const foodStatus = this.updateWorkerFoodConsumption();
-		const efficiency = this.getWorkerEfficiency(foodStatus);
+		// Determine food status for this worker group and consume proportionally
+		const baseConsumptionPerWorker = config.gameVariables?.workerFoodConsumption || 1;
+		const requiredFood = workerCount * baseConsumptionPerWorker;
+		const availableFood = this.gameState.getResource('cookedMeat');
 
-		let workersWorked = 0;
-		let unfedWorkers = 0;
+		let status = 'wellFed';
+		let efficiency = 1.0;
+		if (requiredFood <= 0) {
+			status = 'wellFed';
+			efficiency = 1.0;
+		} else if (availableFood >= requiredFood) {
+			// Fully fed
+			this.gameState.addResource('cookedMeat', -requiredFood);
+			status = 'wellFed';
+			efficiency = this.getWorkerEfficiency('wellFed');
+		} else if (availableFood > 0) {
+			// Partially fed -> hungry
+			this.gameState.addResource('cookedMeat', -availableFood);
+			status = 'hungry';
+			efficiency = this.getWorkerEfficiency('hungry');
+		} else {
+			// No food -> starving
+			status = 'starving';
+			efficiency = this.getWorkerEfficiency('starving');
+		}
+		this.lastFoodStatusByWorker[workerType] = status;
 
-		// Process each worker
-		for (let i = 0; i < workerCount; i++) {
-			// Check if worker needs input resources (for cooks)
-			if (workerData.consumes) {
-				let canWork = true;
-				for (const [resource, amount] of Object.entries(workerData.consumes)) {
-					if ((gameData.resources[resource] || 0) < amount) {
-						canWork = false;
-						break;
-					}
-				}
-
-				if (!canWork) {
-					unfedWorkers++;
-					continue;
-				}
-
-				// Consume required resources
-				for (const [resource, amount] of Object.entries(workerData.consumes)) {
-					this.gameState.addResource(resource, -amount);
-				}
+		// If worker needs input resources (e.g., cooks), check availability per worker
+		let workersAbleToWork = 0;
+		if (workerData.consumes) {
+			// Determine how many workers can be fully supplied
+			let maxWorkersByInput = Infinity;
+			for (const [resource, perWorkerAmount] of Object.entries(workerData.consumes)) {
+				const available = this.gameState.getResource(resource);
+				const possible = Math.floor(available / perWorkerAmount);
+				maxWorkersByInput = Math.min(maxWorkersByInput, possible);
 			}
+			workersAbleToWork = Math.max(0, Math.min(workerCount, maxWorkersByInput));
 
-			// Worker works and produces resources with efficiency modifier
-			if (workerData.produces) {
-				for (const [resource, amount] of Object.entries(workerData.produces)) {
-					const effectiveAmount = Math.floor(amount * efficiency);
-					this.gameState.addResource(resource, effectiveAmount);
-				}
+			// Consume inputs for those workers
+			for (const [resource, perWorkerAmount] of Object.entries(workerData.consumes)) {
+				const totalConsume = workersAbleToWork * perWorkerAmount;
+				if (totalConsume > 0) this.gameState.addResource(resource, -totalConsume);
 			}
-
-			workersWorked++;
+		} else {
+			workersAbleToWork = workerCount;
 		}
 
-		// Show notification about work done
-		if (workersWorked > 0) {
-			const produced = Object.entries(workerData.produces || {})
-				.map(([resource, amount]) => {
-					const effectiveAmount = Math.floor(
-						amount * efficiency * workersWorked
-					);
-					return `${effectiveAmount} ${resource}`;
-				})
-				.join(', ');
+		if (workersAbleToWork <= 0 || !workerData.produces) {
+			return;
+		}
 
-			if (produced) {
-				let message = `${workersWorked} ${workerData.name}(s) produced: ${produced}`;
-				if (efficiency < 1.0) {
-					message += ` (${Math.round(
-						efficiency * 100
-					)}% efficiency due to food shortage)`;
-				}
+		// Compute total production with efficiency (not floored); accumulate fractional parts
+		for (const [resource, basePerWorker] of Object.entries(workerData.produces)) {
+			const total = basePerWorker * workersAbleToWork * efficiency;
+			const prevRemainder = this.productionRemainders[resource] || 0;
+			const combined = prevRemainder + total;
+			const whole = Math.floor(combined);
+			const remainder = combined - whole;
 
-				this.uiManager?.showNotification(message, 'success');
+			this.productionRemainders[resource] = remainder;
+			if (whole !== 0) {
+				this.gameState.addResource(resource, whole);
 			}
 		}
 
-		// Show notification for workers that couldn't work
-		if (unfedWorkers > 0) {
-			const missingResources = Object.keys(workerData.consumes || {}).join(
-				', '
-			);
-			this.uiManager?.showNotification(
-				`${unfedWorkers} ${workerData.name}(s) need ${missingResources} to work`,
-				'warning'
-			);
-		}
+		// Suppress per-tick notifications; UI deltas will reflect changes once per second
+	}
 
-		this.updateUI?.();
+	/** Get last known food status for a worker type (for UI badges) */
+	getFoodStatus(workerType) {
+		return this.lastFoodStatusByWorker[workerType] || 'wellFed';
 	}
 
 	/**
@@ -390,70 +393,12 @@ export class WorkerManager {
 			return this.gameManager.getCurrentEraData();
 		}
 
-		// Fallback to basic paleolithic data
+		// Fallback to config if GameManager not available yet
 		const gameData = this.gameState.getState();
 		const currentEra = gameData.currentEra;
-
-		if (currentEra === 'paleolithic') {
-			return {
-				workers: [
-					{
-						id: 'gatherer',
-						name: 'Gatherer',
-						cost: { sticks: 8, cookedMeat: 2 },
-						produces: { sticks: 1, stones: 0.3 },
-						interval: 4000,
-					},
-					{
-						id: 'hunter',
-						name: 'Hunter',
-						cost: { stones: 12, bones: 3, cookedMeat: 4 },
-						produces: { meat: 1, bones: 0.4, fur: 0.3 },
-						interval: 6000,
-						requiresUpgrade: 'stoneKnapping',
-					},
-					{
-						id: 'cook',
-						name: 'Cook',
-						cost: { sticks: 15, stones: 3, fire: 1, cookedMeat: 1 },
-						produces: { cookedMeat: 2, fire: 0.1 },
-						consumes: { meat: 1 },
-						interval: 3000,
-						requiresUpgrade: 'fireControl',
-					},
-				],
-			};
-		}
-
-		return null;
+		return config.eraData?.[currentEra] || config.eraData?.paleolithic || null;
 	}
 
-	/**
-	 * Update worker food consumption
-	 */
-	updateWorkerFoodConsumption() {
-		const gameData = this.gameState.getState();
-		const foodConsumption = this.gameState.getWorkerFoodConsumption();
-
-		if (foodConsumption > 0) {
-			const availableFood = gameData.resources.cookedMeat || 0;
-
-			if (availableFood >= foodConsumption) {
-				// Workers are well fed
-				this.gameState.addResource('cookedMeat', -foodConsumption);
-				return 'wellFed';
-			} else if (availableFood > 0) {
-				// Workers are partially fed
-				this.gameState.addResource('cookedMeat', -availableFood);
-				return 'hungry';
-			} else {
-				// Workers are starving
-				return 'starving';
-			}
-		}
-
-		return 'wellFed';
-	}
 
 	/**
 	 * Get worker efficiency based on food status

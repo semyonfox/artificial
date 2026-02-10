@@ -1,158 +1,197 @@
 <!DOCTYPE html>
-<html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta
-			name="viewport"
-			content="width=device-width, initial-scale=1.0" />
-		<title>Evolution Clicker</title>
-		<link
-			rel="stylesheet"
-			href="styles.css" />
-		<link
-			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
-			rel="stylesheet" />
-	</head>
-	<body>
-		<!-- Cutscene System -->
-		<div
-			id="cutscene-container"
-			style="display: flex">
-			<div class="scene-progress"></div>
-			<!-- Default cutscene scenes -->
-			<div class="scene active">
-				<h1>Welcome to Evolution Clicker</h1>
-				<p>
-					Guide humanity through the ages, from primitive survival to cosmic
-					mastery.
-				</p>
-				<p>
-					Click to gather resources, hire workers, and unlock new technologies.
-				</p>
-				<button class="scene-next">▶️ Begin Your Journey</button>
-			</div>
-			<div class="scene">
-				<h1>The Dawn of Civilization</h1>
-				<p>
-					You start in the Paleolithic Era, where survival is your primary
-					concern.
-				</p>
-				<p>Forage for sticks, hunt for food, and discover the power of fire.</p>
-				<button class="scene-next">▶️ Start Game</button>
-			</div>
-		</div>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evolution Clicker</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Cutscene Container -->
+    <div id="cutscene-container" class="cutscene-container d-none">
+        <!-- Cutscenes will be injected here by the game -->
+    </div>
 
-		<!-- Era Transition Overlay -->
-		<div
-			id="era-transition-overlay"
-			class="hidden">
-			<div class="era-transition-card">
-				<h2 class="era-transition-title"></h2>
-				<p class="era-transition-text"></p>
-				<div class="era-transition-progress"></div>
-			</div>
-		</div>
+    <!-- Game Container (rewired to full-width modern layout) -->
+    <div id="game-container" class="app-container">
+        <!-- Top bar -->
+        <header class="top-bar">
+            <div class="d-flex align-items-center gap-3">
+                <div class="logo d-flex align-items-center gap-2">
+                    <span class="fs-4">🌍</span>
+                    <div>
+                        <div class="card-title">Evolution</div>
+                        <div class="card-subtle small">Civilization Clicker</div>
+                    </div>
+                </div>
+            </div>
 
-		<!-- Main Game Interface -->
-		<div
-			id="game-container"
-			class="hidden"
-			style="display: none">
-			<!-- Header Section -->
-			<header class="game-header">
-				<div id="era-display">
-					<h1 id="current-era-name">Paleolithic Era</h1>
-					<div id="era-progress">
-						<div class="progress-bar"></div>
-						<span class="era-progress-text"></span>
-					</div>
-				</div>
-				<button
-					id="next-era-button"
-					class="tooltip"
-					disabled>
-					⏩ Advance Era
-					<span class="tooltip-text">Meet requirements to unlock</span>
-				</button>
-			</header>
+            <div class="d-flex align-items-center gap-3">
+                <div class="card-subtle small">Era: <strong class="top-era-name">Paleolithic Era</strong></div>
+                <div id="era-progress" class="progress" style="width:220px; height:10px;">
+                    <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                </div>
+                <button class="btn btn-primary d-none">🚀 Advance Era</button>
+            </div>
+        </header>
 
-			<!-- Core Gameplay Section -->
-			<main class="game-main">
-				<!-- Left Column: Resources & Actions -->
-				<div class="left-column">
-					<section class="game-panel resources-panel">
-						<h2 class="panel-title">Resources</h2>
-						<div
-							id="resource-display"
-							class="resource-grid"></div>
+        <!-- Main grid: sidebar + content -->
+        <div class="main-grid">
+            <!-- Sidebar - resources & era summary -->
+            <aside class="sidebar-content card">
+                <div class="card-header">
+                    <div class="d-flex align-items-center">
+                        <span class="fs-4">📦</span>
+                        <h4 class="h6 mb-0 ms-2">Resources</h4>
+                    </div>
+                </div>
 
-						<div class="action-container">
-							<h2 class="panel-title">Actions</h2>
-							<div
-								id="action-buttons-container"
-								class="action-grid"></div>
-						</div>
-					</section>
-				</div>
+                <div class="p-3">
+                    <div class="era-card mb-3">
+                        <div class="era-label text-uppercase small fw-bold mb-1 card-subtle">Current Era</div>
+                        <h3 id="current-era-name" class="h6 mb-2">Paleolithic Era</h3>
+                        <div class="progress-wrapper mb-2">
+                            <div class="progress" style="height: 10px;" aria-hidden>
+                                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div class="progress-text card-subtle small text-center">Progress to next era</div>
+                        </div>
+                        <button id="next-era-button" class="btn btn-primary w-100 mt-2 d-none">🚀 Advance Era</button>
+                    </div>
 
-				<!-- Center Column: Workers -->
-				<div class="center-column">
-					<section class="game-panel workers-panel">
-						<h2 class="panel-title">Workforce</h2>
-						<div
-							id="workers-container"
-							class="worker-grid"></div>
-						<div
-							id="worker-status"
-							class="status-display"></div>
-					</section>
-				</div>
+                    <div class="resources-panel">
+                        <h5 class="h6 fw-bold border-bottom pb-2 mb-3 card-subtle">Resource Overview</h5>
+                        <div id="resource-display" class="resource-list"></div>
+                    </div>
+                </div>
+            </aside>
 
-				<!-- Right Column: Upgrades -->
-				<div class="right-column">
-					<section class="game-panel upgrades-panel">
-						<h2 class="panel-title">Technological Advancements</h2>
-						<div
-							id="upgrades"
-							class="upgrade-grid"></div>
-					</section>
-				</div>
-			</main>
+            <!-- Main content area -->
+            <main class="">
+                <!-- Top Row: Actions & Workers -->
+                <div class="row g-3 mb-3">
+                    <!-- Primary Actions Panel -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="fs-4">⚡</span>
+                                        <h3 class="h6 mb-0">Primary Actions</h3>
+                                    </div>
+                                    <span class="card-subtle small">Click to Gather</span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="action-buttons-container" class="d-flex flex-column gap-2"></div>
+                            </div>
+                        </div>
+                    </div>
 
-			<!-- Logging & Information -->
-			<aside class="game-sidebar">
-				<button
-					id="log-toggle"
-					class="sidebar-toggle">
-					📜 Toggle Logs
-				</button>
-				<div
-					id="log-menu"
-					class="collapsed">
-					<section class="log-section">
-						<h3 class="log-title">📖 Event Chronicle</h3>
-						<div
-							id="event-log"
-							class="log-entries"></div>
-					</section>
-					<section class="log-section">
-						<h3 class="log-title">⚠️ Disaster Records</h3>
-						<div
-							id="disaster-log"
-							class="log-entries"></div>
-					</section>
-				</div>
-			</aside>
-		</div>
+                    <!-- Workers Panel -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="fs-4">👷</span>
+                                        <h3 class="h6 mb-0">Worker Management</h3>
+                                    </div>
+                                    <div id="worker-status" class="card-subtle small"></div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="workers-container" class="d-flex flex-column gap-2"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-		<!-- Notification System -->
-		<div
-			id="notification-container"
-			class="notification-center"></div>
+                <!-- Middle Row: Upgrades & Technology -->
+                <div class="row g-3 mb-3">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="fs-4">🔬</span>
+                                        <h3 class="h6 mb-0">Research & Upgrades</h3>
+                                    </div>
+                                    <span class="card-subtle small">Enhance Your Civilization</span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="upgrades" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-		<!-- Scripts -->
-		<script
-			type="module"
-			src="./game.js"></script>
-	</body>
+                <!-- Bottom Row: Information & Logs -->
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="fs-4">📜</span>
+                                        <h3 class="h6 mb-0">Event Logs & Information</h3>
+                                    </div>
+                                    <button id="log-toggle" class="btn btn-sm btn-ghost">Toggle Logs</button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="log-menu" class="d-none">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <h4 class="h6 fw-bold mb-2 card-subtle">Events</h4>
+                                            <div id="event-log" class="log-content p-2 rounded" style="max-height:200px; overflow-y:auto;"></div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h4 class="h6 fw-bold mb-2 card-subtle">Disasters</h4>
+                                            <div id="disaster-log" class="log-content p-2 rounded" style="max-height:200px; overflow-y:auto;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notification-container" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;"></div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="game.js"></script>
+
+    <!-- Sync sidebar era name to top bar (keeps existing JS untouched) -->
+    <script>
+        (function(){
+            function syncEra(){
+                const main = document.getElementById('current-era-name');
+                const top = document.querySelector('.top-era-name');
+                if(!main || !top) return;
+                top.textContent = main.textContent;
+            }
+            if(document.readyState === 'loading'){
+                document.addEventListener('DOMContentLoaded', ()=>{
+                    syncEra();
+                    const target = document.getElementById('current-era-name');
+                    if(target){
+                        const mo = new MutationObserver(syncEra);
+                        mo.observe(target, { childList: true, characterData: true, subtree: true });
+                    }
+                });
+            } else {
+                syncEra();
+            }
+        })();
+    </script>
+</body>
 </html>

@@ -66,7 +66,7 @@ export class GameState {
 		// Set starting resources for paleolithic era
 		resources.sticks = 10;
 		resources.stones = 5;
-		resources.population = 1;
+		resources.population = 1; // Start with 1 - the player!
 
 		return resources;
 	}
@@ -93,7 +93,7 @@ export class GameState {
 			// Paleolithic upgrades
 			fireControl: false,
 			stoneKnapping: false,
-			furClothing: false,
+			clothing: false,
 			boneTools: false,
 			shelterBuilding: false,
 
@@ -105,32 +105,28 @@ export class GameState {
 			settlement: false,
 
 			// Bronze Age upgrades
-			bronzeWorking: false,
-			writing: false,
-			wheel: false,
-			urbanPlanning: false,
-			mathematics: false,
+			copperMining: false,
+			tinMining: false,
+			alloying: false,
+			theWheel: false,
+			writingSystems: false,
 
 			// Iron Age upgrades
-			ironWorking: false,
-			engineering: false,
-			philosophy: false,
+			ironSmelting: false,
+			bloomery: false,
 			coinage: false,
-			militaryTactics: false,
+			roadBuilding: false,
 
 			// Industrial Age upgrades
 			steamEngine: false,
-			railways: false,
-			electricity: false,
-			massProduction: false,
-			telegraphSystem: false,
+			electrification: false,
+			bessemer: false,
 
 			// Information Age upgrades
-			programming: false,
-			internet: false,
-			dataAnalysis: false,
-			artificialIntelligence: false,
-			quantumComputing: false,
+			siliconProcessing: false,
+			microprocessor: false,
+			networking: false,
+			softwareEngineering: false,
 		};
 	}
 
@@ -211,6 +207,9 @@ export class GameState {
 		const newCount = oldCount + count;
 		this.data.workers[workerType] = Math.max(0, newCount);
 
+		// Each worker adds 1 to population (they are people!)
+		this.addResource('population', count);
+
 		this.notifyListeners('workerChange', {
 			workerType,
 			oldCount,
@@ -250,7 +249,7 @@ export class GameState {
 	getEfficiencyMultiplier(resourceType) {
 		let multiplier = 1.0;
 
-		// Apply upgrade bonuses
+		// Apply simple global upgrade bonuses
 		if (this.data.upgrades.boneTools) {
 			multiplier *= 2.0;
 		}
@@ -259,10 +258,14 @@ export class GameState {
 			multiplier *= 1 + this.data.upgrades.efficiency * 0.1;
 		}
 
-		// Apply era-specific bonuses from config
-		const eraMultipliers = config.efficiencyMultipliers?.[this.data.currentEra];
-		if (eraMultipliers && eraMultipliers[resourceType]) {
-			multiplier *= eraMultipliers[resourceType];
+		// Apply resource-specific multipliers based on unlocked upgrades
+		const resourceMults = config.efficiencyMultipliers?.[resourceType];
+		if (resourceMults && typeof resourceMults === 'object') {
+			Object.entries(resourceMults).forEach(([upgradeId, mult]) => {
+				if (this.data.upgrades[upgradeId]) {
+					multiplier *= mult;
+				}
+			});
 		}
 
 		return multiplier;
@@ -285,28 +288,31 @@ export class GameState {
 	 * Check if era advancement is possible
 	 */
 	canAdvanceEra() {
-		const requirements = config.balance?.eraProgressionRequirements;
-		if (!requirements) return false;
-
+		const req = config.balance?.eraProgressionRequirements || {};
+		const currentEra = this.data.currentEra;
 		const population = this.data.resources.population || 0;
-		const maxPop =
-			config.balance?.maxPopulationPerEra?.[this.data.currentEra] || 100;
+		const maxPop = config.balance?.maxPopulationPerEra?.[currentEra] || 100;
 
-		// Check population requirement
-		const populationMet =
-			population >= maxPop * requirements.populationMultiplier;
+		// Interpret populationMultiplier as a fraction target of max population.
+		const rawFraction = typeof req.populationMultiplier === 'number' ? req.populationMultiplier : 0.7;
+		const fraction = Math.max(0.1, Math.min(1, rawFraction));
+		const populationMet = population >= Math.floor(maxPop * fraction);
 
-		// Check resource diversity (simplified)
+		// Resource diversity: at least N different resources above 0
 		const resourceTypes = Object.keys(this.data.resources).filter(
 			(key) => this.data.resources[key] > 0
 		);
-		const diversityMet = resourceTypes.length >= 5; // At least 5 different resources
+		// If configured as fraction, map to a count baseline (default baseline 7)
+		const diversityFraction = typeof req.resourceDiversity === 'number' ? req.resourceDiversity : 0.5;
+		const baselineTypes = 7;
+		const requiredTypes = Math.max(3, Math.floor(baselineTypes * Math.max(0.1, Math.min(1, diversityFraction))));
+		const diversityMet = resourceTypes.length >= requiredTypes;
 
-		// Check upgrade completion (simplified)
-		const completedUpgrades = Object.values(this.data.upgrades).filter(
-			Boolean
-		).length;
-		const upgradesMet = completedUpgrades >= 2; // At least 2 upgrades
+		// Upgrades completion: simple count threshold
+		const completedUpgrades = Object.values(this.data.upgrades).filter(Boolean).length;
+		const upgradeFraction = typeof req.upgradeCompletion === 'number' ? req.upgradeCompletion : 0.4;
+		const requiredUpgrades = Math.max(2, Math.floor(5 * Math.max(0.1, Math.min(1, upgradeFraction))));
+		const upgradesMet = completedUpgrades >= requiredUpgrades;
 
 		return populationMet && diversityMet && upgradesMet;
 	}
@@ -426,8 +432,19 @@ export class GameState {
 
 			const parsedData = JSON.parse(saveData);
 
-			// Merge saved data with current structure to handle new properties
-			this.data = { ...this.createInitialState(), ...parsedData };
+			// Start from a fresh initial state
+			const initial = this.createInitialState();
+
+			// Shallow merge top-level
+			this.data = { ...initial, ...parsedData };
+
+			// Deep-merge critical nested objects to preserve default keys
+			this.data.resources = { ...initial.resources, ...(parsedData.resources || {}) };
+			this.data.workers = { ...initial.workers, ...(parsedData.workers || {}) };
+			this.data.upgrades = { ...initial.upgrades, ...(parsedData.upgrades || {}) };
+
+			// Migrate legacy save structures to current model
+			this.migrateLegacySave(parsedData);
 
 			// Validate loaded state
 			this.validate();
@@ -439,6 +456,45 @@ export class GameState {
 		} catch (error) {
 			console.error('Failed to load game:', error);
 			return false;
+		}
+	}
+
+	/**
+	 * Migrate older save formats to current schema, preserving player progress
+	 */
+	migrateLegacySave(parsedData) {
+		if (!parsedData || typeof parsedData !== 'object') return;
+
+		// 1) unlockedUpgrades array -> boolean flags in upgrades
+		if (Array.isArray(parsedData.unlockedUpgrades)) {
+			parsedData.unlockedUpgrades.forEach((upgradeId) => {
+				if (upgradeId && this.data.upgrades.hasOwnProperty(upgradeId)) {
+					this.data.upgrades[upgradeId] = true;
+				}
+			});
+			// Drop legacy field to avoid confusion
+			delete this.data.unlockedUpgrades;
+		}
+
+		// 2) Workers: legacy 'forager' -> current 'gatherer'
+		if (parsedData.workers && typeof parsedData.workers.forager === 'number') {
+			const count = parsedData.workers.forager;
+			this.data.workers.gatherer = (this.data.workers.gatherer || 0) + count;
+			// Remove legacy worker field if present
+			if (this.data.workers.forager !== undefined) delete this.data.workers.forager;
+		}
+
+		// 3) Resources: legacy rawMeat -> meat; hide -> fur
+		if (parsedData.resources) {
+			const r = parsedData.resources;
+			if (typeof r.rawMeat === 'number' && r.rawMeat > 0) {
+				this.data.resources.meat = (this.data.resources.meat || 0) + r.rawMeat;
+				if (this.data.resources.rawMeat !== undefined) delete this.data.resources.rawMeat;
+			}
+			if (typeof r.hide === 'number' && r.hide > 0) {
+				this.data.resources.fur = (this.data.resources.fur || 0) + r.hide;
+				if (this.data.resources.hide !== undefined) delete this.data.resources.hide;
+			}
 		}
 	}
 

@@ -107,16 +107,18 @@ export class EventManager {
 	 * Execute an event and apply its effects
 	 */
 	executeEvent(event) {
-		// Apply resource effects
+		// Apply resource effects as percentage of current amount
 		if (event.effect) {
 			Object.entries(event.effect).forEach(([resource, change]) => {
 				const currentAmount = this.gameState.data.resources[resource] || 0;
-				const changeAmount =
-					change > 0
-						? Math.floor(currentAmount * change)
-						: Math.floor(currentAmount * Math.abs(change));
+				const magnitude = Math.floor(currentAmount * Math.abs(change));
+				if (magnitude === 0) return;
 
-				this.gameState.addResource(resource, changeAmount);
+				if (change >= 0) {
+					this.gameState.addResource(resource, magnitude);
+				} else {
+					this.gameState.addResource(resource, -magnitude);
+				}
 			});
 		}
 
