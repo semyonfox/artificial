@@ -19,6 +19,6 @@
 	"author": "",
 	"license": "ISC",
 	"devDependencies": {
-		"rollup": "^4.36.0"
+		"rollup": "^4.59.0"
 	}
 }
