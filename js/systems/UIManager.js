@@ -678,7 +678,7 @@ export class UIManager {
    */
   renderTalentTree(pm) {
     const container = document.getElementById('talent-tree-container');
-    if (!container) return;
+    if (!container || typeof pm.getTalentTree !== 'function') return;
 
     const tree = pm.getTalentTree();
     if (tree.length === 0) {
