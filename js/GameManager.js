@@ -696,7 +696,8 @@ export class GameManager {
         if (eraConfig?.upgrades?.length > 0) {
           // unlock the first upgrade (lowest priority)
           const firstUpgrade = eraConfig.upgrades.reduce((a, b) =>
-            a.priority < b.priority ? a : b
+            a.priority < b.priority ? a : b,
+            eraConfig.upgrades[0]
           );
           this.gameState.unlockUpgrade(firstUpgrade.id);
         }
@@ -899,7 +900,7 @@ export class GameManager {
    */
   onEraTransition(fromEra, toEra) {
     const starterPacks = {
-      neolithic: { grain: 80, clay: 40, tools: 25, pottery: 10 },
+      neolithic: { grain: 80, clay: 50, tools: 25, pottery: 10, livestock: 12 },
       bronze: { copper: 40, tin: 20, tools: 15 },
       iron: { iron: 80, coal: 20, bronze: 20, stones: 30, knowledge: 30 },
       classical: {
@@ -925,7 +926,7 @@ export class GameManager {
         navigation: 12,
         coins: 25,
         trade: 20,
-        optics: 8,
+        optics: 15,
       },
       industrial: {
         coal: 120,

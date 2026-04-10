@@ -1,6 +1,13 @@
 /**
  * Worker Manager - Handles automated worker systems
  * Manages hiring, feeding, and production of workers
+ *
+ * Balance changes:
+ * - Cost scaling: 1.15^n (was 1.5^n)
+ * - Diminishing returns: each duplicate worker -5% efficiency
+ * - Food: 1 per 3 work cycles, not 1 per cycle
+ * - Efficiency: wellFed 100%, hungry 60%, starving 20%
+ * - Workers never hard-stop; efficiency degrades gracefully
  */
 
 import { config } from '../core/config.js';
@@ -13,32 +20,26 @@ export class WorkerManager {
 		this.workerIntervals = new Map();
 		this.workerTimers = new Map();
 
-		// Accumulate fractional production so small yields (e.g., 0.3 stones) add up
-		this.productionRemainders = {}; // { resource: fractionalRemainder }
+		// accumulate fractional production so small yields add up
+		this.productionRemainders = {};
 
-		// Track last known food status per worker type for UI display
-		this.lastFoodStatusByWorker = {}; // { workerType: 'wellFed' | 'hungry' | 'starving' }
+		// track work cycles per worker type for food consumption pacing
+		this.workCycleCounts = {};
+
+		// track last known food status per worker type for UI
+		this.lastFoodStatusByWorker = {};
 	}
 
-	/**
-	 * Set UI manager reference
-	 */
 	setUIManager(uiManager) {
 		this.uiManager = uiManager;
 	}
 
-	/**
-	 * Set game manager reference
-	 */
 	setGameManager(gameManager) {
 		this.gameManager = gameManager;
 	}
 
-	/**
-	 * Update method called from game loop
-	 */
 	update(deltaTime) {
-		// Intervals handle production; no per-frame logic needed yet
+		// intervals handle production; no per-frame logic needed
 	}
 
 	/**
@@ -47,19 +48,14 @@ export class WorkerManager {
 	hireWorker(workerType) {
 		const gameData = this.gameState.getState();
 
-		// Get worker data from GameManager
 		if (!this.gameManager) {
 			this.uiManager?.showNotification('GameManager not available', 'error');
 			return false;
 		}
 
 		const currentEraData = this.gameManager.getCurrentEraData();
-
 		if (!currentEraData || !currentEraData.workers) {
-			this.uiManager?.showNotification(
-				'No workers available in this era',
-				'error'
-			);
+			this.uiManager?.showNotification('No workers available in this era', 'error');
 			return false;
 		}
 
@@ -69,11 +65,8 @@ export class WorkerManager {
 			return false;
 		}
 
-		// Check upgrade requirements
-		if (
-			workerData.requiresUpgrade &&
-			!gameData.upgrades[workerData.requiresUpgrade]
-		) {
+		// check upgrade requirements
+		if (workerData.requiresUpgrade && !gameData.upgrades[workerData.requiresUpgrade]) {
 			this.uiManager?.showNotification(
 				`${workerData.name} requires the ${workerData.requiresUpgrade} upgrade!`,
 				'error'
@@ -81,28 +74,19 @@ export class WorkerManager {
 			return false;
 		}
 
-		// Calculate cost (increases with each worker)
+		// calculate cost with new 1.15^n scaling and prestige discount
 		const currentCount = gameData.workers[workerType] || 0;
 		const cost = this.calculateWorkerCost(workerData.cost, currentCount);
 
-		// Check if player can afford it
 		if (!this.gameState.canAfford(cost)) {
-			this.uiManager?.showNotification(
-				`Cannot afford ${workerData.name}`,
-				'error'
-			);
+			this.uiManager?.showNotification(`Cannot afford ${workerData.name}`, 'error');
 			return false;
 		}
 
-		// Spend resources and hire worker
 		if (this.gameState.spendResources(cost)) {
 			this.gameState.addWorker(workerType, 1);
-
-			// Start worker automation
 			this.startWorkerAutomation(workerType, workerData);
-
 			this.uiManager?.showNotification(`Hired ${workerData.name}!`, 'success');
-
 			return true;
 		}
 
@@ -110,41 +94,81 @@ export class WorkerManager {
 	}
 
 	/**
-	 * Calculate worker cost with scaling
+	 * Calculate worker cost with 1.15^n scaling (was 1.5^n)
+	 * Also applies prestige masterCrafter perk discount
 	 */
 	calculateWorkerCost(baseCost, workerCount) {
-		const multiplier = Math.pow(1.5, workerCount);
-		const cost = {};
+		const scalingBase = config.balance?.workerCostScaling || 1.15;
+		const multiplier = Math.pow(scalingBase, workerCount);
 
+		// prestige perk discount
+		const perkMult = this.gameManager?.systems?.prestigeManager?.getWorkerCostMultiplier() || 1;
+
+		const cost = {};
 		Object.entries(baseCost).forEach(([resource, amount]) => {
-			cost[resource] = Math.ceil(amount * multiplier);
+			cost[resource] = Math.ceil(amount * multiplier * perkMult);
 		});
 
 		return cost;
 	}
 
 	/**
+	 * Get diminishing returns multiplier for a worker type
+	 * Each successive worker of same type is 5% less efficient
+	 * 1st: 100%, 2nd: 95%, 3rd: 90%, etc.
+	 */
+	getDiminishingReturnsFactor(workerType) {
+		const count = this.gameState.getWorkerCount(workerType);
+		if (count <= 1) return 1.0;
+
+		const diminish = config.balance?.workerDiminishingReturns || 0.05;
+		// average efficiency across all workers of this type
+		// sum of (1 - i*diminish) for i=0..count-1, divided by count
+		let totalEfficiency = 0;
+		for (let i = 0; i < count; i++) {
+			totalEfficiency += Math.max(0.2, 1 - i * diminish); // floor at 20%
+		}
+		return totalEfficiency / count;
+	}
+
+	/**
+	 * Get effective worker interval, accounting for prestige perks
+	 */
+	getEffectiveInterval(workerData) {
+		let interval = workerData.interval || 10000;
+
+		// prestige perk interval reduction
+		const pm = this.gameManager?.systems?.prestigeManager;
+		if (pm) {
+			interval *= pm.getWorkerIntervalMultiplier();
+		}
+
+		// robotic age specialization: -20% intervals
+		const specs = this.gameState.data.eraSpecializations;
+		if (specs?.industrial === 'roboticAge') {
+			interval *= 0.80;
+		}
+
+		return Math.max(500, Math.round(interval)); // floor at 500ms
+	}
+
+	/**
 	 * Start automated worker production
 	 */
 	startWorkerAutomation(workerType, workerData) {
-		// Clear existing interval if any
 		this.stopWorkerAutomation(workerType);
 
-		const interval = workerData.interval || 10000; // Default 10 seconds
+		const interval = this.getEffectiveInterval(workerData);
 
 		const workFunction = () => {
 			this.performWorkerWork(workerType, workerData);
 		};
 
-		// Start immediate work and set up interval
 		workFunction();
 		const intervalId = setInterval(workFunction, interval);
 		this.workerIntervals.set(workerType, intervalId);
 	}
 
-	/**
-	 * Stop worker automation
-	 */
 	stopWorkerAutomation(workerType) {
 		const intervalId = this.workerIntervals.get(workerType);
 		if (intervalId) {
@@ -155,9 +179,9 @@ export class WorkerManager {
 
 	/**
 	 * Perform work for a specific worker type
-	 * - Consumes food proportional to this worker type only
-	 * - Applies efficiency and accumulates fractional production
-	 * - Suppresses per-tick notifications (UI will show per-second deltas)
+	 * - Food consumed every 3 work cycles (not every cycle)
+	 * - Diminishing returns applied per worker type
+	 * - Specialization bonuses applied to production
 	 */
 	performWorkerWork(workerType, workerData) {
 		const gameData = this.gameState.getState();
@@ -167,37 +191,49 @@ export class WorkerManager {
 			return;
 		}
 
-		// Determine food status for this worker group and consume proportionally
-		const baseConsumptionPerWorker = config.gameVariables?.workerFoodConsumption || 1;
-		const requiredFood = workerCount * baseConsumptionPerWorker;
-		const availableFood = this.gameState.getResource('cookedMeat');
+		// track work cycles for food consumption pacing
+		if (!this.workCycleCounts[workerType]) this.workCycleCounts[workerType] = 0;
+		this.workCycleCounts[workerType]++;
 
+		const foodInterval = config.gameVariables?.workerFoodCycleInterval || 3;
+		const shouldConsumeFood = this.workCycleCounts[workerType] % foodInterval === 0;
+
+		// determine food resource based on era
+		const eraOrder = ['paleolithic', 'neolithic', 'bronze', 'iron', 'classical',
+			'medieval', 'renaissance', 'industrial', 'information', 'space', 'galactic', 'universal'];
+		const currentEra = this.gameState.data.currentEra;
+		const eraIdx = eraOrder.indexOf(currentEra);
+		const foodResource = eraIdx >= 1 ? 'grain' : 'cookedMeat';
+
+		// determine food status
 		let status = 'wellFed';
 		let efficiency = 1.0;
-		if (requiredFood <= 0) {
-			status = 'wellFed';
-			efficiency = 1.0;
-		} else if (availableFood >= requiredFood) {
-			// Fully fed
-			this.gameState.addResource('cookedMeat', -requiredFood);
-			status = 'wellFed';
-			efficiency = this.getWorkerEfficiency('wellFed');
-		} else if (availableFood > 0) {
-			// Partially fed -> hungry
-			this.gameState.addResource('cookedMeat', -availableFood);
-			status = 'hungry';
-			efficiency = this.getWorkerEfficiency('hungry');
+
+		if (shouldConsumeFood) {
+			const baseConsumption = config.gameVariables?.workerFoodConsumption || 1;
+			const requiredFood = workerCount * baseConsumption;
+			const availableFood = this.gameState.getResource(foodResource);
+
+			if (availableFood >= requiredFood) {
+				this.gameState.addResource(foodResource, -requiredFood);
+				status = 'wellFed';
+			} else if (availableFood > 0) {
+				this.gameState.addResource(foodResource, -availableFood);
+				status = 'hungry';
+			} else {
+				status = 'starving';
+			}
 		} else {
-			// No food -> starving
-			status = 'starving';
-			efficiency = this.getWorkerEfficiency('starving');
+			// between food cycles, maintain last known status
+			status = this.lastFoodStatusByWorker[workerType] || 'wellFed';
 		}
+
+		efficiency = this.getWorkerEfficiency(status);
 		this.lastFoodStatusByWorker[workerType] = status;
 
-		// If worker needs input resources (e.g., cooks), check availability per worker
-		let workersAbleToWork = 0;
+		// check input resource availability (e.g., cooks need meat)
+		let workersAbleToWork = workerCount;
 		if (workerData.consumes) {
-			// Determine how many workers can be fully supplied
 			let maxWorkersByInput = Infinity;
 			for (const [resource, perWorkerAmount] of Object.entries(workerData.consumes)) {
 				const available = this.gameState.getResource(resource);
@@ -206,23 +242,30 @@ export class WorkerManager {
 			}
 			workersAbleToWork = Math.max(0, Math.min(workerCount, maxWorkersByInput));
 
-			// Consume inputs for those workers
 			for (const [resource, perWorkerAmount] of Object.entries(workerData.consumes)) {
 				const totalConsume = workersAbleToWork * perWorkerAmount;
 				if (totalConsume > 0) this.gameState.addResource(resource, -totalConsume);
 			}
-		} else {
-			workersAbleToWork = workerCount;
 		}
 
-		if (workersAbleToWork <= 0 || !workerData.produces) {
-			return;
-		}
+		if (workersAbleToWork <= 0 || !workerData.produces) return;
 
-		// Compute total production with efficiency and prestige multiplier
+		// compute total production with:
+		// - food efficiency
+		// - diminishing returns
+		// - prestige multiplier
+		// - specialization bonuses
+		// - grain perk bonus
 		const prestigeMult = this.gameManager?.systems?.prestigeManager?.getMultiplier() || 1;
+		const diminishFactor = this.getDiminishingReturnsFactor(workerType);
+		const grainMult = this.gameManager?.systems?.prestigeManager?.getGrainMultiplier() || 1;
+
 		for (const [resource, basePerWorker] of Object.entries(workerData.produces)) {
-			const total = basePerWorker * workersAbleToWork * efficiency * prestigeMult;
+			let specMult = this.gameManager?.getSpecializationMultiplier(resource) || 1;
+			let resourceMult = 1.0;
+			if (resource === 'grain') resourceMult *= grainMult;
+
+			const total = basePerWorker * workersAbleToWork * efficiency * diminishFactor * prestigeMult * specMult * resourceMult;
 			const prevRemainder = this.productionRemainders[resource] || 0;
 			const combined = prevRemainder + total;
 			const whole = Math.floor(combined);
@@ -233,25 +276,17 @@ export class WorkerManager {
 				this.gameState.addResource(resource, whole);
 			}
 		}
-
-		// Suppress per-tick notifications; UI deltas will reflect changes once per second
 	}
 
-	/** Get last known food status for a worker type (for UI badges) */
 	getFoodStatus(workerType) {
 		return this.lastFoodStatusByWorker[workerType] || 'wellFed';
 	}
 
-	/**
-	 * Start all worker automations for current era
-	 */
 	startAllWorkerAutomations() {
 		const gameData = this.gameState.getState();
 		const currentEraData = this.getCurrentEraData();
-
 		if (!currentEraData || !currentEraData.workers) return;
 
-		// Start automation for all workers that have been hired
 		currentEraData.workers.forEach((workerData) => {
 			const workerCount = gameData.workers[workerData.id] || 0;
 			if (workerCount > 0) {
@@ -260,9 +295,6 @@ export class WorkerManager {
 		});
 	}
 
-	/**
-	 * Stop all worker automation
-	 */
 	stopAllWorkers() {
 		for (const intervalId of this.workerIntervals.values()) {
 			clearInterval(intervalId);
@@ -270,9 +302,6 @@ export class WorkerManager {
 		this.workerIntervals.clear();
 	}
 
-	/**
-	 * Restart automation for all active workers
-	 */
 	restartAllWorkers() {
 		const gameData = this.gameState.getState();
 
@@ -282,67 +311,46 @@ export class WorkerManager {
 		}
 
 		const currentEraData = this.gameManager.getCurrentEraData();
-		if (!currentEraData || !currentEraData.workers) {
-			return;
-		}
+		if (!currentEraData || !currentEraData.workers) return;
 
-		// Stop all existing automation first
 		this.stopAllWorkers();
 
-		// Restart automation for each worker type that has active workers
 		Object.entries(gameData.workers).forEach(([workerType, count]) => {
 			if (count > 0) {
-				const workerData = currentEraData.workers.find(
-					(w) => w.id === workerType
-				);
+				const workerData = currentEraData.workers.find((w) => w.id === workerType);
 				if (workerData) {
 					this.startWorkerAutomation(workerType, workerData);
 				}
 			}
 		});
-
 	}
 
-	/**
-	 * Get current era data (helper method)
-	 */
 	getCurrentEraData() {
-		// Get era data from GameManager if available
 		if (this.gameManager && this.gameManager.getCurrentEraData) {
 			return this.gameManager.getCurrentEraData();
 		}
-
-		// Fallback to config if GameManager not available yet
 		const gameData = this.gameState.getState();
 		const currentEra = gameData.currentEra;
 		return config.eraData?.[currentEra] || config.eraData?.paleolithic || null;
 	}
 
-
-	/**
-	 * Get worker efficiency based on food status
-	 */
 	getWorkerEfficiency(foodStatus = 'wellFed') {
 		const efficiencyRates = config.balance?.workerEfficiency;
 		if (!efficiencyRates) return 1.0;
-
 		return efficiencyRates[foodStatus] || 1.0;
 	}
 
-	/**
-	 * Get detailed worker information for UI
-	 */
 	getWorkerInfo(workerType) {
 		if (!this.gameManager) return null;
 
 		const currentEraData = this.gameManager.getCurrentEraData();
-		const workerData = currentEraData?.workers?.find(
-			(w) => w.id === workerType
-		);
+		const workerData = currentEraData?.workers?.find((w) => w.id === workerType);
 		const gameData = this.gameState.getState();
 		const count = gameData.workers[workerType] || 0;
 
 		if (!workerData) return null;
+
+		const diminishPct = Math.round(this.getDiminishingReturnsFactor(workerType) * 100);
 
 		return {
 			...workerData,
@@ -354,12 +362,11 @@ export class WorkerManager {
 			requirementMet:
 				!workerData.requiresUpgrade ||
 				gameData.upgrades[workerData.requiresUpgrade],
+			efficiencyPct: diminishPct,
+			foodStatus: this.getFoodStatus(workerType),
 		};
 	}
 
-	/**
-	 * Cleanup all worker systems
-	 */
 	destroy() {
 		this.stopAllWorkers();
 	}

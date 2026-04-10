@@ -728,7 +728,7 @@ export const config = {
       timespan: "10K - 3.3K BCE",
       description:
         "The New Stone Age - the Agricultural Revolution begins with farming and permanent settlements.",
-      advancementCost: { population: 40, grain: 40, clay: 20, pottery: 15, textiles: 10, tools: 10 },
+      advancementCost: { population: 40, grain: 40, pottery: 15, textiles: 10, tools: 10 },
       workers: [
         {
           id: "farmer",
@@ -744,8 +744,8 @@ export const config = {
           name: "Potter",
           description:
             "Creates clay vessels for storage and cooking, essential for agricultural society.",
-          cost: { clay: 20, grain: 10 },
-          produces: { pottery: 2, tools: 0.3 },
+          cost: { clay: 10, grain: 10 },
+          produces: { pottery: 2, clay: 1, tools: 0.3 },
           interval: 6000,
           requiresUpgrade: "pottery",
         },
@@ -765,7 +765,7 @@ export const config = {
           id: "agriculture",
           name: "Agriculture",
           description: "Develop systematic farming techniques to grow crops",
-          cost: { grain: 50, tools: 20 },
+          cost: { grain: 30, tools: 10 },
           effect: "Unlocks farming and greatly increases food production",
           priority: 1,
           historical:
@@ -775,7 +775,7 @@ export const config = {
           id: "pottery",
           name: "Pottery Making",
           description: "Master the art of shaping and firing clay vessels",
-          cost: { clay: 30, tools: 15 },
+          cost: { clay: 20, tools: 8 },
           effect: "Unlocks pottery production and food storage",
           priority: 2,
           historical:
@@ -785,7 +785,7 @@ export const config = {
           id: "animalDomestication",
           name: "Animal Domestication",
           description: "Tame wild animals for food, labor, and materials",
-          cost: { grain: 40, livestock: 10, pottery: 20 },
+          cost: { grain: 30, livestock: 5, pottery: 10 },
           effect: "Unlocks livestock production and increases meat yield",
           priority: 3,
           historical:
@@ -795,7 +795,7 @@ export const config = {
           id: "weaving",
           name: "Textile Weaving",
           description: "Create cloth from plant and animal fibers",
-          cost: { textiles: 25, tools: 18, livestock: 5 },
+          cost: { textiles: 8, tools: 10, livestock: 3 },
           effect: "Improves clothing and trade opportunities",
           priority: 4,
           historical:
@@ -810,7 +810,7 @@ export const config = {
       timespan: "3300 - 1200 BCE",
       description:
         "First metal working civilizations emerge with bronze tools revolutionizing society.",
-      advancementCost: { population: 150, copper: 30, tin: 20, bronze: 50, writing: 15, trade: 30 },
+      advancementCost: { population: 150, bronze: 50, writing: 15, trade: 30 },
       workers: [
         {
           id: "metalworker",
@@ -984,7 +984,7 @@ export const config = {
       timespan: "600 BCE - 500 CE",
       description:
         "Greece and Rome bring philosophy, mathematics, medicine, and large-scale engineering.",
-      advancementCost: { population: 1500, engineering: 50, stones: 40, aqueducts: 30, knowledge: 40, medicine: 20, art: 15 },
+      advancementCost: { population: 1500, engineering: 50, aqueducts: 30, knowledge: 40, medicine: 20, philosophy: 15 },
       workers: [
         {
           id: "architect",
@@ -1065,7 +1065,7 @@ export const config = {
       timespan: "500 - 1500 CE",
       description:
         "Feudalism, mills, guilds, manuscript culture, and castles define a millennium.",
-      advancementCost: { population: 5000, agriculture: 60, stones: 50, manuscripts: 40, guilds: 30, castles: 25, religion: 20 },
+      advancementCost: { population: 5000, agriculture: 60, manuscripts: 40, guilds: 30, religion: 20 },
       workers: [
         {
           id: "miller",
@@ -1145,7 +1145,7 @@ export const config = {
       timespan: "1300 - 1600 CE",
       description:
         "A rebirth of learning brings printing, banking, navigation, and scientific inquiry.",
-      advancementCost: { population: 15000, printing: 80, wood: 60, banking: 50, gunpowder: 40, optics: 30, navigation: 25, ships: 20 },
+      advancementCost: { population: 15000, printing: 80, banking: 50, exploration: 40, navigation: 25, trade: 30 },
       workers: [
         {
           id: "printer",
@@ -1225,7 +1225,7 @@ export const config = {
       timespan: "1760 - 1840",
       description:
         "The Industrial Revolution transforms society with steam power and mass production.",
-      advancementCost: { population: 50000, coal: 200, factories: 150, railways: 80, electricity: 60, telegraph: 40 },
+      advancementCost: { population: 50000, factories: 150, electricity: 60, steam: 80 },
       workers: [
         {
           id: "factoryWorker",
@@ -1285,7 +1285,7 @@ export const config = {
       timespan: "1950 - 2020",
       description:
         "The Digital Revolution brings computers, internet, and global connectivity.",
-      advancementCost: { population: 150000, silicon: 300, electricity: 150, computers: 200, servers: 150, data: 80, internet: 60, software: 40 },
+      advancementCost: { population: 150000, computers: 200, data: 80, internet: 60, software: 40 },
       workers: [
         {
           id: "programmer",
@@ -1353,7 +1353,7 @@ export const config = {
       timespan: "1957 - 2100",
       description:
         "Humanity reaches beyond Earth with rockets, orbital stations, and fusion research.",
-      advancementCost: { population: 500000, rockets: 400, solarPanels: 250, spaceStations: 150, fusion: 80, terraforming: 50 },
+      advancementCost: { population: 500000, rockets: 400, spaceStations: 150, fusion: 80, robotics: 100 },
       workers: [
         {
           id: "astronaut",
@@ -1431,7 +1431,7 @@ export const config = {
       timespan: "2100+",
       description:
         "Interstellar civilization with Dyson swarms, quantum computing, and antimatter power.",
-      advancementCost: { population: 2000000, antimatter: 500, darkMatter: 300, dysonSpheres: 20, quantumComputers: 30, wormholes: 15, megastructures: 10 },
+      advancementCost: { population: 2000000, antimatter: 500, darkMatter: 300, dysonSpheres: 20, quantumComputers: 30, wormholes: 15 },
       workers: [
         {
           id: "dysonBuilder",
