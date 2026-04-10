@@ -60,6 +60,17 @@ export class UIManager {
 			importButton: document.getElementById('import-button'),
 			resetButton: document.getElementById('reset-button'),
 
+			// Achievements
+			achievementsContainer: document.getElementById('achievements-container'),
+			achievementCount: document.getElementById('achievement-count'),
+
+			// Prestige
+			prestigeEP: document.getElementById('prestige-ep'),
+			prestigeMultiplier: document.getElementById('prestige-multiplier'),
+			prestigeResets: document.getElementById('prestige-resets'),
+			prestigeGain: document.getElementById('prestige-gain'),
+			prestigeButton: document.getElementById('prestige-button'),
+
 			// Notifications
 			notificationContainer: document.getElementById('notification-container'),
 		};
@@ -158,6 +169,11 @@ export class UIManager {
 			this.elements.resetButton.addEventListener('click', () => this.gameManager.resetGame());
 		}
 
+		// Prestige
+		if (this.elements.prestigeButton) {
+			this.elements.prestigeButton.addEventListener('click', () => this.gameManager.performPrestige());
+		}
+
 		// Log toggle
 		if (this.elements.logToggle) {
 			this.elements.logToggle.addEventListener('click', () => {
@@ -192,6 +208,8 @@ export class UIManager {
 		this.updateWorkers();
 		this.updateUpgrades();
 		this.updateEraProgression();
+		this.updateAchievements();
+		this.updatePrestige();
 	}
 
 	/**
@@ -566,6 +584,67 @@ export class UIManager {
     `;
 
 		this.elements.disasterLog.prepend(logEntry);
+	}
+
+	/**
+	 * Update achievements display
+	 */
+	updateAchievements() {
+		const am = this.gameManager.systems.achievementManager;
+		if (!am || !this.elements.achievementsContainer) return;
+
+		const all = am.getAllAchievements();
+
+		if (this.elements.achievementCount) {
+			this.elements.achievementCount.textContent = `${am.getUnlockedCount()} / ${am.getTotalCount()}`;
+		}
+
+		this.elements.achievementsContainer.innerHTML = all
+			.map((a) => `
+				<div class="col">
+					<div class="d-flex align-items-center gap-2 p-2 rounded ${a.unlocked ? 'bg-dark border border-success' : 'bg-dark border border-secondary opacity-50'}">
+						<span class="fs-5">${a.unlocked ? a.icon : '🔒'}</span>
+						<div>
+							<div class="small fw-semibold">${a.unlocked ? a.name : '???'}</div>
+							<div class="small text-secondary">${a.unlocked ? a.description : 'Locked'}</div>
+						</div>
+					</div>
+				</div>
+			`)
+			.join('');
+	}
+
+	/**
+	 * Update prestige panel
+	 */
+	updatePrestige() {
+		const pm = this.gameManager.systems.prestigeManager;
+		if (!pm) return;
+
+		const prestige = pm.getPrestigeData();
+		const canPrestige = pm.canPrestige();
+		const epGain = pm.calculateEPGain();
+
+		if (this.elements.prestigeEP) {
+			this.elements.prestigeEP.textContent = prestige.evolutionPoints;
+		}
+		if (this.elements.prestigeMultiplier) {
+			this.elements.prestigeMultiplier.textContent = pm.getMultiplier().toFixed(2) + 'x';
+		}
+		if (this.elements.prestigeResets) {
+			this.elements.prestigeResets.textContent = prestige.totalResets;
+		}
+		if (this.elements.prestigeGain) {
+			this.elements.prestigeGain.textContent = `+${epGain}`;
+		}
+		if (this.elements.prestigeButton) {
+			this.elements.prestigeButton.disabled = !canPrestige;
+			this.elements.prestigeButton.textContent = canPrestige
+				? `Prestige (+${epGain} EP)`
+				: 'Prestige (reach Neolithic)';
+			this.elements.prestigeButton.classList.toggle('btn-primary', canPrestige);
+			this.elements.prestigeButton.classList.toggle('btn-ghost', !canPrestige);
+		}
 	}
 
 }

@@ -9,6 +9,8 @@ import { UIManager } from './systems/UIManager.js';
 import { WorkerManager } from './systems/WorkerManager.js';
 import { EventManager } from './systems/EventManager.js';
 import { OfflineManager } from './systems/OfflineManager.js';
+import { AchievementManager } from './systems/AchievementManager.js';
+import { PrestigeManager } from './systems/PrestigeManager.js';
 import { config } from './core/config.js';
 
 export class GameManager {
@@ -86,6 +88,8 @@ export class GameManager {
 		this.systems.eventManager = new EventManager(this.gameState);
 
 		this.systems.offlineManager = new OfflineManager(this.gameState);
+		this.systems.achievementManager = new AchievementManager(this.gameState);
+		this.systems.prestigeManager = new PrestigeManager(this.gameState);
 
 		// Initialize UI manager last (depends on other systems)
 		this.systems.uiManager = new UIManager(this.gameState, this);
@@ -100,8 +104,12 @@ export class GameManager {
 		this.systems.workerManager.setUIManager(this.systems.uiManager);
 		this.systems.eventManager.setUIManager(this.systems.uiManager);
 
-		// Connect worker manager to game manager for era data
+		// Connect managers to game manager for era data / prestige
 		this.systems.workerManager.setGameManager(this);
+		this.systems.resourceManager.setGameManager(this);
+
+		// Connect achievement manager to UI
+		this.systems.achievementManager.setUIManager(this.systems.uiManager);
 	}
 
 	/**
@@ -179,6 +187,10 @@ export class GameManager {
 
 		if (this.systems.workerManager) {
 			this.systems.workerManager.update(deltaTime);
+		}
+
+		if (this.systems.achievementManager) {
+			this.systems.achievementManager.update(deltaTime);
 		}
 
 		// Update UI periodically (every 1 second)
@@ -501,6 +513,35 @@ export class GameManager {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Perform prestige reset
+	 */
+	performPrestige() {
+		const pm = this.systems.prestigeManager;
+		if (!pm.canPrestige()) {
+			this.systems.uiManager?.showNotification('Reach at least the Neolithic Era to prestige', 'warning');
+			return;
+		}
+
+		const epGain = pm.calculateEPGain();
+		if (!confirm(`Prestige for ${epGain} Evolution Points? All resources, workers, and upgrades will be reset.`)) {
+			return;
+		}
+
+		// Stop all workers before reset
+		this.systems.workerManager.stopAllWorkers();
+
+		const earned = pm.prestige();
+
+		this.systems.uiManager?.showNotification(
+			`Prestiged! Earned ${earned} Evolution Points. Production multiplier: ${pm.getMultiplier().toFixed(2)}x`,
+			'success',
+			6000
+		);
+
+		this.updateUI();
 	}
 
 	/**

@@ -12,6 +12,7 @@ export class ResourceManager {
 	constructor(gameState) {
 		this.gameState = gameState;
 		this.uiManager = null;
+		this.gameManager = null;
 	}
 
 	/**
@@ -22,14 +23,29 @@ export class ResourceManager {
 	}
 
 	/**
+	 * Set Game Manager reference (for prestige multiplier)
+	 */
+	setGameManager(gameManager) {
+		this.gameManager = gameManager;
+	}
+
+	/**
+	 * Get prestige production multiplier
+	 */
+	getPrestigeMultiplier() {
+		return this.gameManager?.systems?.prestigeManager?.getMultiplier() || 1;
+	}
+
+	/**
 	 * Perform foraging action - gather sticks and occasionally stones
 	 */
 	forage() {
 		const baseYield = config.yields.forageYield;
 		const stickMultiplier = this.gameState.getEfficiencyMultiplier('sticks');
-		
+		const prestigeMult = this.getPrestigeMultiplier();
+
 		// Calculate stick yield
-		const stickYield = Math.max(1, Math.floor(baseYield * stickMultiplier));
+		const stickYield = Math.max(1, Math.floor(baseYield * stickMultiplier * prestigeMult));
 		this.gameState.addResource('sticks', stickYield);
 		
 		// Chance for stones
@@ -58,9 +74,10 @@ export class ResourceManager {
 		
 		const baseYield = config.yields.huntYield;
 		const meatMultiplier = this.gameState.getEfficiencyMultiplier('meat');
-		
+		const prestigeMult = this.getPrestigeMultiplier();
+
 		// Calculate yields
-		const meatYield = Math.max(1, Math.floor(baseYield * meatMultiplier));
+		const meatYield = Math.max(1, Math.floor(baseYield * meatMultiplier * prestigeMult));
 		const boneYield = Math.random() < 0.6 ? 1 : 0;
 		const furYield = Math.random() < config.probabilities.furDropChance ? 1 : 0;
 		

@@ -462,6 +462,10 @@ export class GameState {
 			this.data.resources = { ...initial.resources, ...(parsedData.resources || {}) };
 			this.data.workers = { ...initial.workers, ...(parsedData.workers || {}) };
 			this.data.upgrades = { ...initial.upgrades, ...(parsedData.upgrades || {}) };
+			this.data.progression = { ...initial.progression, ...(parsedData.progression || {}) };
+			if (parsedData.prestige) {
+				this.data.prestige = { ...parsedData.prestige };
+			}
 
 			// Migrate legacy save structures to current model
 			this.migrateLegacySave(parsedData);

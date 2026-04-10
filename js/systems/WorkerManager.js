@@ -219,9 +219,10 @@ export class WorkerManager {
 			return;
 		}
 
-		// Compute total production with efficiency (not floored); accumulate fractional parts
+		// Compute total production with efficiency and prestige multiplier
+		const prestigeMult = this.gameManager?.systems?.prestigeManager?.getMultiplier() || 1;
 		for (const [resource, basePerWorker] of Object.entries(workerData.produces)) {
-			const total = basePerWorker * workersAbleToWork * efficiency;
+			const total = basePerWorker * workersAbleToWork * efficiency * prestigeMult;
 			const prevRemainder = this.productionRemainders[resource] || 0;
 			const combined = prevRemainder + total;
 			const whole = Math.floor(combined);
