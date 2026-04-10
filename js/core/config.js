@@ -154,154 +154,6 @@ export const config = {
         }
     },
 
-// Core resources active per era (keeps gameplay focused and not bloated)
-    activeResourcesByEra: {
-        paleolithic: ['sticks', 'stones', 'meat', 'cookedMeat', 'bones', 'fur', 'population'],
-        neolithic: ['grain', 'clay', 'pottery', 'livestock', 'textiles', 'tools', 'population'],
-        bronze: ['copper', 'tin', 'bronze', 'wheel', 'writing', 'trade', 'population'],
-        iron: ['iron', 'steel', 'coins', 'roads', 'cities', 'knowledge', 'population'],
-        classical: ['engineering', 'aqueducts', 'philosophy', 'mathematics', 'medicine', 'art', 'population'],
-        medieval: ['agriculture', 'mills', 'guilds', 'manuscripts', 'castles', 'religion', 'population'],
-        renaissance: ['printing', 'exploration', 'banking', 'gunpowder', 'optics', 'navigation', 'population'],
-        industrial: ['coal', 'steam', 'factories', 'railways', 'electricity', 'steel', 'population'],
-        information: ['silicon', 'computers', 'data', 'internet', 'satellites', 'software', 'population'],
-        space: ['rockets', 'solarPanels', 'robotics', 'fusion', 'spaceStations', 'terraforming', 'population'],
-        galactic: ['antimatter', 'darkMatter', 'wormholes', 'dysonSpheres', 'quantumComputers', 'timeManipulation', 'population'],
-        universal: ['multiverseAccess', 'realityEngines', 'consciousnessTransfer', 'universalConstants', 'existentialEnergy', 'cosmicStrings', 'population']
-    },
-
-// Simple tech tree per era (3–5 techs each, clear unlocks and small multipliers)
-    techTree: {
-        paleolithic: [
-            { key: 'fireControl', name: 'Fire Control', cost: { sticks: 15, stones: 5 }, effects: { unlocks: ['cookedMeat', 'cooking'], multipliers: { meat: 1.1 } } },
-            { key: 'stoneKnapping', name: 'Stone Knapping', cost: { stones: 10, sticks: 10 }, effects: { multipliers: { sticks: 1.2, stones: 1.3, meat: 1.2 } } },
-            { key: 'clothing', name: 'Clothing', cost: { fur: 5, bones: 3 }, effects: { multipliers: { population: 1.05 }, workerBonus: { hunting: 0.1 } } },
-            { key: 'boneTools', name: 'Bone Tools', cost: { bones: 8, stones: 6 }, effects: { multipliers: { sticks: 1.5, stones: 1.5, meat: 1.5 } } }
-        ],
-        neolithic: [
-            { key: 'agriculture', name: 'Agriculture', cost: { tools: 5, grain: 20 }, effects: { multipliers: { grain: 2.0, population: 1.05 }, unlocks: ['farmer'] } },
-            { key: 'animalDomestication', name: 'Animal Domestication', cost: { grain: 10 }, effects: { multipliers: { livestock: 1.5, meat: 1.2 } } },
-            { key: 'pottery', name: 'Pottery', cost: { clay: 15 }, effects: { unlocks: ['potteryRecipe', 'kiln'], multipliers: { grain: 1.2 } } },
-            { key: 'weaving', name: 'Weaving', cost: { textiles: 10 }, effects: { multipliers: { textiles: 1.6 } } }
-        ],
-        bronze: [
-            { key: 'copperMining', name: 'Copper Mining', cost: { tools: 8 }, effects: { multipliers: { copper: 1.6 } } },
-            { key: 'tinMining', name: 'Tin Mining', cost: { tools: 6 }, effects: { multipliers: { tin: 1.6 } } },
-            { key: 'alloying', name: 'Alloying (Bronze)', cost: { copper: 10, tin: 5 }, effects: { unlocks: ['bronzeRecipe', 'smithWorkshop'], multipliers: { bronze: 2.0 } } },
-            { key: 'theWheel', name: 'The Wheel', cost: { wood: 0, stones: 10 }, effects: { unlocks: ['wheel'], multipliers: { trade: 1.3 } } },
-            { key: 'writingSystems', name: 'Writing Systems', cost: { pottery: 8 }, effects: { multipliers: { knowledge: 1.3, writing: 1.5 }, unlocks: ['scribe'] } }
-        ],
-        iron: [
-            { key: 'ironSmelting', name: 'Iron Smelting', cost: { bronze: 10, coal: 6 }, effects: { multipliers: { iron: 2.0 } } },
-            { key: 'bloomery', name: 'Bloomery Furnaces', cost: { iron: 10 }, effects: { multipliers: { iron: 1.5, tools: 1.2 }, unlocks: ['steelRecipe'] } },
-            { key: 'coinage', name: 'Coinage', cost: { bronze: 12 }, effects: { multipliers: { trade: 1.4, coins: 1.6 } } },
-            { key: 'roadBuilding', name: 'Road Building', cost: { stones: 20 }, effects: { unlocks: ['roads'], multipliers: { trade: 1.2, cities: 1.1 } } }
-        ],
-        classical: [
-            { key: 'civilEngineering', name: 'Civil Engineering', cost: { iron: 12, coins: 10 }, effects: { unlocks: ['aqueducts'], multipliers: { cities: 1.2, engineering: 1.5 } } },
-            { key: 'philosophySchools', name: 'Philosophy Schools', cost: { writing: 10 }, effects: { multipliers: { knowledge: 1.4, philosophy: 1.5 } } },
-            { key: 'mathematics', name: 'Mathematics', cost: { writing: 12 }, effects: { multipliers: { engineering: 1.2, mathematics: 1.7 } } },
-            { key: 'medicine', name: 'Medicine', cost: { manuscripts: 6 }, effects: { multipliers: { population: 1.05, medicine: 1.5 } } }
-        ],
-        medieval: [
-            { key: 'heavyPlow', name: 'Heavy Plow', cost: { iron: 8, wood: 0 }, effects: { multipliers: { agriculture: 1.6, grain: 1.3 } } },
-            { key: 'watermills', name: 'Water/Wind Mills', cost: { stones: 15, wood: 0 }, effects: { unlocks: ['mill'], multipliers: { mills: 1.8 } } },
-            { key: 'guildSystem', name: 'Guild System', cost: { coins: 12 }, effects: { multipliers: { guilds: 1.5, trade: 1.2 } } },
-            { key: 'scriptoria', name: 'Scriptoria', cost: { manuscripts: 8 }, effects: { multipliers: { manuscripts: 1.8, knowledge: 1.2 } } }
-        ],
-        renaissance: [
-            { key: 'printingPress', name: 'Printing Press', cost: { manuscripts: 12 }, effects: { unlocks: ['printingHouse'], multipliers: { printing: 2.0, knowledge: 1.3 } } },
-            { key: 'navigation', name: 'Navigation', cost: { maps: 0 }, effects: { multipliers: { exploration: 1.5, trade: 1.2, navigation: 1.4 } } },
-            { key: 'banking', name: 'Banking', cost: { coins: 20 }, effects: { multipliers: { banking: 1.6, trade: 1.3 } } },
-            { key: 'optics', name: 'Optics', cost: { glass: 0 }, effects: { multipliers: { optics: 1.7, knowledge: 1.2 } } },
-            { key: 'gunpowder', name: 'Gunpowder', cost: { saltpeter: 0 }, effects: { multipliers: { gunpowder: 1.5, defense: 1.2 } } }
-        ],
-        industrial: [
-            { key: 'steamEngine', name: 'Steam Engine', cost: { coal: 20, iron: 12 }, effects: { unlocks: ['workshop', 'railways'], multipliers: { steam: 2.0, factories: 1.3 } } },
-            { key: 'electrification', name: 'Electrification', cost: { coal: 10, copper: 8 }, effects: { multipliers: { electricity: 1.8, factories: 1.2 } } },
-            { key: 'bessemer', name: 'Bessemer Steel', cost: { coal: 10, iron: 20 }, effects: { multipliers: { steel: 2.2, railways: 1.2 } } }
-        ],
-        information: [
-            { key: 'siliconProcessing', name: 'Silicon Processing', cost: { steel: 8, electricity: 15 }, effects: { multipliers: { silicon: 1.8 } } },
-            { key: 'microprocessor', name: 'Microprocessor', cost: { silicon: 20 }, effects: { multipliers: { computers: 2.0, data: 1.3 }, unlocks: ['scholar'] } },
-            { key: 'networking', name: 'Networking', cost: { computers: 10 }, effects: { multipliers: { internet: 2.0, data: 1.5 } } },
-            { key: 'softwareEngineering', name: 'Software Engineering', cost: { data: 20 }, effects: { multipliers: { software: 2.0 } } },
-            { key: 'satellites', name: 'Satellites', cost: { steel: 10, electricity: 10 }, effects: { multipliers: { satellites: 1.8, internet: 1.1 } } }
-        ],
-        space: [
-            { key: 'rocketry', name: 'Rocketry', cost: { steel: 20, computers: 10 }, effects: { unlocks: ['launchPad'], multipliers: { rockets: 2.0 } } },
-            { key: 'orbitalHab', name: 'Orbital Habitation', cost: { rockets: 10, satellites: 10 }, effects: { unlocks: ['spaceStations'], multipliers: { spaceStations: 1.7 } } },
-            { key: 'fusionResearch', name: 'Fusion Research', cost: { computers: 20, electricity: 20 }, effects: { multipliers: { fusion: 1.8, solarPanels: 1.2 } } },
-            { key: 'spaceRobotics', name: 'Space Robotics', cost: { robotics: 10 }, effects: { multipliers: { robotics: 2.0, rockets: 1.1 } } }
-        ],
-        galactic: [
-            { key: 'dysonSwarm', name: 'Dyson Swarm', cost: { robotics: 20, solarPanels: 30 }, effects: { multipliers: { dysonSpheres: 2.0, electricity: 1.5 } } },
-            { key: 'quantumComputing', name: 'Quantum Computing', cost: { computers: 30, satellites: 20 }, effects: { multipliers: { quantumComputers: 2.0, data: 1.5 } } },
-            { key: 'wormholeTheory', name: 'Wormhole Theory', cost: { quantumComputers: 10 }, effects: { multipliers: { wormholes: 1.8 } } },
-            { key: 'antimatterContainment', name: 'Antimatter Containment', cost: { fusion: 20 }, effects: { multipliers: { antimatter: 2.0 } } }
-        ],
-        universal: [
-            { key: 'realityEngineering', name: 'Reality Engineering', cost: { quantumComputers: 20, antimatter: 20 }, effects: { multipliers: { realityEngines: 2.0 } } },
-            { key: 'multiversalPhysics', name: 'Multiversal Physics', cost: { wormholes: 15 }, effects: { multipliers: { multiverseAccess: 1.8, universalConstants: 1.3 } } },
-            { key: 'consciousnessTransfer', name: 'Consciousness Transfer', cost: { quantumComputers: 12 }, effects: { multipliers: { consciousnessTransfer: 2.0, population: 1.02 } } }
-        ]
-    },
-
-// Minimal buildings per era (1–2), used by tech unlocks
-    buildingsByEra: {
-        paleolithic: ['campfire', 'shelter'],
-        neolithic: ['granary', 'kiln'],
-        bronze: ['smithWorkshop', 'market'],
-        iron: ['forge', 'roadNetwork'],
-        classical: ['aqueduct', 'library'],
-        medieval: ['mill', 'castle'],
-        renaissance: ['printingHouse', 'bank'],
-        industrial: ['workshop', 'factory'],
-        information: ['dataCenter', 'serverFarm'],
-        space: ['launchPad', 'orbitalDock'],
-        galactic: ['fusionReactor', 'dysonSegment'],
-        universal: ['realityEngine', 'consciousnessHub']
-    },
-
-// Workers available by era (reuses your existing timers/types)
-    workersByEra: {
-        paleolithic: ['gatherer', 'hunter', 'cook', 'craftsman'],
-        neolithic: ['gatherer', 'hunter', 'cook', 'craftsman', 'farmer'],
-        bronze: ['gatherer', 'hunter', 'craftsman', 'farmer', 'miner'],
-        iron: ['farmer', 'miner', 'engineer'],
-        classical: ['farmer', 'miner', 'engineer', 'scholar'],
-        medieval: ['farmer', 'miner', 'engineer', 'scholar'],
-        renaissance: ['farmer', 'miner', 'engineer', 'scholar'],
-        industrial: ['farmer', 'miner', 'engineer', 'scholar'],
-        information: ['farmer', 'miner', 'engineer', 'scholar'],
-        space: ['engineer', 'scholar'],
-        galactic: ['engineer', 'scholar'],
-        universal: ['engineer', 'scholar']
-    },
-
-// Simple crafting/transforms used across eras
-    crafting: {
-        cookedMeatRecipe: { inputs: { meat: 1 }, output: { cookedMeat: 1 } },
-        potteryRecipe: { inputs: { clay: 3 }, output: { pottery: 2 } },
-        bronzeRecipe: { inputs: { copper: 2, tin: 1 }, output: { bronze: 2 } },
-        steelRecipe: { inputs: { iron: 2, coal: 1 }, output: { steel: 2 } }
-    },
-
-// Progression gates: straightforward and minimal (population + key techs + small stockpile)
-    eraRequirements: {
-        paleolithic: { next: 'neolithic', require: { population: 15, techs: ['fireControl', 'stoneKnapping'], stockpile: { cookedMeat: 10 } } },
-        neolithic: { next: 'bronze', require: { population: 60, techs: ['agriculture', 'pottery', 'animalDomestication'], stockpile: { grain: 50, pottery: 10 } } },
-        bronze: { next: 'iron', require: { population: 200, techs: ['alloying', 'theWheel', 'writingSystems'], stockpile: { copper: 20, tin: 10, bronze: 20 } } },
-        iron: { next: 'classical', require: { population: 600, techs: ['ironSmelting', 'coinage', 'roadBuilding'], stockpile: { iron: 40, coins: 20 } } },
-        classical: { next: 'medieval', require: { population: 1200, techs: ['civilEngineering', 'philosophySchools', 'mathematics'], stockpile: { cities: 10 } } },
-        medieval: { next: 'renaissance', require: { population: 3000, techs: ['heavyPlow', 'watermills', 'guildSystem'], stockpile: { manuscripts: 20 } } },
-        renaissance: { next: 'industrial', require: { population: 10000, techs: ['printingPress', 'banking', 'navigation'], stockpile: { printing: 20 } } },
-        industrial: { next: 'information', require: { population: 50000, techs: ['steamEngine', 'bessemer', 'electrification'], stockpile: { steel: 50, electricity: 50 } } },
-        information: { next: 'space', require: { population: 200000, techs: ['microprocessor', 'networking', 'satellites'], stockpile: { computers: 50, data: 100 } } },
-        space: { next: 'galactic', require: { population: 1000000, techs: ['rocketry', 'orbitalHab', 'fusionResearch'], stockpile: { rockets: 20, spaceStations: 5 } } },
-        galactic: { next: 'universal', require: { population: 5000000, techs: ['dysonSwarm', 'quantumComputing', 'wormholeTheory'], stockpile: { dysonSpheres: 1 } } }
-    },
-
 // Historical events and disasters by era (trimmed and corrected placement)
     events: {
         paleolithic: [
@@ -378,7 +230,35 @@ export const config = {
         farmer: 15000,
         miner: 12000,
         scholar: 20000,
-        engineer: 25000
+        engineer: 25000,
+        potter: 6000,
+        herder: 10000,
+        metalworker: 12000,
+        scribe: 15000,
+        merchant: 10000,
+        blacksmith: 10000,
+        architect: 15000,
+        philosopher: 18000,
+        physician: 20000,
+        miller: 10000,
+        monk: 15000,
+        guildMaster: 12000,
+        printer: 8000,
+        explorer: 15000,
+        banker: 10000,
+        factoryWorker: 8000,
+        inventor: 12000,
+        programmer: 6000,
+        networkEngineer: 10000,
+        astronaut: 15000,
+        rocketEngineer: 12000,
+        fusionScientist: 18000,
+        dysonBuilder: 20000,
+        quantumResearcher: 18000,
+        antimatterEngineer: 15000,
+        realityArchitect: 20000,
+        multiverseNavigator: 15000,
+        consciousnessEngineer: 18000,
     },
 
 // Base resource yields
@@ -391,7 +271,7 @@ export const config = {
 
 // Probability values for random events
     probabilities: {
-        burnChance: 0.5,
+        burnChance: 0.3,
         stoneChanceFromSticks: 0.35, // Increased from 0.2 to 0.35 (75% increase)
         furDropChance: 0.6,
         eventChance: 0.1, // 10% per minute
@@ -466,12 +346,6 @@ export const config = {
             hungry: 0.5,
             starving: 0.1
         },
-// Legacy global progression weights (kept but superseded by eraRequirements)
-        eraProgressionRequirements: {
-            populationMultiplier: 1.5,
-            resourceDiversity: 0.7,
-            upgradeCompletion: 0.6
-        }
     },
 
 // Complete era definitions with workers, upgrades, and progression requirements
@@ -794,6 +668,231 @@ export const config = {
             ],
         },
 
+        classical: {
+            id: 'classical',
+            name: 'Classical Era',
+            timespan: '600 BCE - 500 CE',
+            description: 'Greece and Rome bring philosophy, mathematics, medicine, and large-scale engineering.',
+            advancementCost: { population: 1200, cities: 30, knowledge: 50 },
+            workers: [
+                {
+                    id: 'architect',
+                    name: 'Architect',
+                    description: 'Designs aqueducts, roads, and public buildings.',
+                    cost: { cities: 15, knowledge: 10, iron: 20 },
+                    produces: { engineering: 2, aqueducts: 0.5 },
+                    interval: 15000,
+                    requiresUpgrade: 'civilEngineering',
+                },
+                {
+                    id: 'philosopher',
+                    name: 'Philosopher',
+                    description: 'Advances knowledge through systematic inquiry.',
+                    cost: { knowledge: 20, cities: 5 },
+                    produces: { philosophy: 2, mathematics: 1, knowledge: 1 },
+                    interval: 18000,
+                    requiresUpgrade: 'philosophySchools',
+                },
+                {
+                    id: 'physician',
+                    name: 'Physician',
+                    description: 'Studies and treats disease, improving population health.',
+                    cost: { knowledge: 15, medicine: 5 },
+                    produces: { medicine: 2, population: 0.05 },
+                    interval: 20000,
+                    requiresUpgrade: 'classicalMedicine',
+                },
+            ],
+            upgrades: [
+                {
+                    id: 'civilEngineering',
+                    name: 'Civil Engineering',
+                    description: 'Plan and build large-scale infrastructure',
+                    cost: { iron: 12, coins: 10 },
+                    effect: 'Unlocks architects and aqueduct construction',
+                    priority: 1,
+                    historical: 'Roman engineering produced roads, aqueducts, and the Colosseum.',
+                },
+                {
+                    id: 'philosophySchools',
+                    name: 'Philosophy Schools',
+                    description: 'Establish centers of learning and debate',
+                    cost: { writing: 10, knowledge: 15 },
+                    effect: 'Unlocks philosophers and accelerates knowledge',
+                    priority: 2,
+                    historical: "Plato's Academy (387 BCE) was the first institution of higher learning.",
+                },
+                {
+                    id: 'classicalMedicine',
+                    name: 'Medicine',
+                    description: 'Systematic study of health and disease',
+                    cost: { knowledge: 20, philosophy: 10 },
+                    effect: 'Unlocks physicians and boosts population growth',
+                    priority: 3,
+                    historical: 'Hippocrates (460 BCE) is considered the father of medicine.',
+                },
+                {
+                    id: 'classicalMathematics',
+                    name: 'Mathematics',
+                    description: 'Develop geometry, algebra, and number theory',
+                    cost: { writing: 12, philosophy: 8 },
+                    effect: 'Improves engineering and knowledge production',
+                    priority: 4,
+                    historical: "Euclid's Elements (300 BCE) shaped mathematics for two millennia.",
+                },
+            ],
+        },
+
+        medieval: {
+            id: 'medieval',
+            name: 'Medieval Era',
+            timespan: '500 - 1500 CE',
+            description: 'Feudalism, mills, guilds, manuscript culture, and castles define a millennium.',
+            advancementCost: { population: 3000, manuscripts: 50, guilds: 30 },
+            workers: [
+                {
+                    id: 'miller',
+                    name: 'Miller',
+                    description: 'Operates water and wind mills to process grain.',
+                    cost: { agriculture: 20, mills: 5 },
+                    produces: { mills: 1, agriculture: 2 },
+                    interval: 10000,
+                    requiresUpgrade: 'watermills',
+                },
+                {
+                    id: 'monk',
+                    name: 'Monk',
+                    description: 'Copies manuscripts and preserves knowledge.',
+                    cost: { manuscripts: 10, religion: 5 },
+                    produces: { manuscripts: 2, knowledge: 1, religion: 0.5 },
+                    interval: 15000,
+                    requiresUpgrade: 'scriptoria',
+                },
+                {
+                    id: 'guildMaster',
+                    name: 'Guild Master',
+                    description: 'Organizes crafts and improves trade quality.',
+                    cost: { guilds: 10, coins: 15 },
+                    produces: { guilds: 1, trade: 2 },
+                    interval: 12000,
+                    requiresUpgrade: 'guildSystem',
+                },
+            ],
+            upgrades: [
+                {
+                    id: 'heavyPlow',
+                    name: 'Heavy Plow',
+                    description: 'Iron-tipped plows for dense soils',
+                    cost: { iron: 8, agriculture: 15 },
+                    effect: 'Greatly improves agricultural output',
+                    priority: 1,
+                    historical: 'The heavy plow (6th century) transformed Northern European farming.',
+                },
+                {
+                    id: 'watermills',
+                    name: 'Water & Wind Mills',
+                    description: 'Harness natural forces for mechanical power',
+                    cost: { stones: 15, iron: 10 },
+                    effect: 'Unlocks millers and mechanized production',
+                    priority: 2,
+                    historical: 'By 1086, England had over 6,000 water mills recorded in Domesday Book.',
+                },
+                {
+                    id: 'guildSystem',
+                    name: 'Guild System',
+                    description: 'Organize craftsmen into professional associations',
+                    cost: { coins: 12, trade: 8 },
+                    effect: 'Unlocks guild masters and improves trade',
+                    priority: 3,
+                    historical: 'Merchant guilds emerged in the 11th century across Europe.',
+                },
+                {
+                    id: 'scriptoria',
+                    name: 'Scriptoria',
+                    description: 'Establish manuscript copying workshops',
+                    cost: { manuscripts: 8, knowledge: 10 },
+                    effect: 'Unlocks monks and preserves knowledge',
+                    priority: 4,
+                    historical: 'Monastic scriptoria preserved classical texts through the Dark Ages.',
+                },
+            ],
+        },
+
+        renaissance: {
+            id: 'renaissance',
+            name: 'Renaissance',
+            timespan: '1300 - 1600 CE',
+            description: 'A rebirth of learning brings printing, banking, navigation, and scientific inquiry.',
+            advancementCost: { population: 10000, printing: 100, banking: 50 },
+            workers: [
+                {
+                    id: 'printer',
+                    name: 'Printer',
+                    description: 'Operates the printing press to mass-produce books.',
+                    cost: { printing: 20, manuscripts: 10 },
+                    produces: { printing: 3, knowledge: 1 },
+                    interval: 8000,
+                    requiresUpgrade: 'printingPress',
+                },
+                {
+                    id: 'explorer',
+                    name: 'Explorer',
+                    description: 'Charts new trade routes and discovers new lands.',
+                    cost: { navigation: 15, banking: 10 },
+                    produces: { exploration: 2, trade: 2, navigation: 0.5 },
+                    interval: 15000,
+                    requiresUpgrade: 'renaissanceNavigation',
+                },
+                {
+                    id: 'banker',
+                    name: 'Banker',
+                    description: 'Manages finances and funds expeditions.',
+                    cost: { coins: 20, banking: 5 },
+                    produces: { banking: 2, coins: 1, trade: 1 },
+                    interval: 10000,
+                    requiresUpgrade: 'renaissanceBanking',
+                },
+            ],
+            upgrades: [
+                {
+                    id: 'printingPress',
+                    name: 'Printing Press',
+                    description: 'Mechanize book production',
+                    cost: { manuscripts: 12, iron: 8 },
+                    effect: 'Unlocks printers and accelerates knowledge spread',
+                    priority: 1,
+                    historical: "Gutenberg's press (1440) revolutionized information distribution.",
+                },
+                {
+                    id: 'renaissanceNavigation',
+                    name: 'Navigation',
+                    description: 'Develop tools and techniques for ocean voyages',
+                    cost: { optics: 10, printing: 8 },
+                    effect: 'Unlocks explorers and new trade routes',
+                    priority: 2,
+                    historical: "The Age of Discovery (15th century) connected the world's continents.",
+                },
+                {
+                    id: 'renaissanceBanking',
+                    name: 'Banking',
+                    description: 'Create financial institutions for lending and investment',
+                    cost: { coins: 20, trade: 10 },
+                    effect: 'Unlocks bankers and trade expansion',
+                    priority: 3,
+                    historical: 'The Medici Bank (1397) pioneered modern banking.',
+                },
+                {
+                    id: 'scientificMethod',
+                    name: 'Scientific Method',
+                    description: 'Systematic observation and experimentation',
+                    cost: { printing: 15, knowledge: 20 },
+                    effect: 'Improves all knowledge production',
+                    priority: 4,
+                    historical: "Galileo and Bacon formalized the scientific method in the 1600s.",
+                },
+            ],
+        },
+
         industrial: {
             id: 'industrial',
             name: 'Industrial Age',
@@ -913,6 +1012,222 @@ export const config = {
                     effect: 'Improves software production',
                     priority: 4,
                     historical: 'Software engineering emerged as a discipline in the 1960s.',
+                },
+            ],
+        },
+
+        space: {
+            id: 'space',
+            name: 'Space Age',
+            timespan: '1957 - 2100',
+            description: 'Humanity reaches beyond Earth with rockets, orbital stations, and fusion research.',
+            advancementCost: { population: 1000000, rockets: 500, spaceStations: 50 },
+            workers: [
+                {
+                    id: 'astronaut',
+                    name: 'Astronaut',
+                    description: 'Crews orbital stations and conducts space research.',
+                    cost: { rockets: 50, spaceStations: 10 },
+                    produces: { spaceStations: 0.5, robotics: 1, fusion: 0.3 },
+                    interval: 15000,
+                    requiresUpgrade: 'orbitalHab',
+                },
+                {
+                    id: 'rocketEngineer',
+                    name: 'Rocket Engineer',
+                    description: 'Designs and builds launch vehicles.',
+                    cost: { computers: 30, steel: 50 },
+                    produces: { rockets: 2, satellites: 1 },
+                    interval: 12000,
+                    requiresUpgrade: 'rocketry',
+                },
+                {
+                    id: 'fusionScientist',
+                    name: 'Fusion Scientist',
+                    description: 'Researches controlled nuclear fusion.',
+                    cost: { computers: 40, electricity: 30 },
+                    produces: { fusion: 2, solarPanels: 1 },
+                    interval: 18000,
+                    requiresUpgrade: 'fusionResearch',
+                },
+            ],
+            upgrades: [
+                {
+                    id: 'rocketry',
+                    name: 'Rocketry',
+                    description: 'Develop reliable launch vehicles',
+                    cost: { steel: 20, computers: 10 },
+                    effect: 'Unlocks rocket engineers',
+                    priority: 1,
+                    historical: 'Sputnik (1957) launched the space age.',
+                },
+                {
+                    id: 'orbitalHab',
+                    name: 'Orbital Habitation',
+                    description: 'Build permanent stations in orbit',
+                    cost: { rockets: 10, satellites: 10 },
+                    effect: 'Unlocks astronauts and space stations',
+                    priority: 2,
+                    historical: 'Skylab (1973) and ISS (1998) proved humans can live in space.',
+                },
+                {
+                    id: 'fusionResearch',
+                    name: 'Fusion Research',
+                    description: 'Pursue clean, unlimited energy',
+                    cost: { computers: 20, electricity: 20 },
+                    effect: 'Unlocks fusion scientists',
+                    priority: 3,
+                    historical: 'ITER aims to demonstrate fusion power by the 2030s.',
+                },
+                {
+                    id: 'spaceRobotics',
+                    name: 'Space Robotics',
+                    description: 'Automate space construction and mining',
+                    cost: { robotics: 10, satellites: 5 },
+                    effect: 'Improves all space production',
+                    priority: 4,
+                    historical: 'Robotic arms on ISS and Mars rovers advanced automation.',
+                },
+            ],
+        },
+
+        galactic: {
+            id: 'galactic',
+            name: 'Galactic Era',
+            timespan: '2100+',
+            description: 'Interstellar civilization with Dyson swarms, quantum computing, and antimatter power.',
+            advancementCost: { population: 5000000, dysonSpheres: 10, quantumComputers: 50 },
+            workers: [
+                {
+                    id: 'dysonBuilder',
+                    name: 'Dyson Builder',
+                    description: 'Constructs segments of stellar energy collectors.',
+                    cost: { robotics: 30, solarPanels: 50 },
+                    produces: { dysonSpheres: 0.5, electricity: 5 },
+                    interval: 20000,
+                    requiresUpgrade: 'dysonSwarm',
+                },
+                {
+                    id: 'quantumResearcher',
+                    name: 'Quantum Researcher',
+                    description: 'Pushes the boundaries of computation and physics.',
+                    cost: { computers: 50, satellites: 20 },
+                    produces: { quantumComputers: 1, darkMatter: 0.5 },
+                    interval: 18000,
+                    requiresUpgrade: 'quantumComputing',
+                },
+                {
+                    id: 'antimatterEngineer',
+                    name: 'Antimatter Engineer',
+                    description: 'Produces and contains antimatter for energy.',
+                    cost: { fusion: 30, quantumComputers: 10 },
+                    produces: { antimatter: 1, wormholes: 0.2 },
+                    interval: 15000,
+                    requiresUpgrade: 'antimatterContainment',
+                },
+            ],
+            upgrades: [
+                {
+                    id: 'dysonSwarm',
+                    name: 'Dyson Swarm',
+                    description: 'Surround a star with energy collectors',
+                    cost: { robotics: 20, solarPanels: 30 },
+                    effect: 'Unlocks Dyson builders and massive energy',
+                    priority: 1,
+                    historical: 'Freeman Dyson proposed stellar megastructures in 1960.',
+                },
+                {
+                    id: 'quantumComputing',
+                    name: 'Quantum Computing',
+                    description: 'Harness quantum mechanics for computation',
+                    cost: { computers: 30, satellites: 20 },
+                    effect: 'Unlocks quantum researchers',
+                    priority: 2,
+                    historical: 'Quantum supremacy was first demonstrated in 2019.',
+                },
+                {
+                    id: 'wormholeTheory',
+                    name: 'Wormhole Theory',
+                    description: 'Understand spacetime shortcuts',
+                    cost: { quantumComputers: 10, darkMatter: 5 },
+                    effect: 'Enables interstellar travel research',
+                    priority: 3,
+                    historical: 'Einstein-Rosen bridges were theorized in 1935.',
+                },
+                {
+                    id: 'antimatterContainment',
+                    name: 'Antimatter Containment',
+                    description: 'Safely store and use antimatter',
+                    cost: { fusion: 20, quantumComputers: 5 },
+                    effect: 'Unlocks antimatter engineers',
+                    priority: 4,
+                    historical: 'CERN trapped antihydrogen atoms in 2010.',
+                },
+            ],
+        },
+
+        universal: {
+            id: 'universal',
+            name: 'Universal Era',
+            timespan: 'Far Future',
+            description: 'Reality manipulation, multiverse access, and consciousness transfer mark the ultimate era.',
+            advancementCost: null,
+            workers: [
+                {
+                    id: 'realityArchitect',
+                    name: 'Reality Architect',
+                    description: 'Reshapes the fabric of spacetime itself.',
+                    cost: { quantumComputers: 40, antimatter: 30 },
+                    produces: { realityEngines: 1, universalConstants: 0.5 },
+                    interval: 20000,
+                    requiresUpgrade: 'realityEngineering',
+                },
+                {
+                    id: 'multiverseNavigator',
+                    name: 'Multiverse Navigator',
+                    description: 'Traverses parallel realities for resources and knowledge.',
+                    cost: { wormholes: 20, realityEngines: 5 },
+                    produces: { multiverseAccess: 1, existentialEnergy: 1, cosmicStrings: 0.3 },
+                    interval: 15000,
+                    requiresUpgrade: 'multiversalPhysics',
+                },
+                {
+                    id: 'consciousnessEngineer',
+                    name: 'Consciousness Engineer',
+                    description: 'Transfers and expands consciousness beyond biological limits.',
+                    cost: { quantumComputers: 30, existentialEnergy: 10 },
+                    produces: { consciousnessTransfer: 1, population: 0.1 },
+                    interval: 18000,
+                    requiresUpgrade: 'consciousnessUpload',
+                },
+            ],
+            upgrades: [
+                {
+                    id: 'realityEngineering',
+                    name: 'Reality Engineering',
+                    description: 'Manipulate fundamental forces',
+                    cost: { quantumComputers: 20, antimatter: 20 },
+                    effect: 'Unlocks reality architects',
+                    priority: 1,
+                    historical: 'Theoretical endpoint of technological civilization.',
+                },
+                {
+                    id: 'multiversalPhysics',
+                    name: 'Multiversal Physics',
+                    description: 'Access parallel universes',
+                    cost: { wormholes: 15, realityEngines: 5 },
+                    effect: 'Unlocks multiverse navigators',
+                    priority: 2,
+                    historical: 'The many-worlds interpretation was proposed by Everett in 1957.',
+                },
+                {
+                    id: 'consciousnessUpload',
+                    name: 'Consciousness Transfer',
+                    description: 'Upload minds to digital substrates',
+                    cost: { quantumComputers: 12, consciousnessTransfer: 5 },
+                    effect: 'Unlocks consciousness engineers',
+                    priority: 3,
+                    historical: 'Mind uploading remains one of the grand challenges of neuroscience.',
                 },
             ],
         },

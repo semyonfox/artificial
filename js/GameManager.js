@@ -8,6 +8,7 @@ import { ResourceManager } from './systems/ResourceManager.js';
 import { UIManager } from './systems/UIManager.js';
 import { WorkerManager } from './systems/WorkerManager.js';
 import { EventManager } from './systems/EventManager.js';
+import { OfflineManager } from './systems/OfflineManager.js';
 import { config } from './core/config.js';
 
 export class GameManager {
@@ -18,7 +19,11 @@ export class GameManager {
 		this.lastUpdateTime = performance.now();
 		this.gameState = null;
 
-		console.log('GameManager created, starting initialization...');
+		// periodic task accumulators (ms)
+		this.uiUpdateAccum = 0;
+		this.eraCheckAccum = 0;
+		this.validateAccum = 0;
+
 		this.initialize();
 	}
 
@@ -27,18 +32,11 @@ export class GameManager {
 	 */
 	async initialize() {
 		try {
-			console.log('Initializing game systems...');
-
 			// Create game state first
 			this.gameState = new GameState();
 
 			// Try to load saved game
-			const loadSuccess = this.gameState.load();
-			if (loadSuccess) {
-				console.log('Loaded saved game');
-			} else {
-				console.log('Starting new game');
-			}
+			this.gameState.load();
 
 			// Initialize systems in dependency order
 			this.initializeSystems();
@@ -58,8 +56,20 @@ export class GameManager {
 			// Initial UI update
 			this.updateUI();
 
+			// Apply offline production
+			const offlineResult = this.systems.offlineManager.applyOfflineProduction(this);
+			if (offlineResult) {
+				const resourceText = Object.entries(offlineResult.produced)
+					.map(([r, amt]) => `${amt} ${r}`)
+					.join(', ');
+				this.systems.uiManager?.showNotification(
+					`Welcome back! (${offlineResult.offlineMinutes}m away) Workers produced: ${resourceText}`,
+					'success',
+					6000
+				);
+			}
+
 			this.initialized = true;
-			console.log('Game initialized successfully');
 		} catch (error) {
 			console.error('Failed to initialize game:', error);
 			throw error;
@@ -74,6 +84,8 @@ export class GameManager {
 		this.systems.resourceManager = new ResourceManager(this.gameState);
 		this.systems.workerManager = new WorkerManager(this.gameState);
 		this.systems.eventManager = new EventManager(this.gameState);
+
+		this.systems.offlineManager = new OfflineManager(this.gameState);
 
 		// Initialize UI manager last (depends on other systems)
 		this.systems.uiManager = new UIManager(this.gameState, this);
@@ -170,17 +182,23 @@ export class GameManager {
 		}
 
 		// Update UI periodically (every 1 second)
-		if (this.lastUpdateTime % 1000 < deltaTime) {
+		this.uiUpdateAccum += deltaTime;
+		if (this.uiUpdateAccum >= 1000) {
+			this.uiUpdateAccum -= 1000;
 			this.updateUI();
 		}
 
 		// Check for era advancement (every 10 seconds)
-		if (this.lastUpdateTime % 10000 < deltaTime) {
+		this.eraCheckAccum += deltaTime;
+		if (this.eraCheckAccum >= 10000) {
+			this.eraCheckAccum -= 10000;
 			this.checkEraAdvancement();
 		}
 
 		// Validate game state periodically (every 5 seconds)
-		if (this.lastUpdateTime % 5000 < deltaTime) {
+		this.validateAccum += deltaTime;
+		if (this.validateAccum >= 5000) {
+			this.validateAccum -= 5000;
 			this.gameState.validate();
 		}
 
@@ -285,8 +303,6 @@ export class GameManager {
 	 * Apply upgrade effects (side effects only; unlocking handled by GameState)
 	 */
 	applyUpgradeEffect(upgrade) {
-		console.log(`Applied upgrade: ${upgrade.name}`);
-
 		switch (upgrade.id) {
 			case 'stoneKnapping':
 				this.systems.uiManager?.showNotification(
@@ -488,6 +504,42 @@ export class GameManager {
 	}
 
 	/**
+	 * Export save as base64 string to clipboard
+	 */
+	exportSave() {
+		try {
+			const saveData = localStorage.getItem(config.storage.saveKey);
+			if (!saveData) {
+				this.systems.uiManager?.showNotification('No save data to export', 'warning');
+				return;
+			}
+			const encoded = btoa(saveData);
+			navigator.clipboard.writeText(encoded).then(() => {
+				this.systems.uiManager?.showNotification('Save exported to clipboard!', 'success');
+			});
+		} catch (error) {
+			console.error('Export failed:', error);
+			this.systems.uiManager?.showNotification('Export failed', 'error');
+		}
+	}
+
+	/**
+	 * Import save from base64 string
+	 */
+	importSave(encoded) {
+		try {
+			const decoded = atob(encoded.trim());
+			JSON.parse(decoded); // validate JSON
+			localStorage.setItem(config.storage.saveKey, decoded);
+			this.loadGame();
+			this.systems.uiManager?.showNotification('Save imported!', 'success');
+		} catch (error) {
+			console.error('Import failed:', error);
+			this.systems.uiManager?.showNotification('Invalid save data', 'error');
+		}
+	}
+
+	/**
 	 * Stop all running systems
 	 */
 	stopAllSystems() {
@@ -597,32 +649,34 @@ export class GameManager {
 			return false;
 		}
 
-		// Advance the era
-		this.gameState.data.currentEra = nextEra;
+		// Spend advancement cost
+		const eraData = this.getCurrentEraData();
+		if (eraData.advancementCost) {
+			this.gameState.spendResources(eraData.advancementCost);
+		}
 
-		// Reset era-specific progress
-		this.gameState.data.progression.eraProgress = 0;
+		// Advance the era (sets era, resets progress, notifies listeners)
+		this.gameState.setEra(nextEra);
+
+		// Grant starter resources for the new era
+		this.onEraTransition(currentEra, nextEra);
 
 		// Show advancement notification
 		const eraInfo = config.eras[nextEra];
 		this.systems.uiManager?.showNotification(
-			`🎉 Entered the ${eraInfo?.name || nextEra}! ${
+			`Entered the ${eraInfo?.name || nextEra}! ${
 				eraInfo?.description || ''
 			}`,
 			'success',
 			10000
 		);
 
-		// Trigger listeners
-		this.gameState.notifyListeners('eraAdvancement', {
-			oldEra: currentEra,
-			newEra: nextEra,
-		});
-
 		// Update UI
 		this.updateUI();
 
-		console.log(`Advanced from ${currentEra} to ${nextEra}`);
+		// Restart worker automation for new era
+		this.restartWorkerAutomation();
+
 		return true;
 	}
 
@@ -648,7 +702,6 @@ export class GameManager {
 			this.gameState.addResource('silicon', 25);
 		}
 
-		console.log(`Era transition: ${fromEra} -> ${toEra}`);
 	}
 
 	/**
@@ -675,8 +728,6 @@ export class GameManager {
 			this.gameState = null;
 			this.systems = {};
 			this.initialized = false;
-
-			console.log('GameManager destroyed');
 		} catch (error) {
 			console.error('Error destroying GameManager:', error);
 		}

@@ -12,8 +12,6 @@ export class ResourceManager {
 	constructor(gameState) {
 		this.gameState = gameState;
 		this.uiManager = null;
-		
-		console.log('ResourceManager initialized');
 	}
 
 	/**

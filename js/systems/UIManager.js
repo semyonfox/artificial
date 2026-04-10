@@ -21,8 +21,6 @@ export class UIManager {
 
 		// Initial UI update
 		this.updateUI();
-
-		console.log('UIManager initialized');
 	}
 
 	/**
@@ -55,6 +53,12 @@ export class UIManager {
 			logToggle: document.getElementById('log-toggle'),
 			eventLog: document.getElementById('event-log'),
 			disasterLog: document.getElementById('disaster-log'),
+
+			// Save controls
+			saveButton: document.getElementById('save-button'),
+			exportButton: document.getElementById('export-button'),
+			importButton: document.getElementById('import-button'),
+			resetButton: document.getElementById('reset-button'),
 
 			// Notifications
 			notificationContainer: document.getElementById('notification-container'),
@@ -137,6 +141,23 @@ export class UIManager {
 			});
 		}
 
+		// Save controls
+		if (this.elements.saveButton) {
+			this.elements.saveButton.addEventListener('click', () => this.gameManager.saveGame());
+		}
+		if (this.elements.exportButton) {
+			this.elements.exportButton.addEventListener('click', () => this.gameManager.exportSave());
+		}
+		if (this.elements.importButton) {
+			this.elements.importButton.addEventListener('click', () => {
+				const encoded = prompt('Paste your exported save data:');
+				if (encoded) this.gameManager.importSave(encoded);
+			});
+		}
+		if (this.elements.resetButton) {
+			this.elements.resetButton.addEventListener('click', () => this.gameManager.resetGame());
+		}
+
 		// Log toggle
 		if (this.elements.logToggle) {
 			this.elements.logToggle.addEventListener('click', () => {
@@ -149,9 +170,7 @@ export class UIManager {
 	 * Initialize log menu
 	 */
 	initLogMenu() {
-		if (this.elements.logMenu) {
-			this.elements.logMenu.classList.add('collapsed');
-		}
+		// log menu starts hidden via d-none in HTML
 	}
 
 	/**
@@ -159,7 +178,7 @@ export class UIManager {
 	 */
 	toggleLogMenu() {
 		if (this.elements.logMenu) {
-			this.elements.logMenu.classList.toggle('collapsed');
+			this.elements.logMenu.classList.toggle('d-none');
 		}
 	}
 
@@ -421,8 +440,44 @@ export class UIManager {
 	 * Update era progression display and advancement button
 	 */
 	updateEraProgression() {
-		if (!this.elements.nextEraButton) return;
+		const currentEra = this.gameState.data.currentEra;
+		const eraData = this.gameManager.getCurrentEraData();
 		const canAdvance = this.gameState.canAdvanceEra();
+
+		// calculate progress as average fulfillment of advancementCost
+		let progressPercent = 0;
+		if (eraData?.advancementCost) {
+			const entries = Object.entries(eraData.advancementCost);
+			const fulfillments = entries.map(([resource, required]) => {
+				const current = this.gameState.getResource(resource);
+				return Math.min(1, current / required);
+			});
+			progressPercent = (fulfillments.reduce((a, b) => a + b, 0) / fulfillments.length) * 100;
+		} else {
+			progressPercent = 100;
+		}
+
+		// update all progress bars (sidebar + top bar)
+		document.querySelectorAll('.progress-bar').forEach((bar) => {
+			if (bar.closest('#cutscene-container')) return;
+			bar.style.width = `${progressPercent.toFixed(1)}%`;
+		});
+
+		// update progress text
+		const progressText = document.querySelector('.progress-text');
+		if (progressText) {
+			if (eraData?.advancementCost) {
+				const costText = Object.entries(eraData.advancementCost)
+					.map(([r, amt]) => `${Math.floor(this.gameState.getResource(r))}/${amt} ${r}`)
+					.join(', ');
+				progressText.textContent = costText;
+			} else {
+				progressText.textContent = 'Final era reached';
+			}
+		}
+
+		// update advance button
+		if (!this.elements.nextEraButton) return;
 		this.elements.nextEraButton.disabled = !canAdvance;
 		this.elements.nextEraButton.classList.toggle('btn-success', canAdvance);
 		this.elements.nextEraButton.classList.toggle('btn-secondary', !canAdvance);
@@ -471,17 +526,22 @@ export class UIManager {
 	logEvent(event) {
 		if (!this.elements.eventLog) return;
 
+		const effectText = event.effect
+			? Object.entries(event.effect)
+				.map(([resource, change]) => `${change > 0 ? '+' : ''}${(change * 100).toFixed(0)}% ${resource}`)
+				.join(', ')
+			: '';
+
 		const logEntry = document.createElement('div');
 		logEntry.className = 'log-entry';
 		logEntry.innerHTML = `
       <h4>${event.name}</h4>
-      <p>${event.impact}</p>
-      <p>Effect: ${event.effect}</p>
+      <p>${event.description}</p>
+      ${effectText ? `<p class="small text-secondary">Effect: ${effectText}</p>` : ''}
       <small>${new Date().toLocaleTimeString()}</small>
     `;
 
-		this.elements.eventLog.appendChild(logEntry);
-		this.elements.eventLog.scrollTop = this.elements.eventLog.scrollHeight;
+		this.elements.eventLog.prepend(logEntry);
 	}
 
 	/**
@@ -490,25 +550,22 @@ export class UIManager {
 	logDisaster(disaster) {
 		if (!this.elements.disasterLog) return;
 
+		const effectText = disaster.effect
+			? Object.entries(disaster.effect)
+				.map(([resource, change]) => `${change > 0 ? '+' : ''}${(change * 100).toFixed(0)}% ${resource}`)
+				.join(', ')
+			: '';
+
 		const logEntry = document.createElement('div');
 		logEntry.className = 'log-entry disaster';
 		logEntry.innerHTML = `
       <h4>${disaster.name}</h4>
-      <p>${disaster.impact}</p>
-      <p>Effect: ${disaster.effect}</p>
+      <p>${disaster.description}</p>
+      ${effectText ? `<p class="small text-secondary">Effect: ${effectText}</p>` : ''}
       <small>${new Date().toLocaleTimeString()}</small>
     `;
 
-		this.elements.disasterLog.appendChild(logEntry);
-		this.elements.disasterLog.scrollTop =
-			this.elements.disasterLog.scrollHeight;
+		this.elements.disasterLog.prepend(logEntry);
 	}
 
-	/**
-	 * Update worker progress bar
-	 */
-	updateWorkerProgress(workerType, progress, maxProgress) {
-		// This method can be implemented for worker progress visualization
-		// For now, it's a placeholder
-	}
 }

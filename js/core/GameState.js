@@ -10,8 +10,6 @@ export class GameState {
 		this.data = this.createInitialState();
 		this.listeners = new Map();
 		this.lastSave = Date.now();
-
-		console.log('GameState initialized');
 	}
 
 	/**
@@ -117,6 +115,24 @@ export class GameState {
 			coinage: false,
 			roadBuilding: false,
 
+			// Classical upgrades
+			civilEngineering: false,
+			philosophySchools: false,
+			classicalMedicine: false,
+			classicalMathematics: false,
+
+			// Medieval upgrades
+			heavyPlow: false,
+			watermills: false,
+			guildSystem: false,
+			scriptoria: false,
+
+			// Renaissance upgrades
+			printingPress: false,
+			renaissanceNavigation: false,
+			renaissanceBanking: false,
+			scientificMethod: false,
+
 			// Industrial Age upgrades
 			steamEngine: false,
 			electrification: false,
@@ -127,6 +143,23 @@ export class GameState {
 			microprocessor: false,
 			networking: false,
 			softwareEngineering: false,
+
+			// Space Age upgrades
+			rocketry: false,
+			orbitalHab: false,
+			fusionResearch: false,
+			spaceRobotics: false,
+
+			// Galactic upgrades
+			dysonSwarm: false,
+			quantumComputing: false,
+			wormholeTheory: false,
+			antimatterContainment: false,
+
+			// Universal upgrades
+			realityEngineering: false,
+			multiversalPhysics: false,
+			consciousnessUpload: false,
 		};
 	}
 
@@ -285,36 +318,25 @@ export class GameState {
 	}
 
 	/**
-	 * Check if era advancement is possible
+	 * Check if era advancement is possible using eraData.advancementCost
 	 */
 	canAdvanceEra() {
-		const req = config.balance?.eraProgressionRequirements || {};
 		const currentEra = this.data.currentEra;
-		const population = this.data.resources.population || 0;
-		const maxPop = config.balance?.maxPopulationPerEra?.[currentEra] || 100;
+		const eraData = config.eraData[currentEra];
 
-		// Interpret populationMultiplier as a fraction target of max population.
-		const rawFraction = typeof req.populationMultiplier === 'number' ? req.populationMultiplier : 0.7;
-		const fraction = Math.max(0.1, Math.min(1, rawFraction));
-		const populationMet = population >= Math.floor(maxPop * fraction);
+		if (!eraData || !eraData.advancementCost) return false;
 
-		// Resource diversity: at least N different resources above 0
-		const resourceTypes = Object.keys(this.data.resources).filter(
-			(key) => this.data.resources[key] > 0
-		);
-		// If configured as fraction, map to a count baseline (default baseline 7)
-		const diversityFraction = typeof req.resourceDiversity === 'number' ? req.resourceDiversity : 0.5;
-		const baselineTypes = 7;
-		const requiredTypes = Math.max(3, Math.floor(baselineTypes * Math.max(0.1, Math.min(1, diversityFraction))));
-		const diversityMet = resourceTypes.length >= requiredTypes;
+		return this.canAfford(eraData.advancementCost);
+	}
 
-		// Upgrades completion: simple count threshold
-		const completedUpgrades = Object.values(this.data.upgrades).filter(Boolean).length;
-		const upgradeFraction = typeof req.upgradeCompletion === 'number' ? req.upgradeCompletion : 0.4;
-		const requiredUpgrades = Math.max(2, Math.floor(5 * Math.max(0.1, Math.min(1, upgradeFraction))));
-		const upgradesMet = completedUpgrades >= requiredUpgrades;
-
-		return populationMet && diversityMet && upgradesMet;
+	/**
+	 * Set the current era and notify listeners
+	 */
+	setEra(newEra) {
+		const oldEra = this.data.currentEra;
+		this.data.currentEra = newEra;
+		this.data.progression.eraProgress = 0;
+		this.notifyListeners('eraAdvancement', { oldEra, newEra });
 	}
 
 	/**
@@ -413,8 +435,6 @@ export class GameState {
 
 			localStorage.setItem(config.storage.saveKey, JSON.stringify(saveData));
 			this.lastSave = Date.now();
-
-			console.log('Game saved successfully');
 			return true;
 		} catch (error) {
 			console.error('Failed to save game:', error);
@@ -449,7 +469,6 @@ export class GameState {
 			// Validate loaded state
 			this.validate();
 
-			console.log('Game loaded successfully');
 			this.notifyListeners('gameLoaded', this.data);
 
 			return true;
@@ -504,7 +523,6 @@ export class GameState {
 	reset() {
 		this.data = this.createInitialState();
 		this.notifyListeners('gameReset', this.data);
-		console.log('Game state reset');
 	}
 
 	/**

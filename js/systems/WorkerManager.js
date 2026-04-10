@@ -18,8 +18,6 @@ export class WorkerManager {
 
 		// Track last known food status per worker type for UI display
 		this.lastFoodStatusByWorker = {}; // { workerType: 'wellFed' | 'hungry' | 'starving' }
-
-		console.log('WorkerManager initialized');
 	}
 
 	/**
@@ -244,74 +242,6 @@ export class WorkerManager {
 	}
 
 	/**
-	 * Feed a worker (check for required resources)
-	 */
-	feedWorker(workerData) {
-		const gameData = this.gameState.getState();
-
-		// Check if worker needs input resources
-		if (workerData.inputRequired) {
-			for (const [resource, amount] of Object.entries(
-				workerData.inputRequired
-			)) {
-				if ((gameData.resources[resource] || 0) < amount) {
-					return false;
-				}
-			}
-
-			// Consume input resources
-			for (const [resource, amount] of Object.entries(
-				workerData.inputRequired
-			)) {
-				this.gameState.addResource(resource, -amount);
-			}
-		}
-
-		// Standard worker feeding with cooked meat
-		if ((gameData.resources.cookedMeat || 0) >= 1) {
-			this.gameState.addResource('cookedMeat', -1);
-			return true;
-		}
-
-		return false;
-	}
-
-	/**
-	 * Produce resources from worker
-	 */
-	produceResources(workerData) {
-		// Base production
-		if (workerData.baseProduction) {
-			for (const [resource, amount] of Object.entries(
-				workerData.baseProduction
-			)) {
-				this.gameState.addResource(resource, amount);
-			}
-		}
-
-		// Bonus production (with probability)
-		if (workerData.bonusProduction) {
-			for (const [resource, chance] of Object.entries(
-				workerData.bonusProduction
-			)) {
-				if (Math.random() < chance) {
-					this.gameState.addResource(resource, 1);
-				}
-			}
-		}
-
-		// Handle failure chance (for cooks)
-		if (workerData.failureChance && Math.random() < workerData.failureChance) {
-			// Production failed, maybe show notification
-			this.uiManager?.showNotification(
-				'A worker failed at their task!',
-				'warning',
-				1000
-			);
-		}
-	}
-
-	/**
 	 * Start all worker automations for current era
 	 */
 	startAllWorkerAutomations() {
@@ -330,16 +260,6 @@ export class WorkerManager {
 	}
 
 	/**
-	 * Stop all worker automations
-	 */
-	stopAllWorkerAutomations() {
-		this.workerIntervals.forEach((intervalId, workerType) => {
-			clearInterval(intervalId);
-		});
-		this.workerIntervals.clear();
-	}
-
-	/**
 	 * Stop all worker automation
 	 */
 	stopAllWorkers() {
@@ -347,7 +267,6 @@ export class WorkerManager {
 			clearInterval(intervalId);
 		}
 		this.workerIntervals.clear();
-		console.log('All worker automation stopped');
 	}
 
 	/**
@@ -381,7 +300,6 @@ export class WorkerManager {
 			}
 		});
 
-		console.log('Worker automation restarted for active workers');
 	}
 
 	/**
@@ -442,6 +360,6 @@ export class WorkerManager {
 	 * Cleanup all worker systems
 	 */
 	destroy() {
-		this.stopAllWorkerAutomations();
+		this.stopAllWorkers();
 	}
 }

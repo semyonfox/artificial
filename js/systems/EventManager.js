@@ -11,8 +11,6 @@ export class EventManager {
 		this.uiManager = null;
 		this.lastEventTime = 0;
 		this.eventCooldown = 60000; // 1 minute between possible events
-
-		console.log('EventManager initialized');
 	}
 
 	/**
@@ -157,11 +155,16 @@ export class EventManager {
 	}
 
 	/**
-	 * Log event to game history (placeholder for future log system)
+	 * Log event to game history and UI
 	 */
 	logEvent(event) {
-		// This could be expanded to maintain a history of events
-		console.log(`Historical Event: ${event.name} - ${event.description}`);
+		if (!this.uiManager) return;
+
+		if (event.type === 'disaster') {
+			this.uiManager.logDisaster(event);
+		} else {
+			this.uiManager.logEvent(event);
+		}
 	}
 
 	/**
