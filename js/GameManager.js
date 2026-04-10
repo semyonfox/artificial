@@ -249,26 +249,10 @@ export class GameManager {
   }
 
   /**
-   * Forage for resources
+   * Perform a config-driven click action
    */
-  forage() {
-    this.systems.resourceManager.forage();
-    this.updateProgression(1);
-  }
-
-  /**
-   * Hunt for food
-   */
-  findFood() {
-    this.systems.resourceManager.huntAnimal();
-    this.updateProgression(1);
-  }
-
-  /**
-   * Cook meat
-   */
-  cookMeat() {
-    this.systems.resourceManager.cookMeatClick();
+  doClickAction(action) {
+    this.systems.resourceManager.performClickAction(action);
     this.updateProgression(1);
   }
 

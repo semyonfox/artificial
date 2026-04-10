@@ -77,73 +77,48 @@ export class UIManager {
   }
 
   /**
-   * Create enhanced action buttons dynamically
+   * Build action buttons from current era config
    */
   createActionButtons() {
-    this.elements.actionButtonsContainer.innerHTML = `
-      <button id="forage-button" class="btn btn-ghost w-100 d-flex align-items-center gap-2" title="Gather sticks and stones from the wilderness">
-        <span class="button-icon">🪵</span>
-        <span class="button-text text-start">
-          <span class="button-title fw-semibold">Forage</span>
-          <span class="button-desc d-block small" style="color: var(--text-muted)">Gather sticks</span>
-        </span>
-      </button>
-      <button id="hunt-button" class="btn btn-ghost w-100 d-none d-flex align-items-center gap-2" title="Hunt animals for meat and materials">
-        <span class="button-icon">🥩</span>
-        <span class="button-text text-start">
-          <span class="button-title fw-semibold">Hunt</span>
-          <span class="button-desc d-block small" style="color: var(--text-muted)">Find meat</span>
-        </span>
-      </button>
-      <button id="cook-button" class="btn btn-ghost w-100 d-none d-flex align-items-center gap-2" title="Cook raw meat to make it more nutritious">
-        <span class="button-icon">🍗</span>
-        <span class="button-text text-start">
-          <span class="button-title fw-semibold">Cook</span>
-          <span class="button-desc d-block small" style="color: var(--text-muted)">Prepare food</span>
-        </span>
-      </button>
-    `;
+    const currentEraData = this.gameManager.getCurrentEraData();
+    const actions = currentEraData?.actions || [];
 
-    // Cache the newly created elements
-    this.elements.forageButton = document.getElementById("forage-button");
-    this.elements.huntButton = document.getElementById("hunt-button");
-    this.elements.cookButton = document.getElementById("cook-button");
+    this.elements.actionButtonsContainer.innerHTML = actions.map(action => {
+      const hidden = action.requiresUpgrade && !this.gameState.hasUpgrade(action.requiresUpgrade) ? ' d-none' : '';
+      return `
+        <button id="action-${action.id}" class="btn btn-ghost w-100 d-flex align-items-center gap-2${hidden}" title="${action.description}" data-action-id="${action.id}">
+          <span class="button-icon">${action.icon}</span>
+          <span class="button-text text-start">
+            <span class="button-title fw-semibold">${action.name}</span>
+            <span class="button-desc d-block small" style="color: var(--text-muted)">${action.description}</span>
+          </span>
+        </button>
+      `;
+    }).join('');
+
+    // track which era we built buttons for
+    this._actionButtonsEra = this.gameState.data.currentEra;
+
+    // attach click handlers
+    actions.forEach(action => {
+      const btn = document.getElementById(`action-${action.id}`);
+      if (btn) {
+        btn.addEventListener('click', () => {
+          this.gameManager.performAction(
+            btn,
+            () => this.gameManager.doClickAction(action),
+            action.cooldown || 1000,
+          );
+        });
+      }
+    });
   }
 
   /**
    * Add event listeners
    */
   addEventListeners() {
-    // Action buttons
-    if (this.elements.forageButton) {
-      this.elements.forageButton.addEventListener("click", () =>
-        this.gameManager.performAction(
-          this.elements.forageButton,
-          () => this.gameManager.forage(),
-          1000,
-        ),
-      );
-    }
-
-    if (this.elements.huntButton) {
-      this.elements.huntButton.addEventListener("click", () =>
-        this.gameManager.performAction(
-          this.elements.huntButton,
-          () => this.gameManager.findFood(),
-          1500,
-        ),
-      );
-    }
-
-    if (this.elements.cookButton) {
-      this.elements.cookButton.addEventListener("click", () =>
-        this.gameManager.performAction(
-          this.elements.cookButton,
-          () => this.gameManager.cookMeat(),
-          800,
-        ),
-      );
-    }
+    // action button listeners are attached in createActionButtons()
 
     // Era advancement
     if (this.elements.nextEraButton) {
@@ -301,44 +276,37 @@ export class UIManager {
     }
   }
   /**
-   * Update action buttons visibility and state
+   * Update action buttons - rebuild on era change, toggle visibility by upgrade
    */
   updateActionButtons() {
-    const gameData = this.gameState.getState();
+    if (!this.elements.actionButtonsContainer) return;
+
+    const currentEra = this.gameState.data.currentEra;
+
+    // rebuild buttons when era changes
+    if (this._actionButtonsEra !== currentEra) {
+      this.createActionButtons();
+      return;
+    }
+
+    // toggle visibility based on upgrade requirements and resource availability
     const currentEraData = this.gameManager.getCurrentEraData();
+    const actions = currentEraData?.actions || [];
 
-    if (!currentEraData) return;
+    for (const action of actions) {
+      const btn = document.getElementById(`action-${action.id}`);
+      if (!btn) continue;
 
-    if (gameData.currentEra === "paleolithic") {
-      const hasStoneKnapping = this.gameState.hasUpgrade("stoneKnapping");
-      const hasFireControl = this.gameState.hasUpgrade("fireControl");
-
-      if (this.elements.huntButton) {
-        this.elements.huntButton.classList.toggle("d-none", !hasStoneKnapping);
-        if (hasStoneKnapping) {
-          const huntDesc =
-            this.elements.huntButton.querySelector(".button-desc");
-          if (huntDesc) huntDesc.textContent = "Hunt with stone tools";
-        }
+      if (action.requiresUpgrade) {
+        const unlocked = this.gameState.hasUpgrade(action.requiresUpgrade);
+        btn.classList.toggle('d-none', !unlocked);
       }
 
-      if (this.elements.cookButton) {
-        this.elements.cookButton.classList.toggle("d-none", !hasFireControl);
-        if (hasFireControl) {
-          this.elements.cookButton.disabled =
-            (gameData.resources.meat || 0) <= 0;
-          const cookDesc =
-            this.elements.cookButton.querySelector(".button-desc");
-          if (cookDesc) cookDesc.textContent = "Cook with fire";
-        }
+      // disable if missing consumable resources
+      if (action.consumes && !btn.disabled) {
+        const canAfford = this.gameState.canAfford(action.consumes);
+        btn.style.opacity = canAfford ? '' : '0.5';
       }
-    } else {
-      if (this.elements.forageButton)
-        this.elements.forageButton.classList.add("d-none");
-      if (this.elements.huntButton)
-        this.elements.huntButton.classList.add("d-none");
-      if (this.elements.cookButton)
-        this.elements.cookButton.classList.add("d-none");
     }
   }
 

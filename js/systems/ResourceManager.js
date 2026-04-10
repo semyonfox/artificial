@@ -37,95 +37,62 @@ export class ResourceManager {
 	}
 
 	/**
-	 * Perform foraging action - gather sticks and occasionally stones
+	 * Generic click action handler - driven by era config
+	 * Supports: produces, consumes, bonusChance, failChance, requiresUpgrade
 	 */
-	forage() {
-		const baseYield = config.yields.forageYield;
-		const stickMultiplier = this.gameState.getEfficiencyMultiplier('sticks');
-		const prestigeMult = this.getPrestigeMultiplier();
+	performClickAction(action) {
+		// check upgrade requirement
+		if (action.requiresUpgrade && !this.gameState.hasUpgrade(action.requiresUpgrade)) {
+			this.uiManager?.showNotification(`Requires ${action.requiresUpgrade}`, 'warning');
+			return null;
+		}
 
-		// Calculate stick yield
-		const stickYield = Math.max(1, Math.floor(baseYield * stickMultiplier * prestigeMult));
-		this.gameState.addResource('sticks', stickYield);
-		
-		// Chance for stones
-		if (Math.random() < config.probabilities.stoneChanceFromSticks) {
-			const stoneYield = Math.max(
-				1,
-				Math.floor(baseYield * 0.5 * this.gameState.getEfficiencyMultiplier('stones'))
+		// check and consume input resources
+		if (action.consumes) {
+			if (!this.gameState.canAfford(action.consumes)) {
+				const needed = Object.entries(action.consumes)
+					.map(([r, a]) => `${a} ${r}`).join(', ');
+				this.uiManager?.showNotification(`Need ${needed}`, 'warning');
+				return null;
+			}
+			this.gameState.spendResources(action.consumes);
+		}
+
+		// check for failure
+		if (action.failChance && Math.random() < action.failChance) {
+			this.uiManager?.showNotification(
+				action.failMessage || 'Action failed!', 'error'
 			);
-			this.gameState.addResource('stones', stoneYield);
-		}
-		
-		// Show notification
-		this.showGatheringResult('Foraged', { sticks: stickYield });
-		
-		return { sticks: stickYield };
-	}
-
-	/**
-	 * Hunt animals for meat, bones, and fur - requires stone knapping
-	 */
-	huntAnimal() {
-		if (!this.gameState.hasUpgrade('stoneKnapping')) {
-			this.uiManager?.showNotification('Need Stone Knapping to hunt!', 'warning');
-			return null;
-		}
-		
-		const baseYield = config.yields.huntYield;
-		const meatMultiplier = this.gameState.getEfficiencyMultiplier('meat');
-		const prestigeMult = this.getPrestigeMultiplier();
-
-		// Calculate yields
-		const meatYield = Math.max(1, Math.floor(baseYield * meatMultiplier * prestigeMult));
-		const boneYield = Math.random() < 0.6 ? 1 : 0;
-		const furYield = Math.random() < config.probabilities.furDropChance ? 1 : 0;
-		
-		// Add resources
-		this.gameState.addResource('meat', meatYield);
-		if (boneYield > 0) this.gameState.addResource('bones', boneYield);
-		if (furYield > 0) this.gameState.addResource('fur', furYield);
-		
-		// Show notification
-		const results = { meat: meatYield };
-		if (boneYield > 0) results.bones = boneYield;
-		if (furYield > 0) results.fur = furYield;
-		
-		this.showGatheringResult('Hunted', results);
-		
-		return results;
-	}
-
-	/**
-	 * Cook raw meat into cooked meat - requires fire control
-	 */
-	cookMeatClick() {
-		if (!this.gameState.hasUpgrade('fireControl')) {
-			this.uiManager?.showNotification('Need Fire Control to cook!', 'warning');
-			return null;
-		}
-		
-		if (this.gameState.getResource('meat') < 1) {
-			this.uiManager?.showNotification('Need raw meat to cook!', 'warning');
-			return null;
-		}
-		
-		// Consume raw meat
-		this.gameState.addResource('meat', -1);
-		
-		// Chance of burning (failure)
-		if (Math.random() < config.probabilities.burnChance) {
-			this.uiManager?.showNotification('The meat burned while cooking!', 'error');
 			return { failed: true };
 		}
-		
-		// Successful cooking - 1 meat yields 1 cooked meat
-		const cookedYield = 1;
-		this.gameState.addResource('cookedMeat', cookedYield);
-		
-		this.showGatheringResult('Cooked', { cookedMeat: cookedYield });
-		
-		return { cookedMeat: cookedYield };
+
+		const prestigeMult = this.getPrestigeMultiplier();
+		const results = {};
+
+		// guaranteed production
+		if (action.produces) {
+			for (const [resource, baseAmount] of Object.entries(action.produces)) {
+				const efficiency = this.gameState.getEfficiencyMultiplier(resource);
+				const specMult = this.gameManager?.getSpecializationMultiplier(resource) || 1;
+				const amount = Math.max(1, Math.floor(baseAmount * efficiency * prestigeMult * specMult));
+				this.gameState.addResource(resource, amount);
+				results[resource] = amount;
+			}
+		}
+
+		// bonus chance drops
+		if (action.bonusChance) {
+			for (const [resource, info] of Object.entries(action.bonusChance)) {
+				if (Math.random() < info.probability) {
+					const amount = info.amount || 1;
+					this.gameState.addResource(resource, amount);
+					results[resource] = (results[resource] || 0) + amount;
+				}
+			}
+		}
+
+		this.showGatheringResult(action.name, results);
+		return results;
 	}
 
 	/**

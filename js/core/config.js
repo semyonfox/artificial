@@ -629,6 +629,11 @@ export const config = {
       description:
         "The Old Stone Age - humanity's longest period of hunter-gatherer societies and stone tool use.",
       advancementCost: { population: 8, sticks: 15, stones: 10, cookedMeat: 8, fur: 3 },
+      actions: [
+        { id: "forage", name: "Forage", icon: "🪵", description: "Gather sticks", produces: { sticks: 1 }, bonusChance: { stones: { amount: 1, probability: 0.35 } }, cooldown: 1000 },
+        { id: "hunt", name: "Hunt", icon: "🥩", description: "Hunt for meat", produces: { meat: 2 }, bonusChance: { bones: { amount: 1, probability: 0.6 }, fur: { amount: 1, probability: 0.6 } }, requiresUpgrade: "stoneKnapping", cooldown: 1500 },
+        { id: "cook", name: "Cook", icon: "🍗", description: "Cook meat", produces: { cookedMeat: 1 }, consumes: { meat: 1 }, failChance: 0.3, failMessage: "The meat burned!", requiresUpgrade: "fireControl", cooldown: 800 },
+      ],
       workers: [
         {
           id: "gatherer",
@@ -729,6 +734,11 @@ export const config = {
       description:
         "The New Stone Age - the Agricultural Revolution begins with farming and permanent settlements.",
       advancementCost: { population: 40, grain: 40, pottery: 15, textiles: 10, tools: 10 },
+      actions: [
+        { id: "farm", name: "Farm", icon: "🌾", description: "Cultivate grain", produces: { grain: 2 }, cooldown: 1200 },
+        { id: "digClay", name: "Dig Clay", icon: "🏺", description: "Dig for clay", produces: { clay: 2 }, bonusChance: { tools: { amount: 1, probability: 0.25 } }, cooldown: 1000 },
+        { id: "shear", name: "Shear", icon: "🧶", description: "Produce textiles", produces: { textiles: 1 }, requiresUpgrade: "weaving", cooldown: 1500 },
+      ],
       workers: [
         {
           id: "farmer",
@@ -811,6 +821,11 @@ export const config = {
       description:
         "First metal working civilizations emerge with bronze tools revolutionizing society.",
       advancementCost: { population: 150, bronze: 50, writing: 15, trade: 30 },
+      actions: [
+        { id: "mineCopper", name: "Mine Copper", icon: "⛏️", description: "Extract copper ore", produces: { copper: 2 }, bonusChance: { tin: { amount: 1, probability: 0.3 } }, cooldown: 1200 },
+        { id: "smelt", name: "Smelt Bronze", icon: "🔥", description: "Alloy bronze", produces: { bronze: 1 }, consumes: { copper: 1, tin: 1 }, requiresUpgrade: "alloying", cooldown: 1500 },
+        { id: "barter", name: "Trade", icon: "🤝", description: "Barter goods", produces: { trade: 2 }, bonusChance: { wheel: { amount: 1, probability: 0.2 } }, cooldown: 1000 },
+      ],
       workers: [
         {
           id: "metalworker",
@@ -899,6 +914,11 @@ export const config = {
       description:
         "Iron working spreads, creating stronger tools and weapons, leading to great empires.",
       advancementCost: { population: 500, iron: 30, coal: 20, steel: 50, coins: 25, roads: 20, knowledge: 15 },
+      actions: [
+        { id: "mineIron", name: "Mine", icon: "⛏️", description: "Extract iron and coal", produces: { iron: 2, coal: 1 }, cooldown: 1200 },
+        { id: "forge", name: "Forge", icon: "🔨", description: "Forge steel", produces: { steel: 1 }, consumes: { iron: 1, coal: 1 }, requiresUpgrade: "bloomery", cooldown: 1500 },
+        { id: "mint", name: "Mint Coins", icon: "🪙", description: "Mint currency", produces: { coins: 2 }, requiresUpgrade: "coinage", cooldown: 1000 },
+      ],
       workers: [
         {
           id: "miner",
@@ -985,6 +1005,11 @@ export const config = {
       description:
         "Greece and Rome bring philosophy, mathematics, medicine, and large-scale engineering.",
       advancementCost: { population: 1500, engineering: 50, aqueducts: 30, knowledge: 40, medicine: 20, philosophy: 15 },
+      actions: [
+        { id: "study", name: "Study", icon: "📚", description: "Pursue knowledge", produces: { knowledge: 2 }, cooldown: 1000 },
+        { id: "build", name: "Build", icon: "🏛️", description: "Construct infrastructure", produces: { engineering: 1, cities: 1 }, requiresUpgrade: "civilEngineering", cooldown: 1500 },
+        { id: "heal", name: "Heal", icon: "⚕️", description: "Practice medicine", produces: { medicine: 2 }, requiresUpgrade: "classicalMedicine", cooldown: 1200 },
+      ],
       workers: [
         {
           id: "architect",
@@ -1066,6 +1091,11 @@ export const config = {
       description:
         "Feudalism, mills, guilds, manuscript culture, and castles define a millennium.",
       advancementCost: { population: 5000, agriculture: 60, manuscripts: 40, guilds: 30, religion: 20 },
+      actions: [
+        { id: "plow", name: "Plow", icon: "🌾", description: "Work the fields", produces: { agriculture: 3 }, requiresUpgrade: "heavyPlow", cooldown: 1200 },
+        { id: "transcribe", name: "Write", icon: "📜", description: "Copy manuscripts", produces: { manuscripts: 2 }, cooldown: 1000 },
+        { id: "craft", name: "Craft", icon: "⚒️", description: "Produce guild goods", produces: { guilds: 1, trade: 1 }, cooldown: 1200 },
+      ],
       workers: [
         {
           id: "miller",
@@ -1146,6 +1176,11 @@ export const config = {
       description:
         "A rebirth of learning brings printing, banking, navigation, and scientific inquiry.",
       advancementCost: { population: 15000, printing: 80, banking: 50, exploration: 40, navigation: 25, trade: 30 },
+      actions: [
+        { id: "print", name: "Print", icon: "🖨️", description: "Run the press", produces: { printing: 2 }, requiresUpgrade: "printingPress", cooldown: 1000 },
+        { id: "explore", name: "Explore", icon: "🧭", description: "Chart new routes", produces: { navigation: 1, exploration: 1 }, requiresUpgrade: "renaissanceNavigation", cooldown: 1500 },
+        { id: "invest", name: "Invest", icon: "💰", description: "Grow capital", produces: { banking: 2, coins: 1 }, cooldown: 1000 },
+      ],
       workers: [
         {
           id: "printer",
@@ -1226,6 +1261,11 @@ export const config = {
       description:
         "The Industrial Revolution transforms society with steam power and mass production.",
       advancementCost: { population: 50000, factories: 150, electricity: 60, steam: 80 },
+      actions: [
+        { id: "shovelCoal", name: "Shovel Coal", icon: "⛏️", description: "Dig coal and iron", produces: { coal: 3, iron: 1 }, cooldown: 1000 },
+        { id: "operate", name: "Operate", icon: "⚙️", description: "Run the machines", produces: { steam: 2, factories: 1 }, requiresUpgrade: "steamEngine", cooldown: 1200 },
+        { id: "wire", name: "Wire", icon: "⚡", description: "Install wiring", produces: { electricity: 2 }, requiresUpgrade: "electrification", cooldown: 1000 },
+      ],
       workers: [
         {
           id: "factoryWorker",
@@ -1286,6 +1326,11 @@ export const config = {
       description:
         "The Digital Revolution brings computers, internet, and global connectivity.",
       advancementCost: { population: 150000, computers: 200, data: 80, internet: 60, software: 40 },
+      actions: [
+        { id: "fabricate", name: "Fabricate", icon: "💎", description: "Process silicon", produces: { silicon: 3 }, cooldown: 1000 },
+        { id: "code", name: "Code", icon: "💻", description: "Write software", produces: { computers: 1, software: 1, data: 1 }, requiresUpgrade: "siliconProcessing", cooldown: 1200 },
+        { id: "connect", name: "Connect", icon: "🌐", description: "Expand the network", produces: { internet: 2 }, requiresUpgrade: "networking", cooldown: 1000 },
+      ],
       workers: [
         {
           id: "programmer",
@@ -1354,6 +1399,11 @@ export const config = {
       description:
         "Humanity reaches beyond Earth with rockets, orbital stations, and fusion research.",
       advancementCost: { population: 500000, rockets: 400, spaceStations: 150, fusion: 80, robotics: 100 },
+      actions: [
+        { id: "launch", name: "Launch", icon: "🚀", description: "Build rockets", produces: { rockets: 2, steel: 1 }, cooldown: 1500 },
+        { id: "deploy", name: "Deploy", icon: "🛰️", description: "Launch satellites", produces: { satellites: 1 }, requiresUpgrade: "rocketry", cooldown: 1200 },
+        { id: "research", name: "Research", icon: "🔬", description: "Fusion experiments", produces: { fusion: 1 }, requiresUpgrade: "fusionResearch", cooldown: 1500 },
+      ],
       workers: [
         {
           id: "astronaut",
@@ -1432,6 +1482,11 @@ export const config = {
       description:
         "Interstellar civilization with Dyson swarms, quantum computing, and antimatter power.",
       advancementCost: { population: 2000000, antimatter: 500, darkMatter: 300, dysonSpheres: 20, quantumComputers: 30, wormholes: 15 },
+      actions: [
+        { id: "harvest", name: "Harvest Star", icon: "☀️", description: "Collect solar energy", produces: { solarPanels: 2 }, cooldown: 1000 },
+        { id: "compute", name: "Compute", icon: "🖥️", description: "Quantum calculations", produces: { quantumComputers: 1 }, requiresUpgrade: "quantumComputing", cooldown: 1200 },
+        { id: "contain", name: "Contain", icon: "⚛️", description: "Trap antimatter", produces: { antimatter: 1 }, requiresUpgrade: "antimatterContainment", cooldown: 1500 },
+      ],
       workers: [
         {
           id: "dysonBuilder",
@@ -1508,6 +1563,11 @@ export const config = {
       description:
         "Reality manipulation, multiverse access, and consciousness transfer mark the ultimate era.",
       advancementCost: null,
+      actions: [
+        { id: "engineer", name: "Engineer", icon: "🌀", description: "Shape reality", produces: { realityEngines: 1 }, requiresUpgrade: "realityEngineering", cooldown: 1500 },
+        { id: "navigate", name: "Navigate", icon: "🌌", description: "Traverse dimensions", produces: { existentialEnergy: 1 }, requiresUpgrade: "multiversalPhysics", cooldown: 1500 },
+        { id: "transfer", name: "Transfer", icon: "🧠", description: "Upload consciousness", produces: { consciousnessTransfer: 1 }, requiresUpgrade: "consciousnessUpload", cooldown: 1500 },
+      ],
       workers: [
         {
           id: "realityArchitect",
