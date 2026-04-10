@@ -80,11 +80,14 @@ export class ResourceManager {
 			}
 		}
 
-		// bonus chance drops
+		// bonus chance drops (scale with multipliers like guaranteed production)
 		if (action.bonusChance) {
 			for (const [resource, info] of Object.entries(action.bonusChance)) {
 				if (Math.random() < info.probability) {
-					const amount = info.amount || 1;
+					const baseAmount = info.amount || 1;
+					const efficiency = this.gameState.getEfficiencyMultiplier(resource);
+					const specMult = this.gameManager?.getSpecializationMultiplier(resource) || 1;
+					const amount = Math.max(1, Math.floor(baseAmount * efficiency * prestigeMult * specMult));
 					this.gameState.addResource(resource, amount);
 					results[resource] = (results[resource] || 0) + amount;
 				}
@@ -93,84 +96,6 @@ export class ResourceManager {
 
 		this.showGatheringResult(action.name, results);
 		return results;
-	}
-
-	/**
-	 * Process worker production for a specific worker type
-	 */
-	processWorkerProduction(workerType, workerData) {
-		const workerCount = this.gameState.getWorkerCount(workerType);
-		if (workerCount === 0) return null;
-		
-		let successfulWorkers = 0;
-		let failedWorkers = 0;
-		const totalProduction = {};
-		
-		for (let i = 0; i < workerCount; i++) {
-			const workerResult = this.processIndividualWorker(workerType, workerData);
-			
-			if (workerResult.success) {
-				successfulWorkers++;
-				
-				// Add to total production
-				Object.entries(workerResult.production).forEach(([resource, amount]) => {
-					totalProduction[resource] = (totalProduction[resource] || 0) + amount;
-				});
-			} else {
-				failedWorkers++;
-			}
-		}
-		
-		// Apply total production
-		Object.entries(totalProduction).forEach(([resource, amount]) => {
-			this.gameState.addResource(resource, amount);
-		});
-		
-		// Show results
-		if (successfulWorkers > 0) {
-			this.showWorkerResult(workerType, successfulWorkers, totalProduction);
-		}
-		
-		if (failedWorkers > 0) {
-			this.uiManager?.showNotification(
-				`${failedWorkers} ${workerData.name}(s) couldn't work (need resources)`,
-				'warning'
-			);
-		}
-		
-		return {
-			successfulWorkers,
-			failedWorkers,
-			totalProduction,
-		};
-	}
-
-	/**
-	 * Process production for a single worker
-	 */
-	processIndividualWorker(workerType, workerData) {
-		// Check if worker can consume required resources
-		if (workerData.consumes) {
-			if (!this.gameState.canAfford(workerData.consumes)) {
-				return { success: false, reason: 'insufficient_resources' };
-			}
-			
-			// Consume resources
-			this.gameState.spendResources(workerData.consumes);
-		}
-		
-		// Calculate production with efficiency bonuses
-		const production = {};
-		
-		if (workerData.produces) {
-			Object.entries(workerData.produces).forEach(([resource, baseAmount]) => {
-				const efficiency = this.gameState.getEfficiencyMultiplier(resource);
-				const actualAmount = baseAmount * efficiency;
-				production[resource] = actualAmount;
-			});
-		}
-		
-		return { success: true, production };
 	}
 
 	/**
