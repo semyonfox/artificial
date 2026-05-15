@@ -42,8 +42,10 @@ pipeline {
         sh '''
           set -e
           cd /home/semyon/artificial
-          git -C repo fetch origin main
-          git -C repo reset --hard origin/main
+          # Jenkins runs as root but the deploy repo is owned by semyon —
+          # whitelist it via -c so git stops refusing to operate.
+          git -c safe.directory=/home/semyon/artificial/repo -C repo fetch origin main
+          git -c safe.directory=/home/semyon/artificial/repo -C repo reset --hard origin/main
           docker compose up -d --build web
         '''
       }
