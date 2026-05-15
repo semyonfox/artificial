@@ -203,20 +203,31 @@ export class UIManager {
 
     const gameData = this.gameState.getState();
     const resources = gameData.resources;
+    const wm = this.gameManager?.systems?.workerManager;
 
     this.elements.resourceDisplay.innerHTML = Object.entries(resources)
       .filter(([key, value]) => value > 0 && key !== "fire")
-      .map(
-        ([key, value]) => `
+      .map(([key, value]) => {
+        const capMult = wm?.getSoftCapMultiplier?.(key) ?? 1;
+        const capped = capMult < 1;
+        const cappedTag = capped
+          ? ` <span class="small" style="color: var(--warning)" title="Production reduced to ${Math.round(capMult * 100)}% — grow population or hire more workers">⚠ capped</span>`
+          : "";
+        const lifetime = this.gameState.getLifetimeProduced?.(key) || 0;
+        const lifetimeHint = lifetime > value
+          ? ` <span class="small" style="color: var(--text-muted)" title="Lifetime produced: ${Math.floor(lifetime)}">(${this.formatNumber(Math.floor(lifetime))})</span>`
+          : "";
+        return `
         <div class="resource-item d-flex justify-content-between align-items-center">
           <div class="d-flex align-items-center gap-2">
             <span class="resource-icon">${config.resourceIcons[key] || "❓"}</span>
             <span class="resource-name">${this.formatResourceName(key)}</span>
+            ${cappedTag}
           </div>
-          <span style="color: var(--text-secondary); font-variant-numeric: tabular-nums;" data-amount="${Math.floor(value)}">${this.formatNumber(Math.floor(value))}</span>
+          <span style="color: var(--text-secondary); font-variant-numeric: tabular-nums;" data-amount="${Math.floor(value)}">${this.formatNumber(Math.floor(value))}${lifetimeHint}</span>
         </div>
-      `,
-      )
+      `;
+      })
       .join("");
 
     // Optional: subtle animation hook remains
@@ -693,7 +704,14 @@ export class UIManager {
       tiers[perk.tier].push(perk);
     });
 
-    const tierNames = { 1: 'Early Game', 2: 'Growth', 3: 'Cost Reduction', 4: 'Advanced', 5: 'Endgame' };
+    const tierNames = {
+      1: 'Early Game',
+      2: 'Growth',
+      3: 'Cost Reduction',
+      4: 'Advanced',
+      5: 'Era Mastery',
+      6: 'Deep Production',
+    };
 
     container.innerHTML = Object.entries(tiers)
       .sort(([a], [b]) => a - b)

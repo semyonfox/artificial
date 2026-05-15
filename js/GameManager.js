@@ -11,6 +11,7 @@ import { EventManager } from "./systems/EventManager.js";
 import { OfflineManager } from "./systems/OfflineManager.js";
 import { AchievementManager } from "./systems/AchievementManager.js";
 import { PrestigeManager } from "./systems/PrestigeManager.js";
+import { ProgressionValidator } from "./systems/ProgressionValidator.js";
 import { config } from "./core/config.js";
 
 export class GameManager {
@@ -34,6 +35,13 @@ export class GameManager {
    */
   async initialize() {
     try {
+      // boot-time softlock check (dev safety; never blocks startup)
+      try {
+        new ProgressionValidator().runAndReport();
+      } catch (e) {
+        console.warn('progression validator threw:', e);
+      }
+
       // Create game state first
       this.gameState = new GameState();
 
@@ -633,21 +641,7 @@ export class GameManager {
 
     const earned = pm.prestige();
 
-    // Apply era skip perk: advance to starting era and grant transition resources
-    const startingEra = pm.getStartingEra();
-    if (startingEra !== 'paleolithic') {
-      this.gameState.data.currentEra = startingEra;
-      // grant starter packs for all skipped eras
-      const eraOrder = [
-        "paleolithic", "neolithic", "bronze", "iron", "classical",
-        "medieval", "renaissance", "industrial", "information",
-        "space", "galactic", "universal",
-      ];
-      const startIdx = eraOrder.indexOf(startingEra);
-      for (let i = 1; i <= startIdx; i++) {
-        this.onEraTransition(eraOrder[i - 1], eraOrder[i]);
-      }
-    }
+    // every run starts at Paleolithic now — era-skip perks are gone.
 
     // Apply First Workers perk: hire 2 gatherers + 1 cook
     if (pm.hasPerk('firstWorkers')) {

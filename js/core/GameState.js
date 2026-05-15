@@ -18,12 +18,17 @@ export class GameState {
   createInitialState() {
     return {
       // Core game properties
+      schemaVersion: 2,
       currentEra: "paleolithic",
       gameStartTime: Date.now(),
       totalPlayTime: 0,
 
       // Resources - organized by era for better management
       resources: this.createInitialResources(),
+
+      // monotonic counter: total amount of each resource ever produced.
+      // never decremented on consumption. feeds prestige EP calculation.
+      lifetimeProduced: this.createInitialLifetimeProduced(),
 
       // Workers - all worker types across eras
       workers: this.createInitialWorkers(),
@@ -51,6 +56,17 @@ export class GameState {
       // Era specialization choices (reset on prestige)
       eraSpecializations: {},
     };
+  }
+
+  /**
+   * Initialize lifetime production counters to 0 for every resource
+   */
+  createInitialLifetimeProduced() {
+    const lifetime = {};
+    Object.keys(config.resourceIcons).forEach((resource) => {
+      lifetime[resource] = 0;
+    });
+    return lifetime;
   }
 
   /**
@@ -208,7 +224,8 @@ export class GameState {
   }
 
   /**
-   * Add resources with validation
+   * Add resources with validation. positive amounts also bump the lifetime
+   * production counter, which is monotonic and used by prestige EP.
    */
   addResource(resourceType, amount) {
     if (typeof amount !== "number" || isNaN(amount)) {
@@ -220,6 +237,15 @@ export class GameState {
     const newValue = Math.max(0, oldValue + amount);
     this.data.resources[resourceType] = newValue;
 
+    // bump lifetime counter on positive grants only
+    if (amount > 0) {
+      if (!this.data.lifetimeProduced) {
+        this.data.lifetimeProduced = this.createInitialLifetimeProduced();
+      }
+      this.data.lifetimeProduced[resourceType] =
+        (this.data.lifetimeProduced[resourceType] || 0) + amount;
+    }
+
     // Trigger resource change listeners
     this.notifyListeners("resourceChange", {
       resourceType,
@@ -229,6 +255,13 @@ export class GameState {
     });
 
     return true;
+  }
+
+  /**
+   * Get lifetime produced amount for a resource (monotonic counter)
+   */
+  getLifetimeProduced(resourceType) {
+    return this.data.lifetimeProduced?.[resourceType] || 0;
   }
 
   /**
@@ -455,6 +488,16 @@ export class GameState {
       }
     });
 
+    // Validate lifetimeProduced (must be non-negative numbers, monotonic)
+    if (this.data.lifetimeProduced) {
+      Object.entries(this.data.lifetimeProduced).forEach(([resource, value]) => {
+        if (typeof value !== "number" || isNaN(value) || value < 0) {
+          errors.push(`Invalid lifetimeProduced: ${resource} = ${value}`);
+          this.data.lifetimeProduced[resource] = 0;
+        }
+      });
+    }
+
     if (errors.length > 0) {
       console.warn("Game state validation errors:", errors);
     }
@@ -511,6 +554,20 @@ export class GameState {
         ...initial.progression,
         ...(parsedData.progression || {}),
       };
+      // lifetimeProduced: merge defaults with saved values. for old saves
+      // that lack it, seed with current resource amounts so prestige math
+      // still works (best-effort migration).
+      this.data.lifetimeProduced = {
+        ...initial.lifetimeProduced,
+        ...(parsedData.lifetimeProduced || {}),
+      };
+      if (!parsedData.lifetimeProduced) {
+        Object.entries(this.data.resources).forEach(([r, v]) => {
+          if (v > 0 && (this.data.lifetimeProduced[r] || 0) < v) {
+            this.data.lifetimeProduced[r] = v;
+          }
+        });
+      }
       if (parsedData.prestige) {
         this.data.prestige = {
           ...parsedData.prestige,

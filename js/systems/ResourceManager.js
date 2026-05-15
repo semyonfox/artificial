@@ -67,14 +67,18 @@ export class ResourceManager {
 		}
 
 		const prestigeMult = this.getPrestigeMultiplier();
+		const pm = this.gameManager?.systems?.prestigeManager;
+		const wm = this.gameManager?.systems?.workerManager;
 		const results = {};
 
-		// guaranteed production
+		// guaranteed production (with mastery + soft cap)
 		if (action.produces) {
 			for (const [resource, baseAmount] of Object.entries(action.produces)) {
 				const efficiency = this.gameState.getEfficiencyMultiplier(resource);
 				const specMult = this.gameManager?.getSpecializationMultiplier(resource) || 1;
-				const amount = Math.max(1, Math.floor(baseAmount * efficiency * prestigeMult * specMult));
+				const masteryMult = pm?.getMasteryMultiplier(resource) || 1;
+				const capMult = wm?.getSoftCapMultiplier(resource) ?? 1;
+				const amount = Math.max(1, Math.floor(baseAmount * efficiency * prestigeMult * specMult * masteryMult * capMult));
 				this.gameState.addResource(resource, amount);
 				results[resource] = amount;
 			}
@@ -87,7 +91,9 @@ export class ResourceManager {
 					const baseAmount = info.amount || 1;
 					const efficiency = this.gameState.getEfficiencyMultiplier(resource);
 					const specMult = this.gameManager?.getSpecializationMultiplier(resource) || 1;
-					const amount = Math.max(1, Math.floor(baseAmount * efficiency * prestigeMult * specMult));
+					const masteryMult = pm?.getMasteryMultiplier(resource) || 1;
+					const capMult = wm?.getSoftCapMultiplier(resource) ?? 1;
+					const amount = Math.max(1, Math.floor(baseAmount * efficiency * prestigeMult * specMult * masteryMult * capMult));
 					this.gameState.addResource(resource, amount);
 					results[resource] = (results[resource] || 0) + amount;
 				}

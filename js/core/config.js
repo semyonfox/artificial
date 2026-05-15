@@ -544,6 +544,71 @@ export const config = {
     antimatter: { wormholeTheory: 1.3 },
   },
 
+  // which era introduced each resource. drives prestige EP weighting:
+  // resources from later eras contribute exponentially more EP, so depth
+  // (lots of late-era production) beats rushing.
+  resourceEra: {
+    // paleolithic (0)
+    sticks: 0, stones: 0, meat: 0, cookedMeat: 0, bones: 0, fur: 0,
+    // neolithic (1)
+    grain: 1, clay: 1, pottery: 1, livestock: 1, textiles: 1, tools: 1,
+    // bronze (2)
+    copper: 2, tin: 2, bronze: 2, wheel: 2, writing: 2, trade: 2,
+    // iron (3)
+    iron: 3, steel: 3, coins: 3, roads: 3, cities: 3, knowledge: 3,
+    // classical (4)
+    engineering: 4, aqueducts: 4, philosophy: 4, mathematics: 4, medicine: 4, art: 4,
+    // medieval (5)
+    agriculture: 5, mills: 5, guilds: 5, manuscripts: 5, castles: 5, religion: 5,
+    // renaissance (6)
+    printing: 6, exploration: 6, banking: 6, gunpowder: 6, optics: 6,
+    navigation: 6, ships: 6, wood: 6,
+    // industrial (7)
+    coal: 7, steam: 7, factories: 7, railways: 7, electricity: 7, oil: 7, telegraph: 7,
+    // information (8)
+    silicon: 8, chips: 8, computers: 8, servers: 8, data: 8,
+    internet: 8, satellites: 8, software: 8,
+    // space (9)
+    rockets: 9, solarPanels: 9, robotics: 9, fusion: 9,
+    spaceStations: 9, terraforming: 9, probes: 9,
+    // galactic (10)
+    antimatter: 10, darkMatter: 10, wormholes: 10, dysonSpheres: 10,
+    quantumComputers: 10, megastructures: 10, timeManipulation: 10,
+    // universal (11)
+    multiverseAccess: 11, realityEngines: 11, consciousnessTransfer: 11,
+    universalConstants: 11, existentialEnergy: 11, cosmicStrings: 11,
+    // special (tier 0 — counts but doesn't dominate)
+    population: 0, defense: 0, research: 0,
+  },
+
+  // prestige scaling.
+  //   points = Σ lifetime[r] × eraMult^era(r)
+  //   EP = floor(log10(1 + points)^2 × coefficient)
+  // squared log gives meaningful growth at all run lengths without runaway.
+  // multBase is the sqrt growth factor on the prestige multiplier curve.
+  // tuned target: first clean run to Industrial ≈ 50 EP, Universal ≈ 200 EP.
+  prestigeScaling: {
+    eraMultBase: 2,
+    coefficient: 0.8,
+    multBase: 0.3,
+  },
+
+  // soft caps per resource scale with population + workers. exceeding the
+  // cap reduces yield to capPenalty (not zero — production continues).
+  softCaps: {
+    enabled: true,
+    base: {
+      // approximate "this much should be plenty for the era" baseline
+      // per era index. resource amount; further scaled by pop + workers.
+      // exceeding cap means production drops to capPenalty multiplier.
+      0: 200, 1: 1000, 2: 4000, 3: 15000, 4: 60000, 5: 200000,
+      6: 800000, 7: 3000000, 8: 1.2e7, 9: 5e7, 10: 2e8, 11: 1e9,
+    },
+    popFactor: 0.5,    // softCap *= (1 + log10(1+pop) * popFactor)
+    workerFactor: 0.05, // softCap *= (1 + workersInEra * workerFactor)
+    capPenalty: 0.25,   // production yield above cap
+  },
+
   // Game balance constants
   balance: {
     basePopulationGrowth: 0.05,
@@ -578,35 +643,64 @@ export const config = {
     },
   },
 
-  // Prestige talent tree
+  // Prestige talent tree. NO era-skip perks: they were the load-bearing
+  // cause of the rush meta. depth is rewarded via "mastery" perks that
+  // require COMPLETING an era at least once.
   prestigeTalentTree: [
-    // Tier 1 - early game acceleration
-    { id: 'quickStart', name: 'Quick Start', description: 'Start with 10 of each Paleolithic resource', cost: 5, tier: 1, unlockEra: null },
+    // tier 1 — early game acceleration
+    { id: 'quickStart', name: 'Quick Start', description: 'Start each run with 10 of each Paleolithic resource', cost: 5, tier: 1, unlockEra: null },
     { id: 'firstWorkers', name: 'First Workers', description: 'Start with 2 gatherers + 1 cook', cost: 10, tier: 1, unlockEra: null },
-    { id: 'ancestralMemory', name: 'Ancestral Memory', description: 'Start at 25% of highest-era-reached population cap', cost: 10, tier: 1, unlockEra: null },
-    // Tier 2 - growth multipliers
-    { id: 'populationBoom', name: 'Population Boom', description: 'Population growth x3 in all eras', cost: 20, tier: 2, unlockEra: null },
-    { id: 'fertileLands', name: 'Fertile Lands', description: 'Grain production x2 starting Neolithic', cost: 20, tier: 2, unlockEra: null },
-    { id: 'workerEfficiency', name: 'Worker Efficiency', description: 'All workers -15% intervals', cost: 25, tier: 2, unlockEra: null },
-    // Tier 3 - cost reductions (unlock at Bronze)
-    { id: 'masterCrafter', name: 'Master Crafter', description: 'All worker hiring costs -25%', cost: 30, tier: 3, unlockEra: 'bronze' },
-    { id: 'engineeringGenius', name: 'Engineering Genius', description: 'All upgrade costs -20%', cost: 35, tier: 3, unlockEra: 'bronze' },
-    // Tier 4 - advanced unlocks (unlock at Renaissance)
-    { id: 'culturalMemory', name: 'Cultural Memory', description: 'Auto-unlock first upgrade tier of each completed era', cost: 40, tier: 4, unlockEra: 'renaissance' },
-    { id: 'timeDilation', name: 'Time Dilation', description: 'All worker intervals -30% (stacks with era tech)', cost: 50, tier: 4, unlockEra: 'renaissance' },
-    // Era skips - unlock when reaching that era
-    { id: 'eraSkipBronze', name: 'Era Skip: Bronze', description: 'Start at Bronze Age', cost: 75, tier: 4, unlockEra: 'bronze' },
-    { id: 'eraSkipIron', name: 'Era Skip: Iron', description: 'Start at Iron Age', cost: 75, tier: 4, unlockEra: 'iron' },
-    { id: 'eraSkipClassical', name: 'Era Skip: Classical', description: 'Start at Classical Era', cost: 75, tier: 4, unlockEra: 'classical' },
-    { id: 'eraSkipMedieval', name: 'Era Skip: Medieval', description: 'Start at Medieval Era', cost: 75, tier: 4, unlockEra: 'medieval' },
-    { id: 'eraSkipRenaissance', name: 'Era Skip: Renaissance', description: 'Start at Renaissance', cost: 75, tier: 4, unlockEra: 'renaissance' },
-    { id: 'eraSkipIndustrial', name: 'Era Skip: Industrial', description: 'Start at Industrial Age', cost: 75, tier: 4, unlockEra: 'industrial' },
-    { id: 'eraSkipInformation', name: 'Era Skip: Information', description: 'Start at Information Age', cost: 75, tier: 4, unlockEra: 'information' },
-    { id: 'eraSkipSpace', name: 'Era Skip: Space', description: 'Start at Space Age', cost: 75, tier: 4, unlockEra: 'space' },
-    { id: 'eraSkipGalactic', name: 'Era Skip: Galactic', description: 'Start at Galactic Era', cost: 75, tier: 4, unlockEra: 'galactic' },
-    // Tier 5 - soft completion
-    { id: 'universalDestiny', name: 'Universal Destiny', description: 'Unlock Information era as starting point after reaching Universal', cost: 200, tier: 5, unlockEra: 'universal' },
+    { id: 'ancestralMemory', name: 'Ancestral Memory', description: 'Start at 25% of highest-era population cap', cost: 10, tier: 1, unlockEra: null },
+
+    // tier 2 — growth multipliers
+    { id: 'populationBoom', name: 'Population Boom', description: 'Population growth ×3 in all eras', cost: 20, tier: 2, unlockEra: null },
+    { id: 'fertileLands', name: 'Fertile Lands', description: 'Grain production ×2 from Neolithic on', cost: 20, tier: 2, unlockEra: null },
+    { id: 'workerEfficiency', name: 'Worker Efficiency', description: 'All worker intervals −15%', cost: 25, tier: 2, unlockEra: null },
+
+    // tier 3 — cost reductions (unlock at bronze)
+    { id: 'masterCrafter', name: 'Master Crafter', description: 'All worker hiring costs −25%', cost: 30, tier: 3, unlockEra: 'bronze' },
+    { id: 'engineeringGenius', name: 'Engineering Genius', description: 'All upgrade costs −20%', cost: 35, tier: 3, unlockEra: 'bronze' },
+
+    // tier 4 — advanced
+    { id: 'culturalMemory', name: 'Cultural Memory', description: 'Auto-unlock tier-1 upgrade of each completed era', cost: 40, tier: 4, unlockEra: 'renaissance' },
+    { id: 'timeDilation', name: 'Time Dilation', description: 'All worker intervals −30% (stacks)', cost: 50, tier: 4, unlockEra: 'renaissance' },
+
+    // tier 5 — era mastery. require having COMPLETED (advanced past) the era.
+    // each gives +50% production to that era's signature resources, every run.
+    { id: 'paleolithicMastery', name: 'Paleolithic Mastery', description: '+50% sticks, stones, meat, fur production', cost: 15, tier: 5, requiresCompletedEra: 'paleolithic' },
+    { id: 'neolithicMastery', name: 'Neolithic Mastery', description: '+50% grain, pottery, textiles, tools', cost: 25, tier: 5, requiresCompletedEra: 'neolithic' },
+    { id: 'bronzeMastery', name: 'Bronze Mastery', description: '+50% bronze, copper, tin, writing', cost: 40, tier: 5, requiresCompletedEra: 'bronze' },
+    { id: 'ironMastery', name: 'Iron Mastery', description: '+50% iron, steel, coins, roads, cities', cost: 60, tier: 5, requiresCompletedEra: 'iron' },
+    { id: 'classicalMastery', name: 'Classical Mastery', description: '+50% engineering, philosophy, knowledge, medicine', cost: 85, tier: 5, requiresCompletedEra: 'classical' },
+    { id: 'medievalMastery', name: 'Medieval Mastery', description: '+50% agriculture, manuscripts, guilds, castles', cost: 110, tier: 5, requiresCompletedEra: 'medieval' },
+    { id: 'renaissanceMastery', name: 'Renaissance Mastery', description: '+50% printing, banking, navigation, optics', cost: 140, tier: 5, requiresCompletedEra: 'renaissance' },
+    { id: 'industrialMastery', name: 'Industrial Mastery', description: '+50% coal, steam, factories, electricity', cost: 175, tier: 5, requiresCompletedEra: 'industrial' },
+    { id: 'informationMastery', name: 'Information Mastery', description: '+50% silicon, computers, internet, software', cost: 215, tier: 5, requiresCompletedEra: 'information' },
+    { id: 'spaceMastery', name: 'Space Mastery', description: '+50% rockets, spaceStations, fusion, robotics', cost: 260, tier: 5, requiresCompletedEra: 'space' },
+    { id: 'galacticMastery', name: 'Galactic Mastery', description: '+50% antimatter, dysonSpheres, quantumComputers', cost: 310, tier: 5, requiresCompletedEra: 'galactic' },
+    { id: 'universalMastery', name: 'Universal Mastery', description: '+50% realityEngines, multiverse, consciousness', cost: 365, tier: 5, requiresCompletedEra: 'universal' },
+
+    // tier 6 — deep production / endgame. gated on lifetime EP earned.
+    { id: 'compoundGrowth', name: 'Compound Growth', description: 'Prestige multiplier curve becomes 1 + √EP × 0.4 (steeper)', cost: 500, tier: 6, requiresLifetimeEP: 500 },
+    { id: 'offlineMaster', name: 'Offline Master', description: 'Offline production +50% rate, 16h full / 48h reduced cap', cost: 750, tier: 6, requiresLifetimeEP: 1000 },
+    { id: 'chainBonus', name: 'Chain Bonus', description: 'Workers that consume inputs gain ×1.5 production', cost: 1000, tier: 6, requiresLifetimeEP: 2000 },
   ],
+
+  // resources buffed by each era-mastery perk
+  eraMasteryResources: {
+    paleolithicMastery: ['sticks', 'stones', 'meat', 'cookedMeat', 'fur', 'bones'],
+    neolithicMastery: ['grain', 'pottery', 'textiles', 'tools', 'clay', 'livestock'],
+    bronzeMastery: ['bronze', 'copper', 'tin', 'writing', 'wheel', 'trade'],
+    ironMastery: ['iron', 'steel', 'coins', 'roads', 'cities', 'knowledge'],
+    classicalMastery: ['engineering', 'aqueducts', 'philosophy', 'mathematics', 'medicine', 'art'],
+    medievalMastery: ['agriculture', 'mills', 'manuscripts', 'guilds', 'castles', 'religion'],
+    renaissanceMastery: ['printing', 'banking', 'navigation', 'optics', 'exploration', 'gunpowder', 'ships'],
+    industrialMastery: ['coal', 'steam', 'factories', 'railways', 'electricity', 'oil', 'telegraph'],
+    informationMastery: ['silicon', 'chips', 'computers', 'servers', 'data', 'internet', 'software', 'satellites'],
+    spaceMastery: ['rockets', 'solarPanels', 'robotics', 'fusion', 'spaceStations', 'terraforming', 'probes'],
+    galacticMastery: ['antimatter', 'darkMatter', 'wormholes', 'dysonSpheres', 'quantumComputers', 'megastructures'],
+    universalMastery: ['multiverseAccess', 'realityEngines', 'consciousnessTransfer', 'universalConstants', 'existentialEnergy', 'cosmicStrings'],
+  },
 
   // Era specializations (mutually exclusive upgrades from Bronze onward)
   eraSpecializations: {
@@ -807,7 +901,7 @@ export const config = {
           id: "animalDomestication",
           name: "Animal Domestication",
           description: "Tame wild animals for food, labor, and materials",
-          cost: { grain: 30, livestock: 5, pottery: 10 },
+          cost: { grain: 30, pottery: 10 },
           effect: "Unlocks livestock production and increases meat yield",
           priority: 3,
           historical:
@@ -817,7 +911,7 @@ export const config = {
           id: "weaving",
           name: "Textile Weaving",
           description: "Create cloth from plant and animal fibers",
-          cost: { textiles: 8, tools: 10, livestock: 3 },
+          cost: { grain: 20, tools: 10 },
           effect: "Improves clothing and trade opportunities",
           priority: 4,
           historical:
@@ -846,6 +940,7 @@ export const config = {
             "Smelts copper and tin to create bronze tools and weapons.",
           cost: { copper: 30, tin: 10, tools: 5 },
           produces: { bronze: 2, tools: 1 },
+          consumes: { copper: 1, tin: 0.5 },
           interval: 12000,
           requiresUpgrade: "alloying",
         },
@@ -854,7 +949,7 @@ export const config = {
           name: "Scribe",
           description:
             "Records information using early writing systems for administration.",
-          cost: { writing: 15, bronze: 8, trade: 5 },
+          cost: { pottery: 12, bronze: 8, trade: 5 },
           produces: { writing: 2, knowledge: 0.5 },
           interval: 15000,
           requiresUpgrade: "writingSystems",
@@ -955,7 +1050,7 @@ export const config = {
           id: "engineer",
           name: "Engineer",
           description: "Designs infrastructure for growing civilizations.",
-          cost: { steel: 20, knowledge: 15 },
+          cost: { steel: 20, stones: 30 },
           produces: { roads: 1, cities: 0.3 },
           interval: 15000,
           requiresUpgrade: "roadBuilding",
@@ -964,7 +1059,7 @@ export const config = {
           id: "scholar",
           name: "Scholar",
           description: "Studies and accumulates knowledge through research.",
-          cost: { knowledge: 20, coins: 10 },
+          cost: { writing: 10, coins: 10 },
           produces: { knowledge: 3, coins: 0.5 },
           interval: 20000,
         },
@@ -1046,7 +1141,7 @@ export const config = {
           name: "Physician",
           description:
             "Studies and treats disease, improving population health.",
-          cost: { knowledge: 15, medicine: 5 },
+          cost: { knowledge: 15, cities: 5 },
           produces: { medicine: 2, population: 0.05 },
           interval: 20000,
           requiresUpgrade: "classicalMedicine",
@@ -1122,7 +1217,7 @@ export const config = {
           id: "monk",
           name: "Monk",
           description: "Copies manuscripts and preserves knowledge.",
-          cost: { manuscripts: 10, religion: 5 },
+          cost: { manuscripts: 10, knowledge: 8 },
           produces: { manuscripts: 2, knowledge: 1, religion: 0.5 },
           interval: 15000,
           requiresUpgrade: "scriptoria",
@@ -1142,7 +1237,7 @@ export const config = {
           id: "heavyPlow",
           name: "Heavy Plow",
           description: "Iron-tipped plows for dense soils",
-          cost: { iron: 8, agriculture: 15 },
+          cost: { iron: 8, tools: 10 },
           effect: "Greatly improves agricultural output",
           priority: 1,
           historical:
@@ -1200,6 +1295,7 @@ export const config = {
           description: "Operates the printing press to mass-produce books.",
           cost: { printing: 20, manuscripts: 10 },
           produces: { printing: 3, knowledge: 1 },
+          consumes: { manuscripts: 0.5 },
           interval: 8000,
           requiresUpgrade: "printingPress",
         },
@@ -1237,7 +1333,7 @@ export const config = {
           id: "renaissanceNavigation",
           name: "Navigation",
           description: "Develop tools and techniques for ocean voyages",
-          cost: { optics: 10, printing: 8 },
+          cost: { manuscripts: 15, printing: 8 },
           effect: "Unlocks explorers and new trade routes",
           priority: 2,
           historical:
@@ -1285,6 +1381,7 @@ export const config = {
           description: "Operates steam-powered machinery.",
           cost: { coal: 50, steam: 20 },
           produces: { factories: 1, steam: 1 },
+          consumes: { coal: 1 },
           interval: 8000,
           requiresUpgrade: "steamEngine",
         },
@@ -1294,6 +1391,7 @@ export const config = {
           description: "Develops new technologies.",
           cost: { electricity: 40, factories: 15 },
           produces: { electricity: 3, steam: 1 },
+          consumes: { coal: 1 },
           interval: 12000,
           requiresUpgrade: "electrification",
         },
@@ -1350,6 +1448,7 @@ export const config = {
           description: "Develops software and applications.",
           cost: { silicon: 100, computers: 20 },
           produces: { computers: 1, software: 3, data: 2 },
+          consumes: { silicon: 1, electricity: 0.5 },
           interval: 6000,
           requiresUpgrade: "siliconProcessing",
         },
@@ -1359,6 +1458,7 @@ export const config = {
           description: "Builds global communication networks.",
           cost: { computers: 50, internet: 15 },
           produces: { internet: 2, data: 1 },
+          consumes: { electricity: 0.5 },
           interval: 10000,
           requiresUpgrade: "networking",
         },
@@ -1421,7 +1521,7 @@ export const config = {
           id: "astronaut",
           name: "Astronaut",
           description: "Crews orbital stations and conducts space research.",
-          cost: { rockets: 50, spaceStations: 10 },
+          cost: { rockets: 50, satellites: 8 },
           produces: { spaceStations: 0.5, robotics: 1, fusion: 0.3 },
           interval: 15000,
           requiresUpgrade: "orbitalHab",
@@ -1432,6 +1532,7 @@ export const config = {
           description: "Designs and builds launch vehicles.",
           cost: { computers: 30, steel: 50 },
           produces: { rockets: 2, satellites: 1 },
+          consumes: { steel: 1, computers: 0.3 },
           interval: 12000,
           requiresUpgrade: "rocketry",
         },
@@ -1506,6 +1607,7 @@ export const config = {
           description: "Constructs segments of stellar energy collectors.",
           cost: { robotics: 30, solarPanels: 50 },
           produces: { dysonSpheres: 0.5, electricity: 5 },
+          consumes: { robotics: 0.5, solarPanels: 1 },
           interval: 20000,
           requiresUpgrade: "dysonSwarm",
         },
@@ -1524,6 +1626,7 @@ export const config = {
           description: "Produces and contains antimatter for energy.",
           cost: { fusion: 30, quantumComputers: 10 },
           produces: { antimatter: 1, wormholes: 0.2 },
+          consumes: { fusion: 0.5 },
           interval: 15000,
           requiresUpgrade: "antimatterContainment",
         },
@@ -1587,6 +1690,7 @@ export const config = {
           description: "Reshapes the fabric of spacetime itself.",
           cost: { quantumComputers: 40, antimatter: 30 },
           produces: { realityEngines: 1, universalConstants: 0.5 },
+          consumes: { antimatter: 0.5, quantumComputers: 0.2 },
           interval: 20000,
           requiresUpgrade: "realityEngineering",
         },
@@ -1601,6 +1705,7 @@ export const config = {
             existentialEnergy: 1,
             cosmicStrings: 0.3,
           },
+          consumes: { wormholes: 0.2 },
           interval: 15000,
           requiresUpgrade: "multiversalPhysics",
         },
@@ -1611,6 +1716,7 @@ export const config = {
             "Transfers and expands consciousness beyond biological limits.",
           cost: { quantumComputers: 30, existentialEnergy: 10 },
           produces: { consciousnessTransfer: 1, population: 0.1 },
+          consumes: { existentialEnergy: 0.3 },
           interval: 18000,
           requiresUpgrade: "consciousnessUpload",
         },

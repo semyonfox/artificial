@@ -256,16 +256,24 @@ export class WorkerManager {
 		// - prestige multiplier
 		// - specialization bonuses
 		// - grain perk bonus
-		const prestigeMult = this.gameManager?.systems?.prestigeManager?.getMultiplier() || 1;
+		// - era-mastery perks (×1.5 per applicable mastery)
+		// - chainBonus perk (workers with consumes)
+		// - soft cap penalty (yield drops to capPenalty above cap)
+		const pm = this.gameManager?.systems?.prestigeManager;
+		const prestigeMult = pm?.getMultiplier() || 1;
 		const diminishFactor = this.getDiminishingReturnsFactor(workerType);
-		const grainMult = this.gameManager?.systems?.prestigeManager?.getGrainMultiplier() || 1;
+		const grainMult = pm?.getGrainMultiplier() || 1;
+		const chainMult = pm?.getChainBonusMultiplier(workerData) || 1;
 
 		for (const [resource, basePerWorker] of Object.entries(workerData.produces)) {
 			let specMult = this.gameManager?.getSpecializationMultiplier(resource) || 1;
 			let resourceMult = 1.0;
 			if (resource === 'grain') resourceMult *= grainMult;
+			const masteryMult = pm?.getMasteryMultiplier(resource) || 1;
+			const capMult = this.getSoftCapMultiplier(resource);
 
-			const total = basePerWorker * workersAbleToWork * efficiency * diminishFactor * prestigeMult * specMult * resourceMult;
+			const total = basePerWorker * workersAbleToWork * efficiency * diminishFactor
+				* prestigeMult * specMult * resourceMult * masteryMult * chainMult * capMult;
 			const prevRemainder = this.productionRemainders[resource] || 0;
 			const combined = prevRemainder + total;
 			const whole = Math.floor(combined);
@@ -276,6 +284,43 @@ export class WorkerManager {
 				this.gameState.addResource(resource, whole);
 			}
 		}
+	}
+
+	/**
+	 * Soft cap multiplier for a resource. Returns 1 when below cap, capPenalty
+	 * (default 0.25) above cap. Cap scales with pop and workers-in-era.
+	 */
+	getSoftCapMultiplier(resource) {
+		const cfg = config.softCaps;
+		if (!cfg?.enabled) return 1.0;
+
+		const eraIdx = config.resourceEra?.[resource];
+		if (eraIdx === undefined) return 1.0;
+
+		const baseCap = cfg.base?.[eraIdx];
+		if (!baseCap) return 1.0;
+
+		const pop = this.gameState.getResource('population') || 1;
+		const popMult = 1 + Math.log10(1 + pop) * (cfg.popFactor || 0);
+
+		// count workers in the era of THIS resource (so resources scale with
+		// their own era's labor force)
+		let workersInEra = 0;
+		const eraOrder = ['paleolithic', 'neolithic', 'bronze', 'iron', 'classical',
+			'medieval', 'renaissance', 'industrial', 'information', 'space', 'galactic', 'universal'];
+		const eraKey = eraOrder[eraIdx];
+		const eraData = config.eraData?.[eraKey];
+		if (eraData?.workers) {
+			for (const w of eraData.workers) {
+				workersInEra += this.gameState.getWorkerCount(w.id) || 0;
+			}
+		}
+		const workerMult = 1 + workersInEra * (cfg.workerFactor || 0);
+
+		const effectiveCap = baseCap * popMult * workerMult;
+		const current = this.gameState.getResource(resource) || 0;
+		if (current >= effectiveCap) return cfg.capPenalty || 0.25;
+		return 1.0;
 	}
 
 	getFoodStatus(workerType) {
