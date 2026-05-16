@@ -56,6 +56,20 @@ export class GameState {
 
       // Era specialization choices (reset on prestige)
       eraSpecializations: {},
+
+      // Civilization specializations (permanent identity choices)
+      civSpecializations: {},
+
+      // Trade routes (reset on prestige)
+      tradeRoutes: {
+        activeRoutes: [],
+        routeProgress: {},
+      },
+
+      // Wonders (persist through prestige - permanent achievements)
+      wonders: {
+        built: [],
+      },
     };
   }
 
@@ -153,10 +167,30 @@ export class GameState {
       renaissanceBanking: false,
       scientificMethod: false,
 
+      // Enlightenment upgrades
+      scientificAcademies: false,
+      precisionEngineering: false,
+      naturalPhilosophy: false,
+      colonialism: false,
+
       // Industrial Age upgrades
       steamEngine: false,
       electrification: false,
       bessemer: false,
+
+      // Electric Age upgrades
+      electricalGrid: false,
+      telephony: false,
+      organicChemistry: false,
+      internalCombustion: false,
+      assemblyLine: false,
+
+      // Atomic Age upgrades
+      nuclearFission: false,
+      jetPropulsion: false,
+      polymerScience: false,
+      radarTechnology: false,
+      transistor: false,
 
       // Information Age upgrades
       siliconProcessing: false,
@@ -199,7 +233,10 @@ export class GameState {
       classicalera: "classical",
       medievalera: "medieval",
       renaissanceera: "renaissance",
+      enlightenmentera: "enlightenment",
       industrialage: "industrial",
+      electricage: "electric",
+      atomicage: "atomic",
       informationage: "information",
       spaceage: "space",
       galacticage: "galactic",
@@ -578,6 +615,20 @@ export class GameState {
       if (parsedData.eraSpecializations) {
         this.data.eraSpecializations = { ...parsedData.eraSpecializations };
       }
+      if (parsedData.civSpecializations) {
+        this.data.civSpecializations = { ...parsedData.civSpecializations };
+      }
+      if (parsedData.tradeRoutes) {
+        this.data.tradeRoutes = {
+          activeRoutes: [...(parsedData.tradeRoutes.activeRoutes || [])],
+          routeProgress: { ...(parsedData.tradeRoutes.routeProgress || {}) },
+        };
+      }
+      if (parsedData.wonders) {
+        this.data.wonders = {
+          built: [...(parsedData.wonders.built || [])],
+        };
+      }
 
       // Migrate legacy save structures to current model
       this.migrateLegacySave(parsedData);
@@ -641,11 +692,19 @@ export class GameState {
   }
 
   /**
-   * Reset game state to initial values
+   * Reset game state to initial values (called on prestige)
+   * Wonders persist through prestige as permanent achievements
    */
   reset() {
+    // preserve wonders through reset
+    const preservedWonders = this.data.wonders ? { ...this.data.wonders } : { built: [] };
+
     this.data = this.createInitialState();
     this.data.eraSpecializations = {};
+    this.data.civSpecializations = {};
+    this.data.tradeRoutes = { activeRoutes: [], routeProgress: {} };
+    this.data.wonders = preservedWonders;
+
     this.notifyListeners("gameReset", this.data);
   }
 

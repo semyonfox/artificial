@@ -14,6 +14,9 @@ function createGameStore() {
     prestige: null,
     achievements: [],
     eraSpecializations: {},
+    civSpecializations: {},
+    tradeRoutes: { activeRoutes: [] },
+    wonders: { built: [] },
     notifications: [],
     eventLog: [],
     disasterLog: [],
@@ -47,6 +50,9 @@ function createGameStore() {
         currentEra: gs.data.currentEra,
         prestige: gs.data.prestige || null,
         eraSpecializations: { ...gs.data.eraSpecializations },
+        civSpecializations: { ...gs.data.civSpecializations },
+        tradeRoutes: { ...gs.data.tradeRoutes },
+        wonders: { ...gs.data.wonders },
       }));
 
       // listen to GameState events and sync store
@@ -80,6 +86,27 @@ function createGameStore() {
         }));
       });
 
+      gs.addListener('civSpecializationChosen', () => {
+        update(s => ({
+          ...s,
+          civSpecializations: { ...gs.data.civSpecializations },
+        }));
+      });
+
+      gs.addListener('tradeRouteEstablished', () => {
+        update(s => ({
+          ...s,
+          tradeRoutes: { ...gs.data.tradeRoutes },
+        }));
+      });
+
+      gs.addListener('wonderBuilt', () => {
+        update(s => ({
+          ...s,
+          wonders: { ...gs.data.wonders },
+        }));
+      });
+
       gs.addListener('gameLoaded', () => {
         update(s => ({
           ...s,
@@ -90,6 +117,9 @@ function createGameStore() {
           currentEra: gs.data.currentEra,
           prestige: gs.data.prestige || null,
           eraSpecializations: { ...gs.data.eraSpecializations },
+          civSpecializations: { ...gs.data.civSpecializations },
+          tradeRoutes: { ...gs.data.tradeRoutes },
+          wonders: { ...gs.data.wonders },
         }));
       });
 
@@ -103,6 +133,9 @@ function createGameStore() {
           currentEra: gs.data.currentEra,
           prestige: null,
           eraSpecializations: {},
+          civSpecializations: {},
+          tradeRoutes: { activeRoutes: [] },
+          wonders: { ...gs.data.wonders },
         }));
       });
     },
@@ -120,6 +153,9 @@ function createGameStore() {
           currentEra: gs.data.currentEra,
           prestige: gs.data.prestige || null,
           eraSpecializations: { ...gs.data.eraSpecializations },
+          civSpecializations: { ...gs.data.civSpecializations },
+          tradeRoutes: { ...gs.data.tradeRoutes },
+          wonders: { ...gs.data.wonders },
         };
       });
     },
@@ -169,3 +205,6 @@ export const resources = derived(gameStore, $g => $g.resources);
 export const workers = derived(gameStore, $g => $g.workers);
 export const currentEra = derived(gameStore, $g => $g.currentEra);
 export const upgrades = derived(gameStore, $g => $g.upgrades);
+export const civSpecializations = derived(gameStore, $g => $g.civSpecializations);
+export const tradeRoutes = derived(gameStore, $g => $g.tradeRoutes);
+export const wonders = derived(gameStore, $g => $g.wonders);

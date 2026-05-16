@@ -12,6 +12,8 @@ import { OfflineManager } from "./systems/OfflineManager.js";
 import { AchievementManager } from "./systems/AchievementManager.js";
 import { PrestigeManager } from "./systems/PrestigeManager.js";
 import { ProgressionValidator } from "./systems/ProgressionValidator.js";
+import { TradeRouteManager } from "./systems/TradeRouteManager.js";
+import { WonderManager } from "./systems/WonderManager.js";
 import { config } from "./core/config.js";
 
 export class GameManager {
@@ -106,6 +108,10 @@ export class GameManager {
     this.systems.achievementManager = new AchievementManager(this.gameState);
     this.systems.prestigeManager = new PrestigeManager(this.gameState);
 
+    // Trade routes and wonders
+    this.systems.tradeRouteManager = new TradeRouteManager(this.gameState);
+    this.systems.wonderManager = new WonderManager(this.gameState);
+
     // UIManager is now optional (Svelte takes over UI duties)
     // Only initialize if running in legacy mode (index.bootstrap.html)
     if (document.getElementById('action-buttons-container')) {
@@ -130,6 +136,12 @@ export class GameManager {
     this.systems.resourceManager.setGameManager(this);
     this.systems.eventManager.setGameManager(this);
     this.systems.achievementManager.setGameManager(this);
+    this.systems.tradeRouteManager.setGameManager(this);
+    this.systems.wonderManager.setGameManager(this);
+
+    // Initialize new systems
+    this.systems.tradeRouteManager.initialize();
+    this.systems.wonderManager.initialize();
   }
 
   /**
@@ -392,28 +404,121 @@ export class GameManager {
   }
 
   /**
+   * Choose a civilization specialization (separate from era specializations)
+   */
+  chooseCivSpecialization(eraKey, civId) {
+    const civSpecs = config.civSpecializations[eraKey];
+    if (!civSpecs) return false;
+
+    const spec = civSpecs.find(s => s.id === civId);
+    if (!spec) return false;
+
+    if (!this.gameState.data.civSpecializations) {
+      this.gameState.data.civSpecializations = {};
+    }
+
+    // can only choose once per era per run
+    if (this.gameState.data.civSpecializations[eraKey]) {
+      this.showNotification(
+        'Already chose a civilization for this era',
+        'warning',
+      );
+      return false;
+    }
+
+    this.gameState.data.civSpecializations[eraKey] = civId;
+    this.showNotification(
+      `Chose ${spec.name}! ${spec.description}`,
+      'success',
+      5000,
+    );
+    this.gameState.notifyListeners('civSpecializationChosen', { era: eraKey, civId });
+    this.updateUI();
+    return true;
+  }
+
+  /**
    * Get active specialization bonuses for a resource
-   * Returns a combined multiplier from all active era specializations
+   * Returns a combined multiplier from all active era and civ specializations
    */
   getSpecializationMultiplier(resource) {
-    const specs = this.gameState.data.eraSpecializations;
-    if (!specs) return 1.0;
-
     let mult = 1.0;
-    for (const [eraKey, specId] of Object.entries(specs)) {
-      const eraSpecs = config.eraSpecializations[eraKey];
-      if (!eraSpecs) continue;
-      const spec = eraSpecs.find(s => s.id === specId);
-      if (!spec) continue;
 
-      if (spec.bonuses && spec.bonuses[resource]) {
-        mult *= spec.bonuses[resource];
-      }
-      if (spec.penalties && spec.penalties[resource]) {
-        mult *= spec.penalties[resource];
+    // era specializations
+    const eraSpecs = this.gameState.data.eraSpecializations;
+    if (eraSpecs) {
+      for (const [eraKey, specId] of Object.entries(eraSpecs)) {
+        const specs = config.eraSpecializations[eraKey];
+        if (!specs) continue;
+        const spec = specs.find(s => s.id === specId);
+        if (!spec) continue;
+
+        if (spec.bonuses && spec.bonuses[resource]) {
+          mult *= spec.bonuses[resource];
+        }
+        if (spec.penalties && spec.penalties[resource]) {
+          mult *= spec.penalties[resource];
+        }
       }
     }
+
+    // civilization specializations
+    const civSpecs = this.gameState.data.civSpecializations;
+    if (civSpecs) {
+      for (const [eraKey, civId] of Object.entries(civSpecs)) {
+        const specs = config.civSpecializations[eraKey];
+        if (!specs) continue;
+        const spec = specs.find(s => s.id === civId);
+        if (!spec) continue;
+
+        if (spec.bonuses && spec.bonuses[resource]) {
+          mult *= spec.bonuses[resource];
+        }
+        if (spec.penalties && spec.penalties[resource]) {
+          mult *= spec.penalties[resource];
+        }
+      }
+    }
+
+    // trade route bonuses
+    if (this.systems.tradeRouteManager) {
+      mult *= this.systems.tradeRouteManager.getRouteMultiplier(resource);
+    }
+
+    // wonder bonuses
+    if (this.systems.wonderManager) {
+      mult *= this.systems.wonderManager.getWonderMultiplier(resource);
+    }
+
     return mult;
+  }
+
+  /**
+   * Establish a trade route
+   */
+  establishTradeRoute(routeId) {
+    return this.systems.tradeRouteManager?.establishRoute(routeId) || false;
+  }
+
+  /**
+   * Build a wonder
+   */
+  buildWonder(wonderId) {
+    return this.systems.wonderManager?.buildWonder(wonderId) || false;
+  }
+
+  /**
+   * Get available trade routes
+   */
+  getAvailableTradeRoutes() {
+    return this.systems.tradeRouteManager?.getAvailableRoutes() || [];
+  }
+
+  /**
+   * Get available wonders
+   */
+  getAvailableWonders() {
+    return this.systems.wonderManager?.getAvailableWonders() || [];
   }
 
   /**
@@ -487,11 +592,7 @@ export class GameManager {
   updatePopulationGrowth(deltaTime) {
     const currentPop = this.gameState.getResource("population");
     const currentEra = this.gameState.data.currentEra;
-    const eraOrder = [
-      "paleolithic", "neolithic", "bronze", "iron", "classical",
-      "medieval", "renaissance", "industrial", "information",
-      "space", "galactic", "universal",
-    ];
+    const eraOrder = config.eraOrder;
     const eraIdx = eraOrder.indexOf(currentEra);
 
     // Robotic Age specialization reduces pop cap by 30%
@@ -668,6 +769,11 @@ export class GameManager {
     // Stop all workers before reset
     this.systems.workerManager.stopAllWorkers();
 
+    // Reset trade routes (wonders persist)
+    if (this.systems.tradeRouteManager) {
+      this.systems.tradeRouteManager.reset();
+    }
+
     const earned = pm.prestige();
 
     // every run starts at Paleolithic now — era-skip perks are gone.
@@ -691,11 +797,7 @@ export class GameManager {
 
     // Cultural Memory: auto-unlock first upgrade of completed eras
     if (pm.hasPerk('culturalMemory')) {
-      const eraOrder = [
-        "paleolithic", "neolithic", "bronze", "iron", "classical",
-        "medieval", "renaissance", "industrial", "information",
-        "space", "galactic", "universal",
-      ];
+      const eraOrder = config.eraOrder;
       const highestIdx = eraOrder.indexOf(pm.getPrestigeData().highestEra);
       for (let i = 0; i < highestIdx; i++) {
         const eraKey = eraOrder[i];
@@ -772,6 +874,11 @@ export class GameManager {
       this.systems.workerManager.stopAllWorkers();
     }
 
+    // Stop trade route timers
+    if (this.systems.tradeRouteManager) {
+      this.systems.tradeRouteManager.destroy();
+    }
+
     // Stop game loop
     if (this.gameLoopId) {
       cancelAnimationFrame(this.gameLoopId);
@@ -833,20 +940,7 @@ export class GameManager {
    * Get the next era in progression
    */
   getNextEra(currentEra) {
-    const eraOrder = [
-      "paleolithic",
-      "neolithic",
-      "bronze",
-      "iron",
-      "classical",
-      "medieval",
-      "renaissance",
-      "industrial",
-      "information",
-      "space",
-      "galactic",
-      "universal",
-    ];
+    const eraOrder = config.eraOrder;
     const currentIndex = eraOrder.indexOf(currentEra);
 
     if (currentIndex >= 0 && currentIndex < eraOrder.length - 1) {
@@ -944,13 +1038,37 @@ export class GameManager {
         trade: 20,
         optics: 15,
       },
+      enlightenment: {
+        reason: 40,
+        knowledge: 30,
+        printing: 25,
+        clockwork: 15,
+        academies: 10,
+        ships: 20,
+      },
       industrial: {
         coal: 120,
         iron: 30,
         copper: 20,
         steam: 30,
         factories: 20,
-        electricity: 40,
+        reason: 20,
+      },
+      electric: {
+        dynamo: 60,
+        electricity: 50,
+        steel: 50,
+        telephone: 20,
+        chemicals: 30,
+        oil: 40,
+      },
+      atomic: {
+        uranium: 30,
+        aircraft: 50,
+        plastics: 30,
+        radar: 20,
+        electricity: 80,
+        chemicals: 40,
       },
       information: {
         silicon: 200,

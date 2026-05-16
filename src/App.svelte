@@ -13,6 +13,9 @@
   import PrestigePanel from './lib/components/PrestigePanel.svelte';
   import LogPanel from './lib/components/LogPanel.svelte';
   import NotificationToast from './lib/components/NotificationToast.svelte';
+  import CivSpecializationPanel from './lib/components/CivSpecializationPanel.svelte';
+  import TradeRoutePanel from './lib/components/TradeRoutePanel.svelte';
+  import WonderPanel from './lib/components/WonderPanel.svelte';
 
   let gameManager = $state(null);
   let loading = $state(true);
@@ -107,6 +110,24 @@
               </div>
               <div class="card-body">
                 <UpgradeGrid />
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-body">
+                <CivSpecializationPanel />
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-body">
+                <TradeRoutePanel />
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-body">
+                <WonderPanel />
               </div>
             </div>
 
