@@ -211,7 +211,7 @@ export class UIManager {
         const capMult = wm?.getSoftCapMultiplier?.(key) ?? 1;
         const capped = capMult < 1;
         const cappedTag = capped
-          ? ` <span class="small" style="color: var(--warning)" title="Production reduced to ${Math.round(capMult * 100)}% — grow population or hire more workers">⚠ capped</span>`
+          ? ` <span class="small" style="color: var(--amber)" title="Production reduced to ${Math.round(capMult * 100)}% - grow population or hire more workers">capped</span>`
           : "";
         const lifetime = this.gameState.getLifetimeProduced?.(key) || 0;
         const lifetimeHint = lifetime > value
@@ -220,11 +220,11 @@ export class UIManager {
         return `
         <div class="resource-item d-flex justify-content-between align-items-center">
           <div class="d-flex align-items-center gap-2">
-            <span class="resource-icon">${config.resourceIcons[key] || "❓"}</span>
+            <span class="resource-icon">${config.resourceIcons[key] || "?"}</span>
             <span class="resource-name">${this.formatResourceName(key)}</span>
             ${cappedTag}
           </div>
-          <span style="color: var(--text-secondary); font-variant-numeric: tabular-nums;" data-amount="${Math.floor(value)}">${this.formatNumber(Math.floor(value))}${lifetimeHint}</span>
+          <span class="resource-amount" data-amount="${Math.floor(value)}">${this.formatNumber(Math.floor(value))}${lifetimeHint}</span>
         </div>
       `;
       })
@@ -352,7 +352,7 @@ export class UIManager {
         if (workerCount > 0 && workerInfo) {
           const eff = workerInfo.efficiencyPct || 100;
           const foodStatus = workerInfo.foodStatus || 'wellFed';
-          const foodColor = foodStatus === 'wellFed' ? 'var(--success)' : foodStatus === 'hungry' ? 'var(--warning)' : 'var(--error)';
+          const foodColor = foodStatus === 'wellFed' ? 'var(--green-strong)' : foodStatus === 'hungry' ? 'var(--amber)' : 'var(--red)';
           efficiencyBadge = `<span class="small" style="color: ${foodColor}">${eff}% eff</span>`;
         }
 
@@ -362,8 +362,10 @@ export class UIManager {
 							<div class="d-flex flex-column">
 								<h4 class="h6 mb-1">${worker.name}</h4>
 								<p class="small mb-2" style="color: var(--text-muted)">${worker.description}</p>
-								<p class="small mb-1" style="color: var(--text-muted)">Cost: ${this.formatCost(actualCost)}</p>
-								<p class="small mb-2" style="color: var(--text-muted)">Owned: ${workerCount} ${efficiencyBadge}</p>
+								<div class="worker-meta">
+									<span>Cost: ${this.formatCost(actualCost)}</span>
+									<span>Owned: ${workerCount} ${efficiencyBadge}</span>
+								</div>
 								<div class="mt-auto d-flex justify-content-between align-items-center">
 									${statusText}
 									<button class="hire-button btn btn-sm ${canHire ? "btn-primary" : "btn-secondary"}" data-worker-type="${worker.id}" ${!canHire ? "disabled" : ""}>
@@ -631,10 +633,10 @@ export class UIManager {
       .map(
         (a) => `
 				<div class="col">
-					<div class="d-flex align-items-center gap-2 p-2 rounded ${a.unlocked ? "" : "opacity-50"}" style="background: var(--bg-elevated)">
-						<span class="fs-5">${a.unlocked ? a.icon : "🔒"}</span>
+					<div class="achievement-item ${a.unlocked ? "" : "locked"}">
+						<span class="achievement-icon">${a.unlocked ? a.icon : "?"}</span>
 						<div>
-							<div class="small fw-semibold">${a.unlocked ? a.name : "???"}</div>
+							<div class="small achievement-name">${a.unlocked ? a.name : "???"}</div>
 							<div class="small" style="color: var(--text-muted)">${a.unlocked ? a.description : "Locked"}</div>
 						</div>
 					</div>
@@ -716,21 +718,22 @@ export class UIManager {
     container.innerHTML = Object.entries(tiers)
       .sort(([a], [b]) => a - b)
       .map(([tier, perks]) => `
-        <div class="mb-3">
-          <h6 class="small fw-semibold mb-2" style="color: var(--text-secondary)">Tier ${tier}: ${tierNames[tier] || ''}</h6>
+        <div class="talent-tier">
+          <h6 class="section-label">Tier ${tier}: ${tierNames[tier] || ''}</h6>
           <div class="row row-cols-1 row-cols-md-2 g-2">
             ${perks.map(perk => {
               const btnClass = perk.purchased ? 'btn-success' : perk.available ? 'btn-primary' : 'btn-secondary';
               const btnText = perk.purchased ? 'Owned' : `${perk.cost} EP`;
               const disabled = perk.purchased || !perk.available ? 'disabled' : '';
+              const itemState = perk.purchased ? 'purchased' : perk.available ? 'available' : 'locked';
               return `
                 <div class="col">
-                  <div class="p-2 rounded d-flex justify-content-between align-items-start" style="background: var(--bg-elevated); ${perk.purchased ? 'border-left: 3px solid var(--success)' : ''}">
+                  <div class="talent-item ${itemState}">
                     <div>
-                      <div class="small fw-semibold">${perk.name}</div>
+                      <div class="small talent-name">${perk.name}</div>
                       <div class="small" style="color: var(--text-muted)">${perk.description}</div>
                     </div>
-                    <button class="btn btn-sm ${btnClass} ms-2 perk-buy-btn" data-perk-id="${perk.id}" ${disabled} style="white-space: nowrap">
+                    <button class="btn btn-sm ${btnClass} ms-2 perk-buy-btn" data-perk-id="${perk.id}" ${disabled}>
                       ${btnText}
                     </button>
                   </div>
@@ -773,17 +776,18 @@ export class UIManager {
     const chosen = this.gameState.data.eraSpecializations?.[currentEra];
 
     container.innerHTML = `
-      <h6 class="small fw-semibold mb-2" style="color: var(--text-secondary)">Era Specialization (choose one)</h6>
+      <h6 class="section-label">Era Specialization (choose one)</h6>
       <div class="row row-cols-1 row-cols-md-3 g-2">
         ${specs.map(spec => {
           const isChosen = chosen === spec.id;
           const isLocked = chosen && !isChosen;
           const btnClass = isChosen ? 'btn-success' : isLocked ? 'btn-secondary' : 'btn-primary';
           const disabled = isChosen || isLocked ? 'disabled' : '';
+          const itemState = isChosen ? 'active' : isLocked ? 'locked' : 'available';
           return `
             <div class="col">
-              <div class="p-2 rounded" style="background: var(--bg-elevated); ${isChosen ? 'border: 2px solid var(--success)' : isLocked ? 'opacity: 0.5' : ''}">
-                <div class="small fw-semibold mb-1">${spec.name}</div>
+              <div class="specialization-item ${itemState}">
+                <div class="small specialization-name mb-1">${spec.name}</div>
                 <div class="small mb-2" style="color: var(--text-muted)">${spec.description}</div>
                 <button class="btn btn-sm ${btnClass} spec-choose-btn" data-era="${currentEra}" data-spec-id="${spec.id}" ${disabled}>
                   ${isChosen ? 'Active' : isLocked ? 'Locked' : 'Choose'}

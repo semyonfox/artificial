@@ -65,11 +65,16 @@ export class AchievementManager {
 	constructor(gameState) {
 		this.gameState = gameState;
 		this.uiManager = null;
+		this.gameManager = null;
 		this.checkAccum = 0;
 	}
 
 	setUIManager(uiManager) {
 		this.uiManager = uiManager;
+	}
+
+	setGameManager(gameManager) {
+		this.gameManager = gameManager;
 	}
 
 	/**
@@ -102,12 +107,11 @@ export class AchievementManager {
 	}
 
 	onAchievementUnlocked(achievement) {
-		this.uiManager?.showNotification(
+		this.gameManager?.showNotification(
 			`${achievement.icon} Achievement: ${achievement.name} - ${achievement.description}`,
 			'info',
 			5000
 		);
-		this.uiManager?.updateAchievements?.();
 	}
 
 	/**

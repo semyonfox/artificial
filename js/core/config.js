@@ -98,6 +98,28 @@ export const config = {
     research: "📚",
   },
 
+  // Resources grouped by era (for filtering display)
+  resourcesByEra: {
+    paleolithic: ['sticks', 'stones', 'meat', 'cookedMeat', 'bones', 'fur', 'population'],
+    neolithic: ['grain', 'clay', 'pottery', 'livestock', 'textiles', 'tools'],
+    bronze: ['copper', 'tin', 'bronze', 'wheel', 'writing', 'trade'],
+    iron: ['iron', 'steel', 'coins', 'roads', 'cities', 'knowledge', 'coal'],
+    classical: ['engineering', 'aqueducts', 'philosophy', 'mathematics', 'medicine', 'art'],
+    medieval: ['agriculture', 'mills', 'guilds', 'manuscripts', 'castles', 'religion'],
+    renaissance: ['printing', 'exploration', 'banking', 'gunpowder', 'optics', 'navigation', 'ships', 'wood'],
+    industrial: ['steam', 'factories', 'railways', 'electricity', 'oil', 'telegraph'],
+    information: ['silicon', 'chips', 'computers', 'servers', 'data', 'internet', 'satellites', 'software'],
+    space: ['rockets', 'solarPanels', 'robotics', 'fusion', 'spaceStations', 'terraforming', 'probes'],
+    galactic: ['antimatter', 'darkMatter', 'wormholes', 'dysonSpheres', 'quantumComputers', 'megastructures', 'timeManipulation'],
+    universal: ['multiverseAccess', 'realityEngines', 'consciousnessTransfer', 'universalConstants', 'existentialEnergy', 'cosmicStrings'],
+  },
+
+  eraOrder: [
+    'paleolithic', 'neolithic', 'bronze', 'iron', 'classical',
+    'medieval', 'renaissance', 'industrial', 'information',
+    'space', 'galactic', 'universal',
+  ],
+
   // Era definitions with historically-aligned periods
   eras: {
     paleolithic: {

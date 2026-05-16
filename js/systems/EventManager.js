@@ -9,6 +9,7 @@ export class EventManager {
   constructor(gameState) {
     this.gameState = gameState;
     this.uiManager = null;
+    this.gameManager = null;
     this.lastEventTime = 0;
     this.eventCooldown = 60000; // 1 minute between possible events
   }
@@ -18,6 +19,13 @@ export class EventManager {
    */
   setUIManager(uiManager) {
     this.uiManager = uiManager;
+  }
+
+  /**
+   * Set Game manager reference
+   */
+  setGameManager(gameManager) {
+    this.gameManager = gameManager;
   }
 
   /**
@@ -131,7 +139,7 @@ export class EventManager {
           ? "info"
           : "success";
 
-    this.uiManager?.showNotification(
+    this.gameManager?.showNotification(
       `${this.getEventIcon(event.type)} ${event.name}: ${event.description}`,
       notificationType,
       6000,
@@ -161,12 +169,20 @@ export class EventManager {
    * Log event to game history and UI
    */
   logEvent(event) {
-    if (!this.uiManager) return;
-
-    if (event.type === "disaster") {
-      this.uiManager.logDisaster(event);
-    } else {
-      this.uiManager.logEvent(event);
+    // try store first, then UIManager
+    const store = this.gameManager?.store;
+    if (store) {
+      if (event.type === "disaster") {
+        store.logDisaster(event);
+      } else {
+        store.logEvent(event);
+      }
+    } else if (this.uiManager) {
+      if (event.type === "disaster") {
+        this.uiManager.logDisaster(event);
+      } else {
+        this.uiManager.logEvent(event);
+      }
     }
   }
 

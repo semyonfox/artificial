@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artificial - Evolution Clicker</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=3">
+</head>
+<body>
+    <!-- Cutscene Container -->
+    <div id="cutscene-container" class="cutscene-container d-none">
+        <!-- Cutscenes will be injected here by the game -->
+    </div>
+
+    <div id="game-container" class="app-container">
+        <header class="top-bar">
+            <div class="brand-lockup">
+                <div class="brand-mark" aria-hidden="true"></div>
+                <div>
+                    <div class="brand-name">Artificial</div>
+                    <div class="brand-subtitle">Civilization Engine</div>
+                </div>
+            </div>
+
+            <div class="era-strip">
+                <div class="era-strip-copy">
+                    <span>Era</span>
+                    <strong class="top-era-name">Paleolithic Era</strong>
+                </div>
+                <div id="era-progress" class="progress era-strip-progress">
+                    <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                </div>
+                <button class="btn btn-primary d-none">Advance Era</button>
+            </div>
+        </header>
+
+        <div class="main-grid">
+            <aside class="sidebar-content card">
+                <div class="card-header">
+                    <h2 class="panel-title">Resources</h2>
+                </div>
+
+                <div class="sidebar-body">
+                    <section class="era-card">
+                        <div class="eyebrow">Current Era</div>
+                        <h3 id="current-era-name">Paleolithic Era</h3>
+                        <div class="progress-wrapper">
+                            <div class="progress" aria-hidden="true">
+                                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div class="progress-text">Progress to next era</div>
+                        </div>
+                        <button id="next-era-button" class="btn btn-primary w-100">Advance Era</button>
+                        <div class="save-grid">
+                            <button id="save-button" class="btn btn-sm btn-ghost">Save</button>
+                            <button id="export-button" class="btn btn-sm btn-ghost">Export</button>
+                            <button id="import-button" class="btn btn-sm btn-ghost">Import</button>
+                            <button id="reset-button" class="btn btn-sm btn-ghost text-danger">Reset</button>
+                        </div>
+                    </section>
+
+                    <div class="resources-panel">
+                        <h3 class="section-label">Resource Overview</h3>
+                        <div id="resource-display" class="resource-list"></div>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="game-main">
+                <div class="workbench-grid">
+                    <section class="workbench-main">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="panel-title">Actions</h2>
+                            </div>
+                            <div class="card-body">
+                                <div id="action-buttons-container" class="d-flex flex-column gap-2"></div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="panel-title">Upgrades</h2>
+                            </div>
+                            <div class="card-body">
+                                <div id="upgrades" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3"></div>
+                                <div id="specialization-container" class="mt-3"></div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="panel-header-row">
+                                    <h2 class="panel-title">Achievements</h2>
+                                    <span id="achievement-count" class="count-pill">0 / 0</span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="achievements-container" class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2"></div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="panel-header-row">
+                                    <h2 class="panel-title">Logs</h2>
+                                    <button id="log-toggle" class="btn btn-sm btn-ghost">Toggle</button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="log-menu" class="d-none">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <h3 class="section-label">Events</h3>
+                                            <div id="event-log" class="log-content p-2 rounded" style="max-height:200px; overflow-y:auto;"></div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h3 class="section-label">Disasters</h3>
+                                            <div id="disaster-log" class="log-content p-2 rounded" style="max-height:200px; overflow-y:auto;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="workbench-side">
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="panel-header-row">
+                                    <h2 class="panel-title">Workers</h2>
+                                    <div id="worker-status" class="small" style="color: var(--text-muted)"></div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="workers-container" class="d-flex flex-column gap-2"></div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="panel-title">Prestige</h2>
+                            </div>
+                            <div class="card-body">
+                                <div id="prestige-info" class="prestige-panel">
+                                    <p class="helper-text">Each EP gives +10% production. Perks are permanent.</p>
+                                    <div class="stat-grid">
+                                        <div><span>EP</span><strong id="prestige-ep">0</strong></div>
+                                        <div><span>Multiplier</span><strong id="prestige-multiplier">1.0x</strong></div>
+                                        <div><span>Resets</span><strong id="prestige-resets">0</strong></div>
+                                        <div><span>EP Gain</span><strong id="prestige-gain">0</strong></div>
+                                    </div>
+                                    <button id="prestige-button" class="btn btn-sm btn-ghost w-100" disabled>Prestige (reach Neolithic)</button>
+                                </div>
+                                <div id="talent-tree-container" class="mt-3"></div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notification-container" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;"></div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="game.js?v=4"></script>
+
+    <!-- Sync sidebar era name to top bar (keeps existing JS untouched) -->
+    <script>
+        (function(){
+            function syncEra(){
+                const main = document.getElementById('current-era-name');
+                const top = document.querySelector('.top-era-name');
+                if(!main || !top) return;
+                top.textContent = main.textContent;
+            }
+            if(document.readyState === 'loading'){
+                document.addEventListener('DOMContentLoaded', ()=>{
+                    syncEra();
+                    const target = document.getElementById('current-era-name');
+                    if(target){
+                        const mo = new MutationObserver(syncEra);
+                        mo.observe(target, { childList: true, characterData: true, subtree: true });
+                    }
+                });
+            } else {
+                syncEra();
+            }
+        })();
+    </script>
+</body>
+</html>

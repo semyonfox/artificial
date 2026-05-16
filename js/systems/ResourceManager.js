@@ -43,7 +43,7 @@ export class ResourceManager {
 	performClickAction(action) {
 		// check upgrade requirement
 		if (action.requiresUpgrade && !this.gameState.hasUpgrade(action.requiresUpgrade)) {
-			this.uiManager?.showNotification(`Requires ${action.requiresUpgrade}`, 'warning');
+			this.gameManager?.showNotification(`Requires ${action.requiresUpgrade}`, 'warning');
 			return null;
 		}
 
@@ -52,7 +52,7 @@ export class ResourceManager {
 			if (!this.gameState.canAfford(action.consumes)) {
 				const needed = Object.entries(action.consumes)
 					.map(([r, a]) => `${a} ${r}`).join(', ');
-				this.uiManager?.showNotification(`Need ${needed}`, 'warning');
+				this.gameManager?.showNotification(`Need ${needed}`, 'warning');
 				return null;
 			}
 			this.gameState.spendResources(action.consumes);
@@ -60,7 +60,7 @@ export class ResourceManager {
 
 		// check for failure
 		if (action.failChance && Math.random() < action.failChance) {
-			this.uiManager?.showNotification(
+			this.gameManager?.showNotification(
 				action.failMessage || 'Action failed!', 'error'
 			);
 			return { failed: true };
@@ -108,8 +108,8 @@ export class ResourceManager {
 	 * Show gathering result notification
 	 */
 	showGatheringResult(action, results) {
-		if (!this.uiManager) return;
-		
+		if (!this.gameManager) return;
+
 		// Throttle notifications - only show every 3 clicks
 		if (!this.gatheringNotificationCount) this.gatheringNotificationCount = 0;
 		this.gatheringNotificationCount++;
@@ -120,16 +120,16 @@ export class ResourceManager {
 		const resultText = Object.entries(results)
 			.map(([resource, amount]) => `${amount} ${resource}`)
 			.join(', ');
-		
-		this.uiManager.showNotification(`${action}: +${resultText}`, 'success', 2000);
+
+		this.gameManager.showNotification(`${action}: +${resultText}`, 'success', 2000);
 	}
 
 	/**
 	 * Show worker production result
 	 */
 	showWorkerResult(workerType, count, production) {
-		if (!this.uiManager) return;
-		
+		if (!this.gameManager) return;
+
 		// Throttle worker notifications - only show every 5 productions
 		if (!this.workerNotificationCount) this.workerNotificationCount = {};
 		if (!this.workerNotificationCount[workerType]) this.workerNotificationCount[workerType] = 0;
@@ -141,8 +141,8 @@ export class ResourceManager {
 		const productionText = Object.entries(production)
 			.map(([resource, amount]) => `${Math.floor(amount * 10) / 10} ${resource}`)
 			.join(', ');
-		
-		this.uiManager.showNotification(
+
+		this.gameManager.showNotification(
 			`${count} ${workerType}(s) produced: ${productionText}`,
 			'success',
 			2000

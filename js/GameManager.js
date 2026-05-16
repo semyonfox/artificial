@@ -27,7 +27,13 @@ export class GameManager {
     this.eraCheckAccum = 0;
     this.validateAccum = 0;
 
-    this.initialize();
+    // track if we've already notified about era advancement opportunity
+    this.eraAdvanceNotified = false;
+
+    // store reference for notifications (set by gameStore.initialize)
+    this.store = null;
+
+    this.initPromise = this.initialize();
   }
 
   /**
@@ -73,7 +79,7 @@ export class GameManager {
         const resourceText = Object.entries(offlineResult.produced)
           .map(([r, amt]) => `${amt} ${r}`)
           .join(", ");
-        this.systems.uiManager?.showNotification(
+        this.showNotification(
           `Welcome back! (${offlineResult.offlineMinutes}m away) Workers produced: ${resourceText}`,
           "success",
           6000,
@@ -100,25 +106,48 @@ export class GameManager {
     this.systems.achievementManager = new AchievementManager(this.gameState);
     this.systems.prestigeManager = new PrestigeManager(this.gameState);
 
-    // Initialize UI manager last (depends on other systems)
-    this.systems.uiManager = new UIManager(this.gameState, this);
+    // UIManager is now optional (Svelte takes over UI duties)
+    // Only initialize if running in legacy mode (index.bootstrap.html)
+    if (document.getElementById('action-buttons-container')) {
+      this.systems.uiManager = new UIManager(this.gameState, this);
+    }
   }
 
   /**
    * Connect systems that need references to each other
    */
   connectSystems() {
-    // Connect UI manager to other systems
-    this.systems.resourceManager.setUIManager(this.systems.uiManager);
-    this.systems.workerManager.setUIManager(this.systems.uiManager);
-    this.systems.eventManager.setUIManager(this.systems.uiManager);
+    // Connect UI manager to other systems (if available)
+    if (this.systems.uiManager) {
+      this.systems.resourceManager.setUIManager(this.systems.uiManager);
+      this.systems.workerManager.setUIManager(this.systems.uiManager);
+      this.systems.eventManager.setUIManager(this.systems.uiManager);
+      this.systems.achievementManager.setUIManager(this.systems.uiManager);
+    }
 
-    // Connect managers to game manager for era data / prestige
+    // Connect managers to game manager for era data / prestige / notifications
     this.systems.workerManager.setGameManager(this);
     this.systems.resourceManager.setGameManager(this);
+    this.systems.eventManager.setGameManager(this);
+    this.systems.achievementManager.setGameManager(this);
+  }
 
-    // Connect achievement manager to UI
-    this.systems.achievementManager.setUIManager(this.systems.uiManager);
+  /**
+   * Set the Svelte store reference for notifications
+   */
+  setStore(store) {
+    this.store = store;
+  }
+
+  /**
+   * Show notification via store or UIManager
+   */
+  showNotification(message, type = 'success', duration = 2000) {
+    if (this.store) {
+      this.store.showNotification(message, type, duration);
+    } else if (this.systems.uiManager) {
+      this.systems.uiManager.showNotification(message, type, duration);
+    }
   }
 
   /**
@@ -142,7 +171,7 @@ export class GameManager {
 
     // Listen for upgrade unlocks
     this.gameState.addListener("upgradeUnlocked", (data) => {
-      this.systems.uiManager?.showNotification(
+      this.showNotification(
         `Unlocked: ${data.upgradeId}`,
         "success",
       );
@@ -345,7 +374,7 @@ export class GameManager {
 
     // can only choose once per era per run
     if (this.gameState.data.eraSpecializations[eraKey]) {
-      this.systems.uiManager?.showNotification(
+      this.showNotification(
         'Already chose a specialization for this era',
         'warning',
       );
@@ -353,7 +382,7 @@ export class GameManager {
     }
 
     this.gameState.data.eraSpecializations[eraKey] = specId;
-    this.systems.uiManager?.showNotification(
+    this.showNotification(
       `Chose ${spec.name}!`,
       'success',
       5000,
@@ -393,7 +422,7 @@ export class GameManager {
   applyUpgradeEffect(upgrade) {
     switch (upgrade.id) {
       case "stoneKnapping":
-        this.systems.uiManager?.showNotification(
+        this.showNotification(
           "Stone knapping mastered! Better tools and hunting unlocked!",
           "info",
           4000,
@@ -401,28 +430,28 @@ export class GameManager {
         break;
       case "fireControl":
         // Fire is now an upgrade, not a resource - no resource to add
-        this.systems.uiManager?.showNotification(
+        this.showNotification(
           "Fire mastered! Cooking unlocked - you can now cook meat!",
           "info",
           4000,
         );
         break;
       case "boneTools":
-        this.systems.uiManager?.showNotification(
+        this.showNotification(
           "Bone tools crafted! Gathering efficiency improved!",
           "success",
           4000,
         );
         break;
       case "clothing":
-        this.systems.uiManager?.showNotification(
+        this.showNotification(
           "Fur clothing created! Population growth increased by 50%!",
           "info",
           4000,
         );
         break;
       case "shelterBuilding":
-        this.systems.uiManager?.showNotification(
+        this.showNotification(
           "Shelters built! Population growth doubled!",
           "success",
           4000,
@@ -528,12 +557,12 @@ export class GameManager {
     try {
       const success = this.gameState.save();
       if (success) {
-        this.systems.uiManager?.showNotification(
+        this.showNotification(
           "Game saved successfully!",
           "success",
         );
       } else {
-        this.systems.uiManager?.showNotification(
+        this.showNotification(
           "Failed to save game",
           "error",
         );
@@ -541,7 +570,7 @@ export class GameManager {
       return success;
     } catch (error) {
       console.error("Save game error:", error);
-      this.systems.uiManager?.showNotification("Error saving game", "error");
+      this.showNotification("Error saving game", "error");
       return false;
     }
   }
@@ -553,7 +582,7 @@ export class GameManager {
     try {
       const success = this.gameState.load();
       if (success) {
-        this.systems.uiManager?.showNotification(
+        this.showNotification(
           "Game loaded successfully!",
           "success",
         );
@@ -561,7 +590,7 @@ export class GameManager {
         // Restart worker automation for loaded workers
         this.restartWorkerAutomation();
       } else {
-        this.systems.uiManager?.showNotification(
+        this.showNotification(
           "No saved game found",
           "warning",
         );
@@ -569,7 +598,7 @@ export class GameManager {
       return success;
     } catch (error) {
       console.error("Load game error:", error);
-      this.systems.uiManager?.showNotification("Error loading game", "error");
+      this.showNotification("Error loading game", "error");
       return false;
     }
   }
@@ -597,14 +626,14 @@ export class GameManager {
         // Update UI
         this.updateUI();
 
-        this.systems.uiManager?.showNotification(
+        this.showNotification(
           "Game reset successfully!",
           "info",
         );
         return true;
       } catch (error) {
         console.error("Reset game error:", error);
-        this.systems.uiManager?.showNotification(
+        this.showNotification(
           "Error resetting game",
           "error",
         );
@@ -620,7 +649,7 @@ export class GameManager {
   performPrestige() {
     const pm = this.systems.prestigeManager;
     if (!pm.canPrestige()) {
-      this.systems.uiManager?.showNotification(
+      this.showNotification(
         "Reach at least the Neolithic Era to prestige",
         "warning",
       );
@@ -682,7 +711,7 @@ export class GameManager {
       }
     }
 
-    this.systems.uiManager?.showNotification(
+    this.showNotification(
       `Prestiged! Earned ${earned} EP. Multiplier: ${pm.getMultiplier().toFixed(1)}x`,
       "success",
       6000,
@@ -699,7 +728,7 @@ export class GameManager {
     try {
       const saveData = localStorage.getItem(config.storage.saveKey);
       if (!saveData) {
-        this.systems.uiManager?.showNotification(
+        this.showNotification(
           "No save data to export",
           "warning",
         );
@@ -707,14 +736,14 @@ export class GameManager {
       }
       const encoded = btoa(saveData);
       navigator.clipboard.writeText(encoded).then(() => {
-        this.systems.uiManager?.showNotification(
+        this.showNotification(
           "Save exported to clipboard!",
           "success",
         );
       });
     } catch (error) {
       console.error("Export failed:", error);
-      this.systems.uiManager?.showNotification("Export failed", "error");
+      this.showNotification("Export failed", "error");
     }
   }
 
@@ -727,10 +756,10 @@ export class GameManager {
       JSON.parse(decoded); // validate JSON
       localStorage.setItem(config.storage.saveKey, decoded);
       this.loadGame();
-      this.systems.uiManager?.showNotification("Save imported!", "success");
+      this.showNotification("Save imported!", "success");
     } catch (error) {
       console.error("Import failed:", error);
-      this.systems.uiManager?.showNotification("Invalid save data", "error");
+      this.showNotification("Invalid save data", "error");
     }
   }
 
@@ -775,22 +804,28 @@ export class GameManager {
   }
 
   /**
-   * Check if era advancement is possible and notify player
+   * Check if era advancement is possible and notify player (once per opportunity)
    */
   checkEraAdvancement() {
-    if (this.gameState.canAdvanceEra()) {
+    const canAdvance = this.gameState.canAdvanceEra();
+
+    if (canAdvance && !this.eraAdvanceNotified) {
       const currentEra = this.gameState.data.currentEra;
       const nextEra = this.getNextEra(currentEra);
 
       if (nextEra) {
-        this.systems.uiManager?.showNotification(
+        this.showNotification(
           `🌟 Ready to advance to ${
             config.eras[nextEra]?.name || nextEra
-          }! Check the era panel.`,
+          }!`,
           "info",
-          8000,
+          5000,
         );
+        this.eraAdvanceNotified = true;
       }
+    } else if (!canAdvance) {
+      // reset flag when requirements no longer met (e.g., spent resources)
+      this.eraAdvanceNotified = false;
     }
   }
 
@@ -829,7 +864,7 @@ export class GameManager {
     const nextEra = this.getNextEra(currentEra);
 
     if (!nextEra) {
-      this.systems.uiManager?.showNotification(
+      this.showNotification(
         "You are already in the final era!",
         "warning",
       );
@@ -837,7 +872,7 @@ export class GameManager {
     }
 
     if (!this.gameState.canAdvanceEra()) {
-      this.systems.uiManager?.showNotification(
+      this.showNotification(
         "Requirements not met for era advancement",
         "error",
       );
@@ -853,12 +888,15 @@ export class GameManager {
     // Advance the era (sets era, resets progress, notifies listeners)
     this.gameState.setEra(nextEra);
 
+    // Reset the advancement notification flag for the new era
+    this.eraAdvanceNotified = false;
+
     // Grant starter resources for the new era
     this.onEraTransition(currentEra, nextEra);
 
     // Show advancement notification
     const eraInfo = config.eras[nextEra];
-    this.systems.uiManager?.showNotification(
+    this.showNotification(
       `Entered the ${eraInfo?.name || nextEra}! ${eraInfo?.description || ""}`,
       "success",
       10000,

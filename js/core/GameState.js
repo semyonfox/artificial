@@ -39,6 +39,7 @@ export class GameState {
       // Progress tracking
       progression: {
         eraProgress: 0,
+        totalClicks: 0,
         totalResources: 0,
         totalWorkers: 0,
         totalUpgrades: 0,
