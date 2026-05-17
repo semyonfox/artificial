@@ -60,14 +60,7 @@
     <!-- Top Bar -->
     <header class="mb-4 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-surface-1/95 border border-ink/10 rounded-card shadow-xl shadow-black/25">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-lg bg-surface-2 border border-accent/50 flex items-center justify-center relative">
-          <div class="absolute inset-0 flex items-center justify-center">
-            <div class="w-px h-full bg-accent/50"></div>
-          </div>
-          <div class="absolute inset-0 flex items-center justify-center">
-            <div class="h-px w-full bg-accent/50"></div>
-          </div>
-        </div>
+        <img src="/logo.png" alt="Artificial" class="w-10 h-10 rounded-lg border border-accent/50" />
         <div>
           <h1 class="text-paper font-bold uppercase tracking-tight">Artificial</h1>
           <p class="text-ink-muted text-xs">Civilization Engine</p>
