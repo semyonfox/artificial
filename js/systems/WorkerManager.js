@@ -199,10 +199,8 @@ export class WorkerManager {
 		const shouldConsumeFood = this.workCycleCounts[workerType] % foodInterval === 0;
 
 		// determine food resource based on era
-		const eraOrder = ['paleolithic', 'neolithic', 'bronze', 'iron', 'classical',
-			'medieval', 'renaissance', 'industrial', 'information', 'space', 'galactic', 'universal'];
 		const currentEra = this.gameState.data.currentEra;
-		const eraIdx = eraOrder.indexOf(currentEra);
+		const eraIdx = config.eraOrder.indexOf(currentEra);
 		const foodResource = eraIdx >= 1 ? 'grain' : 'cookedMeat';
 
 		// determine food status
@@ -306,9 +304,7 @@ export class WorkerManager {
 		// count workers in the era of THIS resource (so resources scale with
 		// their own era's labor force)
 		let workersInEra = 0;
-		const eraOrder = ['paleolithic', 'neolithic', 'bronze', 'iron', 'classical',
-			'medieval', 'renaissance', 'industrial', 'information', 'space', 'galactic', 'universal'];
-		const eraKey = eraOrder[eraIdx];
+		const eraKey = config.eraOrder[eraIdx];
 		const eraData = config.eraData?.[eraKey];
 		if (eraData?.workers) {
 			for (const w of eraData.workers) {

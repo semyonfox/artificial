@@ -65,7 +65,7 @@
 <div class="space-y-4">
   <h2 class="panel-title">Prestige</h2>
 
-  <p class="text-xs text-ink-muted">Each EP gives +10% production. Perks are permanent.</p>
+  <p class="text-xs text-ink-muted">Production multiplier follows 1 + √EP × 0.3 (diminishing). Perks are permanent.</p>
 
   <div class="grid grid-cols-2 gap-2">
     <div class="stat-box">

@@ -11,11 +11,7 @@
 
 import { config } from '../core/config.js';
 
-const ERA_ORDER = [
-	'paleolithic', 'neolithic', 'bronze', 'iron', 'classical',
-	'medieval', 'renaissance', 'industrial', 'information',
-	'space', 'galactic', 'universal',
-];
+const ERA_ORDER = config.eraOrder;
 
 export class OfflineManager {
 	constructor(gameState) {

@@ -29,18 +29,21 @@ const ACHIEVEMENTS = [
 	{ id: 'upgrades5', name: 'Researcher', description: 'Purchase 5 upgrades', icon: '🔬', check: (d) => Object.values(d.upgrades).filter(Boolean).length >= 5 },
 	{ id: 'upgrades15', name: 'Polymath', description: 'Purchase 15 upgrades', icon: '🎓', check: (d) => Object.values(d.upgrades).filter(Boolean).length >= 15 },
 
-	// era milestones
+	// era milestones — indices follow config.eraOrder
 	{ id: 'eraNeolithic', name: 'Agricultural Revolution', description: 'Reach the Neolithic Era', icon: '🌾', check: (d) => eraIndex(d.currentEra) >= 1 },
 	{ id: 'eraBronze', name: 'Age of Metal', description: 'Reach the Bronze Age', icon: '🔨', check: (d) => eraIndex(d.currentEra) >= 2 },
 	{ id: 'eraIron', name: 'Iron Will', description: 'Reach the Iron Age', icon: '⛓️', check: (d) => eraIndex(d.currentEra) >= 3 },
 	{ id: 'eraClassical', name: 'Classical Thinker', description: 'Reach the Classical Era', icon: '🏛️', check: (d) => eraIndex(d.currentEra) >= 4 },
 	{ id: 'eraMedieval', name: 'Middle Ages', description: 'Reach the Medieval Era', icon: '🏰', check: (d) => eraIndex(d.currentEra) >= 5 },
 	{ id: 'eraRenaissance', name: 'Rebirth', description: 'Reach the Renaissance', icon: '🎨', check: (d) => eraIndex(d.currentEra) >= 6 },
-	{ id: 'eraIndustrial', name: 'Industrial Titan', description: 'Reach the Industrial Age', icon: '🚂', check: (d) => eraIndex(d.currentEra) >= 7 },
-	{ id: 'eraInformation', name: 'Digital Age', description: 'Reach the Information Age', icon: '💻', check: (d) => eraIndex(d.currentEra) >= 8 },
-	{ id: 'eraSpace', name: 'To the Stars', description: 'Reach the Space Age', icon: '🚀', check: (d) => eraIndex(d.currentEra) >= 9 },
-	{ id: 'eraGalactic', name: 'Galactic Civilization', description: 'Reach the Galactic Era', icon: '🌌', check: (d) => eraIndex(d.currentEra) >= 10 },
-	{ id: 'eraUniversal', name: 'Transcendence', description: 'Reach the Universal Era', icon: '🌀', check: (d) => eraIndex(d.currentEra) >= 11 },
+	{ id: 'eraEnlightenment', name: 'Age of Reason', description: 'Reach the Age of Enlightenment', icon: '💡', check: (d) => eraIndex(d.currentEra) >= 7 },
+	{ id: 'eraIndustrial', name: 'Industrial Titan', description: 'Reach the Industrial Age', icon: '🚂', check: (d) => eraIndex(d.currentEra) >= 8 },
+	{ id: 'eraElectric', name: 'Live Wire', description: 'Reach the Electric Age', icon: '⚡', check: (d) => eraIndex(d.currentEra) >= 9 },
+	{ id: 'eraAtomic', name: 'Atomic Power', description: 'Reach the Atomic Age', icon: '☢️', check: (d) => eraIndex(d.currentEra) >= 10 },
+	{ id: 'eraInformation', name: 'Digital Age', description: 'Reach the Information Age', icon: '💻', check: (d) => eraIndex(d.currentEra) >= 11 },
+	{ id: 'eraSpace', name: 'To the Stars', description: 'Reach the Space Age', icon: '🚀', check: (d) => eraIndex(d.currentEra) >= 12 },
+	{ id: 'eraGalactic', name: 'Galactic Civilization', description: 'Reach the Galactic Era', icon: '🌌', check: (d) => eraIndex(d.currentEra) >= 13 },
+	{ id: 'eraUniversal', name: 'Transcendence', description: 'Reach the Universal Era', icon: '🌀', check: (d) => eraIndex(d.currentEra) >= 14 },
 
 	// cooking
 	{ id: 'firstCook', name: 'Chef', description: 'Cook your first meat', icon: '🍳', check: (d) => (d.resources.cookedMeat || 0) >= 1 },
@@ -50,11 +53,7 @@ const ACHIEVEMENTS = [
 	{ id: 'prestige5', name: 'Eternal Return', description: 'Prestige 5 times', icon: '♾️', check: (d) => (d.prestige?.totalResets || 0) >= 5 },
 ];
 
-const ERA_ORDER = [
-	'paleolithic', 'neolithic', 'bronze', 'iron', 'classical',
-	'medieval', 'renaissance', 'industrial', 'information',
-	'space', 'galactic', 'universal',
-];
+const ERA_ORDER = config.eraOrder;
 
 function eraIndex(era) {
 	const i = ERA_ORDER.indexOf(era);

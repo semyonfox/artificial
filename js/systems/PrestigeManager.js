@@ -72,9 +72,9 @@ export class PrestigeManager {
 	 */
 	calculateEPGain() {
 		const lifetime = this.gameState.data.lifetimeProduced || {};
-		const scaling = config.prestigeScaling || { eraMultBase: 3, coefficient: 0.7 };
-		const base = scaling.eraMultBase || 3;
-		const coef = scaling.coefficient || 0.7;
+		const scaling = config.prestigeScaling || { eraMultBase: 2, coefficient: 0.8 };
+		const base = scaling.eraMultBase || 2;
+		const coef = scaling.coefficient || 0.8;
 
 		let points = 0;
 		for (const [resource, amount] of Object.entries(lifetime)) {
@@ -256,13 +256,15 @@ export class PrestigeManager {
 		prestige.lifetimeEP += epGain;
 		prestige.totalResets += 1;
 
-		// track highest era reached + completed eras (anything past paleolithic
-		// at the moment of prestige counts as "completed", and so do all eras
-		// strictly before the current one).
+		// track highest era reached + completed eras. "completed" means the
+		// player advanced past the era, so all eras strictly before currentIdx
+		// count. exception: the final era has no successor, so reaching it
+		// counts as completing it (otherwise its mastery perk is unreachable).
 		const currentIdx = ERA_ORDER.indexOf(this.gameState.data.currentEra);
 		const highestIdx = ERA_ORDER.indexOf(prestige.highestEra);
 		if (currentIdx > highestIdx) prestige.highestEra = this.gameState.data.currentEra;
-		for (let i = 0; i < currentIdx; i++) {
+		const completedUpTo = currentIdx === ERA_ORDER.length - 1 ? currentIdx + 1 : currentIdx;
+		for (let i = 0; i < completedUpTo; i++) {
 			if (!prestige.completedEras.includes(ERA_ORDER[i])) {
 				prestige.completedEras.push(ERA_ORDER[i]);
 			}

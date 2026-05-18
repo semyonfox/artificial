@@ -57,7 +57,7 @@ export class GameState {
       // Era specialization choices (reset on prestige)
       eraSpecializations: {},
 
-      // Civilization specializations (permanent identity choices)
+      // Civilization specializations (per-run; cleared on prestige reset)
       civSpecializations: {},
 
       // Trade routes (reset on prestige)
