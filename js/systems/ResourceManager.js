@@ -1,4 +1,5 @@
 import { config } from '../core/config.js';
+import { formatResourceList } from '../core/resourceUtils.js';
 
 /**
  * Manages all resource-related operations in the game.
@@ -50,8 +51,7 @@ export class ResourceManager {
 		// check and consume input resources
 		if (action.consumes) {
 			if (!this.gameState.canAfford(action.consumes)) {
-				const needed = Object.entries(action.consumes)
-					.map(([r, a]) => `${a} ${r}`).join(', ');
+				const needed = formatResourceList(action.consumes);
 				this.gameManager?.showNotification(`Need ${needed}`, 'warning');
 				return null;
 			}
@@ -74,11 +74,11 @@ export class ResourceManager {
 		// guaranteed production (with mastery + soft cap)
 		if (action.produces) {
 			for (const [resource, baseAmount] of Object.entries(action.produces)) {
-				const efficiency = this.gameState.getEfficiencyMultiplier(resource);
-				const specMult = this.gameManager?.getSpecializationMultiplier(resource) || 1;
-				const masteryMult = pm?.getMasteryMultiplier(resource) || 1;
-				const capMult = wm?.getSoftCapMultiplier(resource) ?? 1;
-				const amount = Math.max(1, Math.floor(baseAmount * efficiency * prestigeMult * specMult * masteryMult * capMult));
+				const amount = this.calculateProductionAmount(resource, baseAmount, {
+					prestigeMult,
+					pm,
+					wm,
+				});
 				this.gameState.addResource(resource, amount);
 				results[resource] = amount;
 			}
@@ -89,11 +89,11 @@ export class ResourceManager {
 			for (const [resource, info] of Object.entries(action.bonusChance)) {
 				if (Math.random() < info.probability) {
 					const baseAmount = info.amount || 1;
-					const efficiency = this.gameState.getEfficiencyMultiplier(resource);
-					const specMult = this.gameManager?.getSpecializationMultiplier(resource) || 1;
-					const masteryMult = pm?.getMasteryMultiplier(resource) || 1;
-					const capMult = wm?.getSoftCapMultiplier(resource) ?? 1;
-					const amount = Math.max(1, Math.floor(baseAmount * efficiency * prestigeMult * specMult * masteryMult * capMult));
+					const amount = this.calculateProductionAmount(resource, baseAmount, {
+						prestigeMult,
+						pm,
+						wm,
+					});
 					this.gameState.addResource(resource, amount);
 					results[resource] = (results[resource] || 0) + amount;
 				}
@@ -102,6 +102,14 @@ export class ResourceManager {
 
 		this.showGatheringResult(action.name, results);
 		return results;
+	}
+
+	calculateProductionAmount(resource, baseAmount, { prestigeMult, pm, wm } = {}) {
+		const efficiency = this.gameState.getEfficiencyMultiplier(resource);
+		const specMult = this.gameManager?.getSpecializationMultiplier(resource) || 1;
+		const masteryMult = pm?.getMasteryMultiplier(resource) || 1;
+		const capMult = wm?.getSoftCapMultiplier(resource) ?? 1;
+		return Math.max(1, Math.floor(baseAmount * efficiency * prestigeMult * specMult * masteryMult * capMult));
 	}
 
 	/**
@@ -117,9 +125,7 @@ export class ResourceManager {
 		if (this.gatheringNotificationCount < 3) return;
 		this.gatheringNotificationCount = 0;
 
-		const resultText = Object.entries(results)
-			.map(([resource, amount]) => `${amount} ${resource}`)
-			.join(', ');
+		const resultText = formatResourceList(results);
 
 		this.gameManager.showNotification(`${action}: +${resultText}`, 'success', 2000);
 	}
@@ -138,9 +144,11 @@ export class ResourceManager {
 		if (this.workerNotificationCount[workerType] < 5) return;
 		this.workerNotificationCount[workerType] = 0;
 
-		const productionText = Object.entries(production)
-			.map(([resource, amount]) => `${Math.floor(amount * 10) / 10} ${resource}`)
-			.join(', ');
+		const productionText = formatResourceList(
+			production,
+			(resource) => resource,
+			(amount) => Math.floor(amount * 10) / 10,
+		);
 
 		this.gameManager.showNotification(
 			`${count} ${workerType}(s) produced: ${productionText}`,

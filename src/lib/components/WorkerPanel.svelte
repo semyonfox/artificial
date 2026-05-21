@@ -1,15 +1,9 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
-  import { config } from '../../../js/core/config.js';
+  import { formatCost, formatResourceName } from '../utils/gameFormatting.js';
 
   let eraData = $derived($gameStore.gameManager?.getCurrentEraData());
   let workerDefs = $derived(eraData?.workers || []);
-
-  function formatCost(cost) {
-    return Object.entries(cost)
-      .map(([resource, amount]) => `${amount} ${config.resourceIcons[resource] || resource}`)
-      .join(', ');
-  }
 
   function getWorkerInfo(workerId) {
     return $gameStore.gameManager?.systems?.workerManager?.getWorkerInfo(workerId);
@@ -23,7 +17,7 @@
   let workerStatus = $derived(() => {
     const entries = Object.entries($gameStore.workers).filter(([_, count]) => count > 0);
     if (entries.length === 0) return 'No workers hired';
-    return entries.map(([type, count]) => `${type.charAt(0).toUpperCase() + type.slice(1)}: ${count}`).join(', ');
+    return entries.map(([type, count]) => `${formatResourceName(type)}: ${count}`).join(', ');
   });
 </script>
 

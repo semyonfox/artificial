@@ -1,6 +1,7 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
   import { config } from '../../../js/core/config.js';
+  import { formatCost, getPurchaseButtonClasses, getResourceIcon } from '../utils/gameFormatting.js';
 
   let trm = $derived($gameStore.gameManager?.systems?.tradeRouteManager);
   let availableRoutes = $derived(trm?.getAvailableRoutes() || []);
@@ -11,17 +12,6 @@
     gameStore.refresh();
   }
 
-  function formatCost(cost) {
-    return Object.entries(cost || {})
-      .map(([r, amt]) => `${amt} ${config.resourceIcons[r] || r}`)
-      .join(', ');
-  }
-
-  function getButtonClasses(isActive, canAfford) {
-    if (isActive) return 'bg-success/20 text-success border-success/30';
-    if (canAfford) return 'btn-primary';
-    return 'btn-secondary';
-  }
 </script>
 
 {#if availableRoutes.length > 0 || activeRoutes.length > 0}
@@ -54,7 +44,7 @@
               <span class="font-semibold">Bonuses:</span>
               {#each Object.entries(routeDef?.bonuses || {}) as [resource, mult]}
                 <span class="inline-block bg-paper/10 rounded px-1 mr-1">
-                  {config.resourceIcons[resource] || resource} ×{mult}
+                  {getResourceIcon(resource)} ×{mult}
                 </span>
               {/each}
             </div>
@@ -66,7 +56,7 @@
 
           <div class="mt-auto">
             <button
-              class="btn btn-sm w-full {getButtonClasses(isActive, canAfford)}"
+              class="btn btn-sm w-full {getPurchaseButtonClasses(isActive, canAfford)}"
               disabled={isActive || !canAfford}
               onclick={() => establishRoute(route.id)}
             >

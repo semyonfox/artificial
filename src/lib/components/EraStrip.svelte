@@ -1,16 +1,11 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
+  import { getEraProgressPercent } from '../utils/gameFormatting.js';
 
   let eraData = $derived($gameStore.gameManager?.getCurrentEraData());
 
   let progressPercent = $derived.by(() => {
-    if (!eraData?.advancementCost) return 100;
-    const entries = Object.entries(eraData.advancementCost);
-    const fulfillments = entries.map(([resource, required]) => {
-      const current = $gameStore.resources[resource] || 0;
-      return Math.min(1, current / required);
-    });
-    return (fulfillments.reduce((a, b) => a + b, 0) / fulfillments.length) * 100;
+    return getEraProgressPercent(eraData?.advancementCost, $gameStore.resources);
   });
 
   let canAdvance = $derived($gameStore.gameState?.canAdvanceEra() ?? false);

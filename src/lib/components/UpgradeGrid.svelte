@@ -1,25 +1,13 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
-  import { config } from '../../../js/core/config.js';
+  import { formatCost, getPurchaseButtonClasses } from '../utils/gameFormatting.js';
 
   let eraData = $derived($gameStore.gameManager?.getCurrentEraData());
   let upgradeDefs = $derived(eraData?.upgrades || []);
 
-  function formatCost(cost) {
-    return Object.entries(cost)
-      .map(([resource, amount]) => `${amount} ${config.resourceIcons[resource] || resource}`)
-      .join(', ');
-  }
-
   function buyUpgrade(upgradeId) {
     $gameStore.gameManager?.buyUpgrade(upgradeId);
     gameStore.refresh();
-  }
-
-  function getButtonClasses(isUnlocked, canBuy) {
-    if (isUnlocked) return 'bg-success/20 text-success border-success/30 cursor-default';
-    if (canBuy) return 'btn-primary';
-    return 'btn-secondary';
   }
 </script>
 
@@ -53,7 +41,7 @@
 
       <div class="mt-auto">
         <button
-          class="btn btn-sm {getButtonClasses(isUnlocked, canBuy)}"
+          class="btn btn-sm {getPurchaseButtonClasses(isUnlocked, canBuy)}"
           disabled={isUnlocked || !canBuy}
           onclick={() => buyUpgrade(upgrade.id)}
         >

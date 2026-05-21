@@ -4,6 +4,7 @@
  */
 
 import { config } from "../core/config.js";
+import { getEraIndex, hasAnyCivSpecialization, isEraUnlocked } from "../core/resourceUtils.js";
 
 export class TradeRouteManager {
   constructor(gameState) {
@@ -50,11 +51,7 @@ export class TradeRouteManager {
 
     // check era requirement
     const currentEra = this.gameState.data.currentEra;
-    const eraOrder = config.eraOrder;
-    const currentEraIdx = eraOrder.indexOf(currentEra);
-    const requiredEraIdx = eraOrder.indexOf(route.unlockEra);
-
-    if (currentEraIdx < requiredEraIdx) {
+    if (!isEraUnlocked(currentEra, route.unlockEra)) {
       return {
         canUnlock: false,
         reason: `Requires ${config.eras[route.unlockEra]?.name || route.unlockEra}`,
@@ -64,9 +61,7 @@ export class TradeRouteManager {
     // check civilization requirement (if any)
     if (route.unlockCivs && route.unlockCivs.length > 0) {
       const civSpecs = this.gameState.data.civSpecializations || {};
-      const hasCiv = Object.values(civSpecs).some((civ) =>
-        route.unlockCivs.includes(civ)
-      );
+      const hasCiv = hasAnyCivSpecialization(civSpecs, route.unlockCivs);
       if (!hasCiv) {
         return {
           canUnlock: false,
@@ -180,11 +175,10 @@ export class TradeRouteManager {
   getAvailableRoutes() {
     const available = [];
     const currentEra = this.gameState.data.currentEra;
-    const eraOrder = config.eraOrder;
-    const currentEraIdx = eraOrder.indexOf(currentEra);
+    const currentEraIdx = getEraIndex(currentEra);
 
     Object.entries(config.tradeRoutes).forEach(([routeId, route]) => {
-      const requiredEraIdx = eraOrder.indexOf(route.unlockEra);
+      const requiredEraIdx = getEraIndex(route.unlockEra);
       if (currentEraIdx >= requiredEraIdx) {
         const { canUnlock, reason } = this.canUnlockRoute(routeId);
         available.push({

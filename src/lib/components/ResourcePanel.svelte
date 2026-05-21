@@ -1,34 +1,15 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
-  import { config } from '../../../js/core/config.js';
-
-  function formatNumber(num) {
-    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
-    if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K';
-    return Math.floor(num).toString();
-  }
-
-  function formatResourceName(key) {
-    return key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-  }
+  import {
+    formatNumber,
+    formatResourceName,
+    getRelevantResources,
+    getResourceIcon,
+  } from '../utils/gameFormatting.js';
 
   function getSoftCapMultiplier(key) {
     const gm = $gameStore.gameManager;
     return gm?.systems?.workerManager?.getSoftCapMultiplier?.(key) ?? 1;
-  }
-
-  function getRelevantResources(currentEra) {
-    const eraOrder = config.eraOrder;
-    const currentIdx = eraOrder.indexOf(currentEra);
-    if (currentIdx < 0) return new Set();
-
-    const relevant = new Set();
-    // include resources from current era and all previous eras
-    for (let i = 0; i <= currentIdx; i++) {
-      const eraResources = config.resourcesByEra[eraOrder[i]] || [];
-      eraResources.forEach(r => relevant.add(r));
-    }
-    return relevant;
   }
 
   let relevantResources = $derived(getRelevantResources($gameStore.currentEra));
@@ -47,7 +28,7 @@
         return {
           key,
           value: Math.floor(value),
-          icon: config.resourceIcons[key] || '?',
+          icon: getResourceIcon(key, '?'),
           name: formatResourceName(key),
           capped: capMult < 1,
           capPercent: Math.round(capMult * 100),

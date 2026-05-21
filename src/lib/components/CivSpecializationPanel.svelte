@@ -1,6 +1,7 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
   import { config } from '../../../js/core/config.js';
+  import { getChoiceButtonClasses, getResourceIcon } from '../utils/gameFormatting.js';
 
   let currentEra = $derived($gameStore.currentEra);
   let civSpecs = $derived(config.civSpecializations?.[currentEra] || []);
@@ -11,11 +12,6 @@
     gameStore.refresh();
   }
 
-  function getButtonClasses(isChosen, isLocked) {
-    if (isChosen) return 'bg-success/20 text-success border-success/30';
-    if (isLocked) return 'btn-secondary';
-    return 'btn-primary';
-  }
 </script>
 
 {#if civSpecs.length > 0}
@@ -44,7 +40,7 @@
             <span class="font-semibold">Bonuses:</span>
             {#each Object.entries(civ.bonuses || {}) as [resource, mult]}
               <span class="inline-block bg-paper/10 rounded px-1 mr-1">
-                {config.resourceIcons[resource] || resource} ×{mult}
+                {getResourceIcon(resource)} ×{mult}
               </span>
             {/each}
           </div>
@@ -55,7 +51,7 @@
 
           <div class="mt-auto">
             <button
-              class="btn btn-sm w-full {getButtonClasses(isChosen, isLocked)}"
+              class="btn btn-sm w-full {getChoiceButtonClasses(isChosen, isLocked)}"
               disabled={isChosen || isLocked}
               onclick={() => chooseCiv(civ.id)}
             >

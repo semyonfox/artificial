@@ -11,6 +11,7 @@
  */
 
 import { config } from '../core/config.js';
+import { getEraIndex, scaleCost } from '../core/resourceUtils.js';
 
 export class WorkerManager {
 	constructor(gameState) {
@@ -104,12 +105,7 @@ export class WorkerManager {
 		// prestige perk discount
 		const perkMult = this.gameManager?.systems?.prestigeManager?.getWorkerCostMultiplier() || 1;
 
-		const cost = {};
-		Object.entries(baseCost).forEach(([resource, amount]) => {
-			cost[resource] = Math.ceil(amount * multiplier * perkMult);
-		});
-
-		return cost;
+		return scaleCost(baseCost, multiplier * perkMult);
 	}
 
 	/**
@@ -200,7 +196,7 @@ export class WorkerManager {
 
 		// determine food resource based on era
 		const currentEra = this.gameState.data.currentEra;
-		const eraIdx = config.eraOrder.indexOf(currentEra);
+		const eraIdx = getEraIndex(currentEra);
 		const foodResource = eraIdx >= 1 ? 'grain' : 'cookedMeat';
 
 		// determine food status

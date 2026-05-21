@@ -15,6 +15,7 @@ import { ProgressionValidator } from "./systems/ProgressionValidator.js";
 import { TradeRouteManager } from "./systems/TradeRouteManager.js";
 import { WonderManager } from "./systems/WonderManager.js";
 import { config } from "./core/config.js";
+import { formatResourceList, getEraIndex, scaleCost } from "./core/resourceUtils.js";
 
 export class GameManager {
   constructor() {
@@ -78,9 +79,7 @@ export class GameManager {
       const offlineResult =
         this.systems.offlineManager.applyOfflineProduction(this);
       if (offlineResult) {
-        const resourceText = Object.entries(offlineResult.produced)
-          .map(([r, amt]) => `${amt} ${r}`)
-          .join(", ");
+        const resourceText = formatResourceList(offlineResult.produced);
         this.showNotification(
           `Welcome back! (${offlineResult.offlineMinutes}m away) Workers produced: ${resourceText}`,
           "success",
@@ -320,12 +319,12 @@ export class GameManager {
     const upgrade = currentEraData.upgrades.find((u) => u.id === upgradeId);
 
     if (!upgrade) {
-      this.systems.uiManager.showNotification("Upgrade not found", "error");
+      this.showNotification("Upgrade not found", "error");
       return false;
     }
 
     if (this.gameState.hasUpgrade(upgradeId)) {
-      this.systems.uiManager.showNotification(
+      this.showNotification(
         "Upgrade already purchased",
         "info",
       );
@@ -336,7 +335,7 @@ export class GameManager {
       upgrade.requiresUpgrade &&
       !this.gameState.hasUpgrade(upgrade.requiresUpgrade)
     ) {
-      this.systems.uiManager.showNotification(
+      this.showNotification(
         `Requires ${upgrade.requiresUpgrade} first`,
         "error",
       );
@@ -345,20 +344,17 @@ export class GameManager {
 
     // Apply prestige cost discount
     const costMult = this.systems.prestigeManager?.getUpgradeCostMultiplier() || 1;
-    const adjustedCost = {};
-    for (const [res, amt] of Object.entries(upgrade.cost)) {
-      adjustedCost[res] = Math.ceil(amt * costMult);
-    }
+    const adjustedCost = scaleCost(upgrade.cost, costMult);
 
     if (!this.gameState.canAfford(adjustedCost)) {
-      this.systems.uiManager.showNotification("Cannot afford upgrade", "error");
+      this.showNotification("Cannot afford upgrade", "error");
       return false;
     }
 
     if (this.gameState.spendResources(adjustedCost)) {
       this.gameState.unlockUpgrade(upgradeId);
       this.applyUpgradeEffect(upgrade);
-      this.systems.uiManager.showNotification(
+      this.showNotification(
         `Purchased ${upgrade.name}!`,
         "success",
       );
@@ -592,8 +588,7 @@ export class GameManager {
   updatePopulationGrowth(deltaTime) {
     const currentPop = this.gameState.getResource("population");
     const currentEra = this.gameState.data.currentEra;
-    const eraOrder = config.eraOrder;
-    const eraIdx = eraOrder.indexOf(currentEra);
+    const eraIdx = getEraIndex(currentEra);
 
     // Robotic Age specialization reduces pop cap by 30%
     let maxPop = config.balance?.maxPopulationPerEra?.[currentEra] || 50;
@@ -798,7 +793,7 @@ export class GameManager {
     // Cultural Memory: auto-unlock first upgrade of completed eras
     if (pm.hasPerk('culturalMemory')) {
       const eraOrder = config.eraOrder;
-      const highestIdx = eraOrder.indexOf(pm.getPrestigeData().highestEra);
+      const highestIdx = getEraIndex(pm.getPrestigeData().highestEra);
       for (let i = 0; i < highestIdx; i++) {
         const eraKey = eraOrder[i];
         const eraConfig = config.eraData[eraKey];
@@ -941,7 +936,7 @@ export class GameManager {
    */
   getNextEra(currentEra) {
     const eraOrder = config.eraOrder;
-    const currentIndex = eraOrder.indexOf(currentEra);
+    const currentIndex = getEraIndex(currentEra);
 
     if (currentIndex >= 0 && currentIndex < eraOrder.length - 1) {
       return eraOrder[currentIndex + 1];

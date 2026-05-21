@@ -22,13 +22,20 @@
 
   onMount(() => {
     const gm = new GameManager();
+    let interval = null;
+    let destroyed = false;
 
     gm.initPromise.then(() => {
+      if (destroyed) {
+        gm.destroy();
+        return;
+      }
+
       gameManager = gm;
       gameStore.initialize(gm);
       loading = false;
 
-      const interval = setInterval(() => {
+      interval = setInterval(() => {
         if (gm.initialized) {
           gameStore.refresh();
           const am = gm.systems?.achievementManager;
@@ -37,14 +44,18 @@
           }
         }
       }, 1000);
-
-      return () => {
-        clearInterval(interval);
-        gm.destroy();
-      };
     });
 
     window.game = gm;
+
+    return () => {
+      destroyed = true;
+      if (interval) clearInterval(interval);
+      if (window.game === gm) {
+        delete window.game;
+      }
+      gm.destroy();
+    };
   });
 </script>
 

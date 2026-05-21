@@ -3,6 +3,7 @@
  */
 
 import { config } from "../core/config.js";
+import { formatResourceList } from "../core/resourceUtils.js";
 
 export class UIManager {
   constructor(gameState, gameManager) {
@@ -531,12 +532,10 @@ export class UIManager {
    * Format cost object for display
    */
   formatCost(cost) {
-    return Object.entries(cost)
-      .map(
-        ([resource, amount]) =>
-          `${amount} ${config.resourceIcons[resource] || resource}`,
-      )
-      .join(", ");
+    return formatResourceList(
+      cost,
+      (resource) => config.resourceIcons[resource] || resource,
+    );
   }
 
   /**

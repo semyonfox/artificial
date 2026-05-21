@@ -1,5 +1,21 @@
 import { writable, derived } from 'svelte/store';
 
+function getStateSnapshot(gameState) {
+  return {
+    gameState,
+    resources: { ...gameState.data.resources },
+    lifetimeProduced: { ...gameState.data.lifetimeProduced },
+    workers: { ...gameState.data.workers },
+    upgrades: { ...gameState.data.upgrades },
+    currentEra: gameState.data.currentEra,
+    prestige: gameState.data.prestige || null,
+    eraSpecializations: { ...gameState.data.eraSpecializations },
+    civSpecializations: { ...gameState.data.civSpecializations },
+    tradeRoutes: { ...gameState.data.tradeRoutes },
+    wonders: { ...gameState.data.wonders },
+  };
+}
+
 function createGameStore() {
   const { subscribe, set, update } = writable({
     initialized: false,
@@ -42,17 +58,7 @@ function createGameStore() {
         ...s,
         initialized: true,
         gameManager,
-        gameState: gs,
-        resources: { ...gs.data.resources },
-        lifetimeProduced: { ...gs.data.lifetimeProduced },
-        workers: { ...gs.data.workers },
-        upgrades: { ...gs.data.upgrades },
-        currentEra: gs.data.currentEra,
-        prestige: gs.data.prestige || null,
-        eraSpecializations: { ...gs.data.eraSpecializations },
-        civSpecializations: { ...gs.data.civSpecializations },
-        tradeRoutes: { ...gs.data.tradeRoutes },
-        wonders: { ...gs.data.wonders },
+        ...getStateSnapshot(gs),
       }));
 
       // listen to GameState events and sync store
@@ -110,32 +116,14 @@ function createGameStore() {
       gs.addListener('gameLoaded', () => {
         update(s => ({
           ...s,
-          resources: { ...gs.data.resources },
-          lifetimeProduced: { ...gs.data.lifetimeProduced },
-          workers: { ...gs.data.workers },
-          upgrades: { ...gs.data.upgrades },
-          currentEra: gs.data.currentEra,
-          prestige: gs.data.prestige || null,
-          eraSpecializations: { ...gs.data.eraSpecializations },
-          civSpecializations: { ...gs.data.civSpecializations },
-          tradeRoutes: { ...gs.data.tradeRoutes },
-          wonders: { ...gs.data.wonders },
+          ...getStateSnapshot(gs),
         }));
       });
 
       gs.addListener('gameReset', () => {
         update(s => ({
           ...s,
-          resources: { ...gs.data.resources },
-          lifetimeProduced: { ...gs.data.lifetimeProduced },
-          workers: { ...gs.data.workers },
-          upgrades: { ...gs.data.upgrades },
-          currentEra: gs.data.currentEra,
-          prestige: null,
-          eraSpecializations: {},
-          civSpecializations: {},
-          tradeRoutes: { activeRoutes: [] },
-          wonders: { ...gs.data.wonders },
+          ...getStateSnapshot(gs),
         }));
       });
     },
@@ -146,16 +134,7 @@ function createGameStore() {
         const gs = s.gameState;
         return {
           ...s,
-          resources: { ...gs.data.resources },
-          lifetimeProduced: { ...gs.data.lifetimeProduced },
-          workers: { ...gs.data.workers },
-          upgrades: { ...gs.data.upgrades },
-          currentEra: gs.data.currentEra,
-          prestige: gs.data.prestige || null,
-          eraSpecializations: { ...gs.data.eraSpecializations },
-          civSpecializations: { ...gs.data.civSpecializations },
-          tradeRoutes: { ...gs.data.tradeRoutes },
-          wonders: { ...gs.data.wonders },
+          ...getStateSnapshot(gs),
         };
       });
     },

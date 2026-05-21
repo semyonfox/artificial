@@ -5,6 +5,7 @@
  */
 
 import { config } from "../core/config.js";
+import { getEraIndex, isEraUnlocked } from "../core/resourceUtils.js";
 
 export class WonderManager {
   constructor(gameState) {
@@ -53,11 +54,7 @@ export class WonderManager {
 
     // check era requirement
     const currentEra = this.gameState.data.currentEra;
-    const eraOrder = config.eraOrder;
-    const currentEraIdx = eraOrder.indexOf(currentEra);
-    const requiredEraIdx = eraOrder.indexOf(wonder.era);
-
-    if (currentEraIdx < requiredEraIdx) {
+    if (!isEraUnlocked(currentEra, wonder.era)) {
       return {
         canBuild: false,
         reason: `Requires ${config.eras[wonder.era]?.name || wonder.era}`,
@@ -161,11 +158,11 @@ export class WonderManager {
     const available = [];
     const currentEra = this.gameState.data.currentEra;
     const eraOrder = config.eraOrder;
-    const currentEraIdx = eraOrder.indexOf(currentEra);
+    const currentEraIdx = getEraIndex(currentEra);
     const civSpecs = this.gameState.data.civSpecializations || {};
 
     Object.entries(config.wonders).forEach(([wonderId, wonder]) => {
-      const requiredEraIdx = eraOrder.indexOf(wonder.era);
+      const requiredEraIdx = getEraIndex(wonder.era);
 
       // show wonders from current and past eras
       if (currentEraIdx >= requiredEraIdx) {
@@ -192,7 +189,7 @@ export class WonderManager {
 
     // sort by era order
     available.sort((a, b) => {
-      return eraOrder.indexOf(a.era) - eraOrder.indexOf(b.era);
+      return getEraIndex(a.era) - getEraIndex(b.era);
     });
 
     return available;

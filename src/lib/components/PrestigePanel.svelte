@@ -1,6 +1,7 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
   import { config } from '../../../js/core/config.js';
+  import { getChoiceButtonClasses, getPurchaseButtonClasses } from '../utils/gameFormatting.js';
 
   let pm = $derived($gameStore.gameManager?.systems?.prestigeManager);
   let prestige = $derived(pm?.getPrestigeData() || { evolutionPoints: 0, totalResets: 0 });
@@ -49,17 +50,6 @@
     gameStore.refresh();
   }
 
-  function getPerkButtonClasses(perk) {
-    if (perk.purchased) return 'bg-success/20 text-success border-success/30';
-    if (perk.available) return 'btn-primary';
-    return 'btn-secondary';
-  }
-
-  function getSpecButtonClasses(isChosen, isLocked) {
-    if (isChosen) return 'bg-success/20 text-success border-success/30';
-    if (isLocked) return 'btn-secondary';
-    return 'btn-primary';
-  }
 </script>
 
 <div class="space-y-4">
@@ -114,7 +104,7 @@
                   <span class="block text-[0.65rem] text-ink-muted">{perk.description}</span>
                 </div>
                 <button
-                  class="btn btn-sm shrink-0 {getPerkButtonClasses(perk)}"
+                  class="btn btn-sm shrink-0 {getPurchaseButtonClasses(perk.purchased, perk.available)}"
                   disabled={perk.purchased || !perk.available}
                   onclick={() => buyPerk(perk.id)}
                 >
@@ -145,7 +135,7 @@
             <span class="block text-xs font-semibold text-ink mb-1">{spec.name}</span>
             <span class="block text-[0.65rem] text-ink-muted mb-2">{spec.description}</span>
             <button
-              class="btn btn-sm w-full {getSpecButtonClasses(isChosen, isLocked)}"
+              class="btn btn-sm w-full {getChoiceButtonClasses(isChosen, isLocked)}"
               disabled={isChosen || isLocked}
               onclick={() => chooseSpec(spec.id)}
             >
