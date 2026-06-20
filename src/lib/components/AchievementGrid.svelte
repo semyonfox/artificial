@@ -1,10 +1,9 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
 
-  let am = $derived($gameStore.gameManager?.systems?.achievementManager);
-  let achievements = $derived(am?.getAllAchievements() || []);
-  let unlockedCount = $derived(am?.getUnlockedCount() || 0);
-  let totalCount = $derived(am?.getTotalCount() || 0);
+  let achievements = $derived($gameStore.achievements || []);
+  let unlockedCount = $derived(achievements.filter(ach => ach.unlocked).length);
+  let totalCount = $derived(achievements.length);
 </script>
 
 <div class="space-y-4">

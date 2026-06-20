@@ -90,6 +90,7 @@ export class AchievementManager {
 	checkAchievements() {
 		const data = this.gameState.data;
 		const unlocked = data.progression.achievements;
+		let changed = false;
 
 		for (const achievement of ACHIEVEMENTS) {
 			if (unlocked.includes(achievement.id)) continue;
@@ -97,11 +98,18 @@ export class AchievementManager {
 			try {
 				if (achievement.check(data)) {
 					unlocked.push(achievement.id);
+					changed = true;
 					this.onAchievementUnlocked(achievement);
 				}
 			} catch {
 				// skip if check fails (missing data field)
 			}
+		}
+
+		if (changed) {
+			this.gameState.notifyListeners('achievementChange', {
+				achievements: this.getAllAchievements(),
+			});
 		}
 	}
 
@@ -111,6 +119,7 @@ export class AchievementManager {
 			'info',
 			5000
 		);
+		this.gameState.notifyListeners('achievementUnlocked', achievement);
 	}
 
 	/**

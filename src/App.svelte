@@ -5,6 +5,7 @@
 
   import EraStrip from './lib/components/EraStrip.svelte';
   import EraCard from './lib/components/EraCard.svelte';
+  import FlowPanel from './lib/components/FlowPanel.svelte';
   import ResourcePanel from './lib/components/ResourcePanel.svelte';
   import ActionButtons from './lib/components/ActionButtons.svelte';
   import UpgradeGrid from './lib/components/UpgradeGrid.svelte';
@@ -17,7 +18,6 @@
   import TradeRoutePanel from './lib/components/TradeRoutePanel.svelte';
   import WonderPanel from './lib/components/WonderPanel.svelte';
 
-  let gameManager = $state(null);
   let loading = $state(true);
 
   onMount(() => {
@@ -31,17 +31,12 @@
         return;
       }
 
-      gameManager = gm;
       gameStore.initialize(gm);
       loading = false;
 
       interval = setInterval(() => {
         if (gm.initialized) {
           gameStore.refresh();
-          const am = gm.systems?.achievementManager;
-          if (am) {
-            gameStore.updateAchievements(am.getAllAchievements());
-          }
         }
       }, 1000);
     });
@@ -100,11 +95,25 @@
           <!-- Left Column -->
           <div class="space-y-4">
             <div class="card">
-              <div class="card-header">
-                <h2 class="panel-title">Actions</h2>
-              </div>
               <div class="card-body">
-                <ActionButtons />
+                <FlowPanel />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_420px] gap-4 items-start">
+              <div class="card">
+                <div class="card-header">
+                  <h2 class="panel-title">Actions</h2>
+                </div>
+                <div class="card-body">
+                  <ActionButtons />
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-body">
+                  <WorkerPanel />
+                </div>
               </div>
             </div>
 
@@ -134,7 +143,10 @@
                 <WonderPanel />
               </div>
             </div>
+          </div>
 
+          <!-- Right Column -->
+          <div class="space-y-4">
             <div class="card">
               <div class="card-body">
                 <AchievementGrid />
@@ -143,22 +155,13 @@
 
             <div class="card">
               <div class="card-body">
-                <LogPanel />
-              </div>
-            </div>
-          </div>
-
-          <!-- Right Column -->
-          <div class="space-y-4">
-            <div class="card">
-              <div class="card-body">
-                <WorkerPanel />
-              </div>
-            </div>
-
-            <div class="card">
-              <div class="card-body">
                 <PrestigePanel />
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-body">
+                <LogPanel />
               </div>
             </div>
           </div>

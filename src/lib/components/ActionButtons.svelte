@@ -1,5 +1,6 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
+  import { formatCost } from '../utils/gameFormatting.js';
 
   let eraData = $derived($gameStore.gameManager?.getCurrentEraData());
   let actions = $derived(eraData?.actions || []);
@@ -22,8 +23,9 @@
     const gm = $gameStore.gameManager;
     if (!gm) return;
 
-    gm.systems.resourceManager.performClickAction(action);
-    gm.updateProgression(1);
+    const result = gm.doClickAction(action);
+    if (!result) return;
+
     gameStore.refresh();
 
     const duration = action.cooldown || 1000;
@@ -40,13 +42,14 @@
     {#if isVisible(action)}
       {@const cooldown = cooldowns[action.id]}
       {@const isOnCooldown = cooldown?.active}
+      {@const affordable = canAfford(action)}
       <button
         class="group relative w-full flex items-center gap-4 p-4 rounded-lg bg-surface-2 border border-ink/10
                text-left transition-all duration-150 overflow-hidden
                hover:bg-surface-3 hover:border-accent/30 hover:-translate-y-0.5
                disabled:hover:translate-y-0 disabled:hover:border-ink/10 disabled:hover:bg-surface-2"
-        class:opacity-60={!canAfford(action) && !isOnCooldown}
-        disabled={isOnCooldown}
+        class:opacity-60={!affordable && !isOnCooldown}
+        disabled={isOnCooldown || !affordable}
         title={action.description}
         onclick={() => performAction(action)}
       >
@@ -63,6 +66,20 @@
         <div class="relative min-w-0 flex-1">
           <span class="block text-paper font-semibold">{action.name}</span>
           <span class="block text-xs text-ink-muted truncate">{action.description}</span>
+          <span class="mt-2 flex flex-wrap gap-1.5 text-[0.65rem] leading-none">
+            {#if action.produces}
+              <span class="px-1.5 py-1 rounded bg-success/10 text-success border border-success/20">
+                + {formatCost(action.produces)}
+              </span>
+            {/if}
+            {#if action.consumes}
+              <span
+                class="px-1.5 py-1 rounded border {affordable ? 'bg-ink/5 text-ink-muted border-ink/10' : 'bg-danger/10 text-danger border-danger/20'}"
+              >
+                - {formatCost(action.consumes)}
+              </span>
+            {/if}
+          </span>
         </div>
       </button>
     {/if}

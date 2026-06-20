@@ -1,9 +1,15 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
   import { formatCost, getPurchaseButtonClasses } from '../utils/gameFormatting.js';
+  import { scaleCost } from '../../../js/core/resourceUtils.js';
 
   let eraData = $derived($gameStore.gameManager?.getCurrentEraData());
   let upgradeDefs = $derived(eraData?.upgrades || []);
+
+  function getAdjustedCost(upgrade) {
+    const multiplier = $gameStore.gameManager?.systems?.prestigeManager?.getUpgradeCostMultiplier?.() || 1;
+    return scaleCost(upgrade.cost, multiplier);
+  }
 
   function buyUpgrade(upgradeId) {
     $gameStore.gameManager?.buyUpgrade(upgradeId);
@@ -14,7 +20,9 @@
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
   {#each upgradeDefs as upgrade (upgrade.id)}
     {@const isUnlocked = $gameStore.upgrades[upgrade.id] === true}
-    {@const canAfford = !isUnlocked && ($gameStore.gameState?.canAfford(upgrade.cost) ?? false)}
+    {@const adjustedCost = getAdjustedCost(upgrade)}
+    {@const hasDiscount = JSON.stringify(adjustedCost) !== JSON.stringify(upgrade.cost)}
+    {@const canAfford = !isUnlocked && ($gameStore.gameState?.canAfford(adjustedCost) ?? false)}
     {@const hasRequiredUpgrade = !upgrade.requiresUpgrade || $gameStore.upgrades[upgrade.requiresUpgrade] === true}
     {@const canBuy = !isUnlocked && canAfford && hasRequiredUpgrade}
 
@@ -27,7 +35,12 @@
       <p class="text-xs text-ink-muted mb-2 line-clamp-2">{upgrade.description}</p>
 
       <div class="space-y-1 text-xs text-ink-muted mb-3">
-        <p>Cost: {formatCost(upgrade.cost)}</p>
+        <p>
+          Cost: {formatCost(adjustedCost)}
+          {#if hasDiscount}
+            <span class="text-success"> discounted</span>
+          {/if}
+        </p>
         <p>Effect: {upgrade.effect}</p>
       </div>
 

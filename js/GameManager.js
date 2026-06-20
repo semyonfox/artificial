@@ -191,6 +191,10 @@ export class GameManager {
       }
     });
 
+    this.gameState.addListener("progressionChange", () => {
+      this.systems.achievementManager?.checkAchievements();
+    });
+
     // Auto-save every interval
     this.autoSaveInterval = setInterval(() => {
       if (this.gameState && this.gameState.data.settings.autoSave) {
@@ -300,8 +304,11 @@ export class GameManager {
    * Perform a config-driven click action
    */
   doClickAction(action) {
-    this.systems.resourceManager.performClickAction(action);
-    this.updateProgression(1);
+    const result = this.systems.resourceManager.performClickAction(action);
+    if (result) {
+      this.updateProgression(1);
+    }
+    return result;
   }
 
   /**
@@ -573,12 +580,9 @@ export class GameManager {
    */
   updateProgression(amount = 1) {
     if (this.gameState && this.gameState.data) {
-      this.gameState.data.progression = {
-        ...this.gameState.data.progression,
-        totalClicks:
-          (this.gameState.data.progression.totalClicks || 0) + amount,
-      };
+      return this.gameState.recordClickAction(amount);
     }
+    return 0;
   }
 
   /**
@@ -704,17 +708,19 @@ export class GameManager {
    */
   resetGame() {
     if (
-      confirm("Are you sure you want to reset the game? This cannot be undone.")
+      confirm("Reset this run and clear the local save, achievements, wonders, and offline timer? This cannot be undone.")
     ) {
       try {
-        // Stop all systems
-        this.stopAllSystems();
+        // Stop run-specific timers without stopping the main game loop.
+        this.systems.workerManager?.stopAllWorkers();
+        this.systems.tradeRouteManager?.reset();
 
-        // Reset game state
-        this.gameState.reset();
+        // Reset all progress. Prestige uses the preserving reset path separately.
+        this.gameState.reset({ preserveWonders: false });
 
-        // Clear localStorage
+        // Clear browser persistence. There is no server-side save for this app.
         localStorage.removeItem(config.storage.saveKey);
+        localStorage.removeItem("lastActive");
 
         // Restart worker automation
         this.restartWorkerAutomation();

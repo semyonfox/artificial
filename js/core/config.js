@@ -714,8 +714,8 @@ export const config = {
     knowledge: { scientificMethod: 2.0, softwareEngineering: 1.5 },
     copper: { copperMining: 1.5, tinMining: 1.3 },
     tin: { tinMining: 1.5, copperMining: 1.3 },
-    silicon: { microprocessor: 2.0 },
-    computers: { microprocessor: 1.5, softwareEngineering: 1.3 },
+    silicon: { transistor: 1.2, microprocessor: 2.0 },
+    computers: { transistor: 1.2, microprocessor: 1.5, softwareEngineering: 1.3 },
     rockets: { spaceRobotics: 1.5 },
     robotics: { spaceRobotics: 2.0 },
     quantumComputers: { wormholeTheory: 1.5 },
@@ -772,10 +772,11 @@ export const config = {
   //   EP = floor(log10(1 + points)^2 × coefficient)
   // squared log gives meaningful growth at all run lengths without runaway.
   // multBase is the sqrt growth factor on the prestige multiplier curve.
-  // tuned target: first clean run to Industrial ≈ 50 EP, Universal ≈ 200 EP.
+  // tuned target: first clean run to Industrial ≈ 50 EP, Universal ≈ 200 EP
+  // when the player does meaningful production instead of pure minimum clears.
   prestigeScaling: {
     eraMultBase: 2,
-    coefficient: 0.8,
+    coefficient: 2.0,
     multBase: 0.3,
   },
 
@@ -1376,7 +1377,7 @@ export const config = {
           name: "Agriculture",
           description: "Develop systematic farming techniques to grow crops",
           cost: { grain: 30, tools: 10 },
-          effect: "Unlocks farming and greatly increases food production",
+          effect: "Greatly increases grain production",
           priority: 1,
           historical:
             "Agriculture developed independently around 10,000 BCE in the Fertile Crescent.",
@@ -1465,7 +1466,7 @@ export const config = {
           name: "Copper Mining",
           description: "Extract copper ore from the earth",
           cost: { tools: 8 },
-          effect: "Enables copper production",
+          effect: "Improves copper and tin extraction",
           priority: 1,
           historical: "Copper mining began around 5000 BCE.",
         },
@@ -1474,7 +1475,7 @@ export const config = {
           name: "Tin Mining",
           description: "Discover and mine tin deposits",
           cost: { tools: 6 },
-          effect: "Enables tin production",
+          effect: "Improves tin and copper extraction",
           priority: 2,
           historical: "Tin mining enabled the Bronze Age.",
         },
@@ -2213,7 +2214,7 @@ export const config = {
           name: "Transistor",
           description: "Revolutionary electronic switching device",
           cost: { electricity: 25, radar: 20 },
-          effect: "Foundation for the Information Age",
+          effect: "Improves silicon and computer production",
           priority: 5,
           historical: "Bell Labs invented the transistor in 1947.",
         },
@@ -2226,7 +2227,7 @@ export const config = {
       timespan: "1950 - 2020",
       description:
         "The Digital Revolution brings computers, internet, and global connectivity.",
-      advancementCost: { population: 150000, computers: 200, data: 80, internet: 60, software: 40 },
+      advancementCost: { population: 400000, computers: 200, data: 80, internet: 60, software: 40 },
       actions: [
         { id: "fabricate", name: "Fabricate", icon: "💎", description: "Process silicon", produces: { silicon: 3 }, cooldown: 1000 },
         { id: "code", name: "Code", icon: "💻", description: "Write software", produces: { computers: 1, software: 1, data: 1 }, requiresUpgrade: "siliconProcessing", cooldown: 1200 },
@@ -2260,7 +2261,7 @@ export const config = {
           name: "Silicon Processing",
           description: "Produce microchips from silicon",
           cost: { steel: 8, electricity: 15 },
-          effect: "Enables computer production",
+          effect: "Unlocks coding and programmer automation",
           priority: 1,
           historical: "Silicon Valley became the tech hub in the 1950s.",
         },
@@ -2269,7 +2270,7 @@ export const config = {
           name: "Microprocessor",
           description: "Create programmable computer chips",
           cost: { silicon: 20 },
-          effect: "Unlocks programmers",
+          effect: "Boosts silicon and computer output",
           priority: 2,
           historical: "Intel 4004 (1971) was the first microprocessor.",
         },
