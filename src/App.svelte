@@ -46,7 +46,9 @@
       }, 1000);
     });
 
-    window.game = gm;
+    if (import.meta.env.DEV) {
+      window.game = gm;
+    }
 
     return () => {
       destroyed = true;

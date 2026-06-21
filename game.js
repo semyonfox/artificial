@@ -141,7 +141,9 @@ class Game {
 
 			this.gameManager = new GameManager();
 
-			window.game = this.gameManager;
+			if (import.meta.env?.DEV) {
+				window.game = this.gameManager;
+			}
 		} catch (error) {
 			console.error('❌ Failed to start game:', error);
 			this.showErrorMessage(error);
