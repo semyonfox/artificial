@@ -258,6 +258,7 @@ export class WorkerManager {
 		const diminishFactor = this.getDiminishingReturnsFactor(workerType);
 		const grainMult = pm?.getGrainMultiplier() || 1;
 		const chainMult = pm?.getChainBonusMultiplier(workerData) || 1;
+		const workerSpecMult = this.gameManager?.getWorkerSpecializationMultiplier(workerType) || 1;
 
 		for (const [resource, basePerWorker] of Object.entries(workerData.produces)) {
 			let specMult = this.gameManager?.getSpecializationMultiplier(resource) || 1;
@@ -267,7 +268,7 @@ export class WorkerManager {
 			const capMult = this.getSoftCapMultiplier(resource);
 
 			const total = basePerWorker * workersAbleToWork * efficiency * diminishFactor
-				* prestigeMult * specMult * resourceMult * masteryMult * chainMult * capMult;
+				* prestigeMult * workerSpecMult * specMult * resourceMult * masteryMult * chainMult * capMult;
 			const prevRemainder = this.productionRemainders[resource] || 0;
 			const combined = prevRemainder + total;
 			const whole = Math.floor(combined);

@@ -490,6 +490,54 @@ export class GameManager {
   }
 
   /**
+   * Get active specialization bonuses for a worker type.
+   *
+   * Some specialization config entries target workers (for example merchant or
+   * metalworker) instead of produced resources. Resource multipliers are applied
+   * per output resource in WorkerManager; worker multipliers apply once to the
+   * worker's total production so those config entries match their descriptions.
+   */
+  getWorkerSpecializationMultiplier(workerType) {
+    let mult = 1.0;
+
+    const eraSpecs = this.gameState.data.eraSpecializations;
+    if (eraSpecs) {
+      for (const [eraKey, specId] of Object.entries(eraSpecs)) {
+        const specs = config.eraSpecializations[eraKey];
+        if (!specs) continue;
+        const spec = specs.find(s => s.id === specId);
+        if (!spec) continue;
+
+        if (spec.bonuses && spec.bonuses[workerType]) {
+          mult *= spec.bonuses[workerType];
+        }
+        if (spec.penalties && spec.penalties[workerType]) {
+          mult *= spec.penalties[workerType];
+        }
+      }
+    }
+
+    const civSpecs = this.gameState.data.civSpecializations;
+    if (civSpecs) {
+      for (const [eraKey, civId] of Object.entries(civSpecs)) {
+        const specs = config.civSpecializations[eraKey];
+        if (!specs) continue;
+        const spec = specs.find(s => s.id === civId);
+        if (!spec) continue;
+
+        if (spec.bonuses && spec.bonuses[workerType]) {
+          mult *= spec.bonuses[workerType];
+        }
+        if (spec.penalties && spec.penalties[workerType]) {
+          mult *= spec.penalties[workerType];
+        }
+      }
+    }
+
+    return mult;
+  }
+
+  /**
    * Establish a trade route
    */
   establishTradeRoute(routeId) {

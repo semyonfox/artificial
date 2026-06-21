@@ -78,10 +78,11 @@ export class OfflineManager {
 			if (totalCycles <= 0) return;
 
 			const masteryMap = {};
+			const workerSpecMult = gameManager?.getWorkerSpecializationMultiplier(workerData.id) || 1;
 			Object.entries(workerData.produces).forEach(([resource, basePerWorker]) => {
 				const masteryMult = pm?.getMasteryMultiplier(resource) || 1;
 				const amount = Math.floor(
-					basePerWorker * count * totalCycles * prestigeMult * masteryMult * rateMult,
+					basePerWorker * count * totalCycles * prestigeMult * workerSpecMult * masteryMult * rateMult,
 				);
 				if (amount > 0) {
 					this.gameState.addResource(resource, amount);
