@@ -1049,7 +1049,7 @@ export const config = {
       bonuses: { defense: 3.0, roads: 1.5 },
       historical: 'Major construction under Qin (221 BCE) and Han dynasties',
     },
-    ashokaPlllars: {
+    ashokaPillars: {
       id: 'ashokaPillars',
       name: 'Pillars of Ashoka',
       era: 'classical',
