@@ -1,6 +1,10 @@
 import { writable, derived } from 'svelte/store';
 
-function getStateSnapshot(gameState) {
+function getAchievementSnapshot(gameManager) {
+  return gameManager?.systems?.achievementManager?.getAllAchievements() || [];
+}
+
+function getStateSnapshot(gameState, gameManager = null) {
   return {
     gameState,
     resources: { ...gameState.data.resources },
@@ -8,6 +12,8 @@ function getStateSnapshot(gameState) {
     workers: { ...gameState.data.workers },
     upgrades: { ...gameState.data.upgrades },
     currentEra: gameState.data.currentEra,
+    progression: { ...gameState.data.progression },
+    achievements: getAchievementSnapshot(gameManager),
     prestige: gameState.data.prestige || null,
     eraSpecializations: { ...gameState.data.eraSpecializations },
     civSpecializations: { ...gameState.data.civSpecializations },
@@ -27,6 +33,14 @@ function createGameStore() {
     workers: {},
     upgrades: {},
     currentEra: 'paleolithic',
+    progression: {
+      eraProgress: 0,
+      totalClicks: 0,
+      totalResources: 0,
+      totalWorkers: 0,
+      totalUpgrades: 0,
+      achievements: [],
+    },
     prestige: null,
     achievements: [],
     eraSpecializations: {},
@@ -58,7 +72,7 @@ function createGameStore() {
         ...s,
         initialized: true,
         gameManager,
-        ...getStateSnapshot(gs),
+        ...getStateSnapshot(gs, gameManager),
       }));
 
       // listen to GameState events and sync store
@@ -81,6 +95,30 @@ function createGameStore() {
         update(s => ({
           ...s,
           upgrades: { ...gs.data.upgrades },
+        }));
+      });
+
+      gs.addListener('progressionChange', () => {
+        update(s => ({
+          ...s,
+          progression: { ...gs.data.progression },
+          achievements: getAchievementSnapshot(gameManager),
+        }));
+      });
+
+      gs.addListener('achievementUnlocked', () => {
+        update(s => ({
+          ...s,
+          progression: { ...gs.data.progression },
+          achievements: getAchievementSnapshot(gameManager),
+        }));
+      });
+
+      gs.addListener('achievementChange', ({ achievements }) => {
+        update(s => ({
+          ...s,
+          progression: { ...gs.data.progression },
+          achievements,
         }));
       });
 
@@ -116,14 +154,14 @@ function createGameStore() {
       gs.addListener('gameLoaded', () => {
         update(s => ({
           ...s,
-          ...getStateSnapshot(gs),
+          ...getStateSnapshot(gs, gameManager),
         }));
       });
 
       gs.addListener('gameReset', () => {
         update(s => ({
           ...s,
-          ...getStateSnapshot(gs),
+          ...getStateSnapshot(gs, gameManager),
         }));
       });
     },
@@ -134,7 +172,7 @@ function createGameStore() {
         const gs = s.gameState;
         return {
           ...s,
-          ...getStateSnapshot(gs),
+          ...getStateSnapshot(gs, s.gameManager),
         };
       });
     },

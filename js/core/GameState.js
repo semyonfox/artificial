@@ -441,6 +441,29 @@ export class GameState {
   }
 
   /**
+   * Record successful manual player actions.
+   */
+  recordClickAction(amount = 1) {
+    const clickAmount = Number.isFinite(amount) ? amount : 1;
+    const oldValue = this.data.progression.totalClicks || 0;
+    const newValue = oldValue + clickAmount;
+
+    this.data.progression = {
+      ...this.data.progression,
+      totalClicks: newValue,
+    };
+
+    this.notifyListeners("progressionChange", {
+      field: "totalClicks",
+      oldValue,
+      newValue,
+      amount: clickAmount,
+    });
+
+    return newValue;
+  }
+
+  /**
    * Get total resource value (for progression tracking)
    */
   getTotalResourceValue() {
@@ -695,9 +718,11 @@ export class GameState {
    * Reset game state to initial values (called on prestige)
    * Wonders persist through prestige as permanent achievements
    */
-  reset() {
-    // preserve wonders through reset
-    const preservedWonders = this.data.wonders ? { ...this.data.wonders } : { built: [] };
+  reset(options = {}) {
+    const { preserveWonders = true } = options;
+    const preservedWonders = preserveWonders && this.data.wonders
+      ? { built: [...(this.data.wonders.built || [])] }
+      : { built: [] };
 
     this.data = this.createInitialState();
     this.data.eraSpecializations = {};
