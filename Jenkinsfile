@@ -34,6 +34,12 @@ pipeline {
       }
     }
 
+    stage('Test') {
+      steps {
+        sh 'pnpm run test'
+      }
+    }
+
     stage('Deploy') {
       steps {
         // deploy dir /home/semyon/artificial is bind-mounted into this
