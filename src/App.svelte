@@ -75,7 +75,9 @@
         </div>
       </div>
 
-      <EraStrip />
+      <div class="w-full sm:flex-1 sm:min-w-0">
+        <EraStrip />
+      </div>
     </header>
 
     <!-- Main Grid -->
