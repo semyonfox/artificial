@@ -147,6 +147,10 @@ export class EventManager {
 
     // Log the event
     this.logEvent(event);
+
+    if (this.gameState.data.settings?.autoSave) {
+      this.gameState.save();
+    }
   }
 
   /**
@@ -169,19 +173,16 @@ export class EventManager {
    * Log event to game history and UI
    */
   logEvent(event) {
-    // try store first, then UIManager
-    const store = this.gameManager?.store;
-    if (store) {
+    const entry = this.gameState.appendHistory(
+      event.type === "disaster" ? "disasters" : "events",
+      event,
+    );
+
+    if (this.uiManager) {
       if (event.type === "disaster") {
-        store.logDisaster(event);
+        this.uiManager.logDisaster(entry);
       } else {
-        store.logEvent(event);
-      }
-    } else if (this.uiManager) {
-      if (event.type === "disaster") {
-        this.uiManager.logDisaster(event);
-      } else {
-        this.uiManager.logEvent(event);
+        this.uiManager.logEvent(entry);
       }
     }
   }

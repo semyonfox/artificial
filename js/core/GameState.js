@@ -10,6 +10,7 @@ export class GameState {
     this.data = this.createInitialState();
     this.listeners = new Map();
     this.lastSave = Date.now();
+    this.syncDerivedProgressionTotals();
   }
 
   /**
@@ -18,7 +19,7 @@ export class GameState {
   createInitialState() {
     return {
       // Core game properties
-      schemaVersion: 2,
+      schemaVersion: 3,
       currentEra: "paleolithic",
       gameStartTime: Date.now(),
       totalPlayTime: 0,
@@ -43,6 +44,7 @@ export class GameState {
         totalResources: 0,
         totalWorkers: 0,
         totalUpgrades: 0,
+        actions: this.createInitialActionProgress(),
         achievements: [],
       },
 
@@ -70,6 +72,23 @@ export class GameState {
       wonders: {
         built: [],
       },
+
+      // Historical log data shown in the UI and persisted with saves.
+      history: {
+        events: [],
+        disasters: [],
+      },
+    };
+  }
+
+  /**
+   * Create initial action tracking for durable save data.
+   */
+  createInitialActionProgress() {
+    return {
+      total: 0,
+      byId: {},
+      recent: [],
     };
   }
 
@@ -218,6 +237,133 @@ export class GameState {
   }
 
   /**
+   * Keep save-safe resource maps: finite positive totals by resource id.
+   */
+  normalizeResourceMap(resources = {}) {
+    if (!resources || typeof resources !== "object") return {};
+
+    return Object.entries(resources).reduce((acc, [resource, amount]) => {
+      if (typeof resource !== "string" || resource.length === 0) return acc;
+      if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) {
+        return acc;
+      }
+      acc[resource] = amount;
+      return acc;
+    }, {});
+  }
+
+  addResourceTotals(target, resources = {}) {
+    Object.entries(this.normalizeResourceMap(resources)).forEach(([resource, amount]) => {
+      target[resource] = (target[resource] || 0) + amount;
+    });
+  }
+
+  normalizeActionHistoryEntry(entry) {
+    if (!entry || typeof entry !== "object") return null;
+    const actionId = typeof entry.actionId === "string" && entry.actionId.length > 0
+      ? entry.actionId
+      : null;
+    if (!actionId) return null;
+
+    return {
+      actionId,
+      actionName: typeof entry.actionName === "string" ? entry.actionName : actionId,
+      era: this.normalizeEraKey(entry.era || this.data?.currentEra),
+      failed: entry.failed === true,
+      produced: this.normalizeResourceMap(entry.produced),
+      consumed: this.normalizeResourceMap(entry.consumed),
+      timestamp: Number.isFinite(entry.timestamp) ? entry.timestamp : Date.now(),
+    };
+  }
+
+  normalizeActionProgress(actions = {}, fallbackTotal = 0) {
+    const normalized = this.createInitialActionProgress();
+    const savedById = actions?.byId && typeof actions.byId === "object"
+      ? actions.byId
+      : {};
+
+    Object.entries(savedById).forEach(([actionId, action]) => {
+      if (!action || typeof action !== "object") return;
+
+      const count = Number.isFinite(action.count) ? Math.max(0, action.count) : 0;
+      const successes = Number.isFinite(action.successes)
+        ? Math.max(0, action.successes)
+        : count;
+      const failures = Number.isFinite(action.failures)
+        ? Math.max(0, action.failures)
+        : 0;
+      const lastResult = action.lastResult && typeof action.lastResult === "object"
+        ? {
+            failed: action.lastResult.failed === true,
+            produced: this.normalizeResourceMap(action.lastResult.produced),
+            consumed: this.normalizeResourceMap(action.lastResult.consumed),
+          }
+        : null;
+
+      normalized.byId[actionId] = {
+        actionId,
+        actionName: typeof action.actionName === "string" ? action.actionName : actionId,
+        count,
+        successes,
+        failures,
+        produced: this.normalizeResourceMap(action.produced),
+        consumed: this.normalizeResourceMap(action.consumed),
+        lastPerformedAt: Number.isFinite(action.lastPerformedAt)
+          ? action.lastPerformedAt
+          : null,
+        lastResult,
+      };
+    });
+
+    if (Array.isArray(actions?.recent)) {
+      normalized.recent = actions.recent
+        .map((entry) => this.normalizeActionHistoryEntry(entry))
+        .filter(Boolean)
+        .slice(0, 25);
+    }
+
+    const totalByAction = Object.values(normalized.byId).reduce(
+      (sum, action) => sum + action.count,
+      0,
+    );
+    const savedTotal = Number.isFinite(actions?.total) ? Math.max(0, actions.total) : 0;
+    const migratedTotal = Number.isFinite(fallbackTotal) ? Math.max(0, fallbackTotal) : 0;
+    normalized.total = Math.max(savedTotal, totalByAction, migratedTotal);
+
+    return normalized;
+  }
+
+  normalizeHistoryLog(log = []) {
+    if (!Array.isArray(log)) return [];
+
+    return log
+      .filter((entry) => entry && typeof entry === "object")
+      .map((entry) => ({
+        ...entry,
+        timestamp: Number.isFinite(entry.timestamp) ? entry.timestamp : Date.now(),
+      }))
+      .slice(0, 50);
+  }
+
+  normalizeHistory(history = {}) {
+    return {
+      events: this.normalizeHistoryLog(history?.events),
+      disasters: this.normalizeHistoryLog(history?.disasters),
+    };
+  }
+
+  syncDerivedProgressionTotals() {
+    if (!this.data?.progression) return;
+
+    this.data.progression.totalResources = this.getTotalResourceValue();
+    this.data.progression.totalWorkers = Object.values(this.data.workers || {}).reduce(
+      (sum, count) => sum + (Number.isFinite(count) ? Math.max(0, count) : 0),
+      0,
+    );
+    this.data.progression.totalUpgrades = Object.values(this.data.upgrades || {}).filter(Boolean).length;
+  }
+
+  /**
    * Normalize era keys from legacy saves or corrupted data
    */
   normalizeEraKey(eraKey) {
@@ -284,6 +430,8 @@ export class GameState {
         (this.data.lifetimeProduced[resourceType] || 0) + amount;
     }
 
+    this.syncDerivedProgressionTotals();
+
     // Trigger resource change listeners
     this.notifyListeners("resourceChange", {
       resourceType,
@@ -343,6 +491,7 @@ export class GameState {
 
     // Each worker adds 1 to population (they are people!)
     this.addResource("population", count);
+    this.syncDerivedProgressionTotals();
 
     this.notifyListeners("workerChange", {
       workerType,
@@ -369,6 +518,7 @@ export class GameState {
       this.data.upgrades[upgradeId] = true;
 
       if (!wasUnlocked) {
+        this.syncDerivedProgressionTotals();
         this.notifyListeners("upgradeUnlocked", { upgradeId });
       }
 
@@ -441,23 +591,86 @@ export class GameState {
   }
 
   /**
-   * Record successful manual player actions.
+   * Record executed manual player actions, including per-action save data.
    */
-  recordClickAction(amount = 1) {
-    const clickAmount = Number.isFinite(amount) ? amount : 1;
+  recordClickAction(actionOrAmount = 1, details = {}) {
+    const actionDetails = actionOrAmount && typeof actionOrAmount === "object"
+      ? actionOrAmount
+      : details;
+    const rawClickAmount = Number.isFinite(actionOrAmount)
+      ? actionOrAmount
+      : Number.isFinite(actionDetails.amount)
+        ? actionDetails.amount
+        : 1;
+    const clickAmount = rawClickAmount > 0 ? rawClickAmount : 1;
     const oldValue = this.data.progression.totalClicks || 0;
     const newValue = oldValue + clickAmount;
+    const actions = this.normalizeActionProgress(
+      this.data.progression.actions,
+      oldValue,
+    );
+    const timestamp = Date.now();
+    const actionId = typeof actionDetails.actionId === "string" && actionDetails.actionId.length > 0
+      ? actionDetails.actionId
+      : null;
+
+    if (actionId) {
+      const produced = this.normalizeResourceMap(actionDetails.produced);
+      const consumed = this.normalizeResourceMap(actionDetails.consumed);
+      const failed = actionDetails.failed === true;
+      const previous = actions.byId[actionId] || {
+        actionId,
+        actionName: actionId,
+        count: 0,
+        successes: 0,
+        failures: 0,
+        produced: {},
+        consumed: {},
+        lastPerformedAt: null,
+        lastResult: null,
+      };
+
+      previous.actionName = typeof actionDetails.actionName === "string"
+        ? actionDetails.actionName
+        : previous.actionName;
+      previous.count += clickAmount;
+      previous.successes += failed ? 0 : clickAmount;
+      previous.failures += failed ? clickAmount : 0;
+      previous.lastPerformedAt = timestamp;
+      previous.lastResult = { failed, produced, consumed };
+      this.addResourceTotals(previous.produced, produced);
+      this.addResourceTotals(previous.consumed, consumed);
+      actions.byId[actionId] = previous;
+
+      actions.recent = [
+        {
+          actionId,
+          actionName: previous.actionName,
+          era: this.normalizeEraKey(actionDetails.era || this.data.currentEra),
+          failed,
+          produced,
+          consumed,
+          timestamp,
+        },
+        ...actions.recent,
+      ].slice(0, 25);
+    }
+
+    actions.total = newValue;
 
     this.data.progression = {
       ...this.data.progression,
       totalClicks: newValue,
+      actions,
     };
+    this.syncDerivedProgressionTotals();
 
     this.notifyListeners("progressionChange", {
       field: "totalClicks",
       oldValue,
       newValue,
       amount: clickAmount,
+      actionId,
     });
 
     return newValue;
@@ -468,9 +681,34 @@ export class GameState {
    */
   getTotalResourceValue() {
     return Object.values(this.data.resources).reduce(
-      (sum, amount) => sum + amount,
+      (sum, amount) => sum + (Number.isFinite(amount) ? amount : 0),
       0,
     );
+  }
+
+  /**
+   * Persist historical event/disaster log entries in game state.
+   */
+  appendHistory(kind, event) {
+    const listKey = kind === "disasters" || kind === "disaster"
+      ? "disasters"
+      : "events";
+    const timestamp = Number.isFinite(event?.timestamp) ? event.timestamp : Date.now();
+    const entry = { ...(event || {}), timestamp };
+
+    this.data.history = this.normalizeHistory(this.data.history);
+    this.data.history = {
+      ...this.data.history,
+      [listKey]: [entry, ...this.data.history[listKey]].slice(0, 50),
+    };
+
+    this.notifyListeners("historyChange", {
+      kind: listKey,
+      entry,
+      history: this.data.history,
+    });
+
+    return entry;
   }
 
   /**
@@ -560,6 +798,26 @@ export class GameState {
       });
     }
 
+    if (!this.data.progression || typeof this.data.progression !== "object") {
+      errors.push("Missing progression state");
+      this.data.progression = this.createInitialState().progression;
+    }
+
+    if (!Number.isFinite(this.data.progression.totalClicks) || this.data.progression.totalClicks < 0) {
+      errors.push(`Invalid totalClicks: ${this.data.progression.totalClicks}`);
+      this.data.progression.totalClicks = 0;
+    }
+    if (!Array.isArray(this.data.progression.achievements)) {
+      errors.push("Invalid achievements list");
+      this.data.progression.achievements = [];
+    }
+    this.data.progression.actions = this.normalizeActionProgress(
+      this.data.progression.actions,
+      this.data.progression.totalClicks,
+    );
+    this.data.history = this.normalizeHistory(this.data.history);
+    this.syncDerivedProgressionTotals();
+
     if (log && errors.length > 0) {
       console.warn("Game state validation errors:", errors);
     }
@@ -572,13 +830,21 @@ export class GameState {
    */
   save() {
     try {
+      this.data.schemaVersion = 3;
+      this.data.progression.actions = this.normalizeActionProgress(
+        this.data.progression.actions,
+        this.data.progression.totalClicks,
+      );
+      this.data.history = this.normalizeHistory(this.data.history);
+      this.syncDerivedProgressionTotals();
+      const savedAt = Date.now();
       const saveData = {
         ...this.data,
-        lastSave: Date.now(),
+        lastSave: savedAt,
       };
 
       localStorage.setItem(config.storage.saveKey, JSON.stringify(saveData));
-      this.lastSave = Date.now();
+      this.lastSave = savedAt;
       return true;
     } catch (error) {
       console.error("Failed to save game:", error);
@@ -616,6 +882,13 @@ export class GameState {
         ...initial.progression,
         ...(parsedData.progression || {}),
       };
+      this.data.progression.achievements = Array.isArray(parsedData.progression?.achievements)
+        ? [...parsedData.progression.achievements]
+        : [];
+      this.data.progression.actions = this.normalizeActionProgress(
+        parsedData.progression?.actions,
+        this.data.progression.totalClicks,
+      );
       // lifetimeProduced: merge defaults with saved values. for old saves
       // that lack it, seed with current resource amounts so prestige math
       // still works (best-effort migration).
@@ -634,6 +907,7 @@ export class GameState {
         this.data.prestige = {
           ...parsedData.prestige,
           purchasedPerks: [...(parsedData.prestige.purchasedPerks || [])],
+          completedEras: [...(parsedData.prestige.completedEras || [])],
         };
       }
       if (parsedData.eraSpecializations) {
@@ -653,14 +927,21 @@ export class GameState {
           built: [...(parsedData.wonders.built || [])],
         };
       }
+      this.data.history = this.normalizeHistory(parsedData.history || initial.history);
 
       // Migrate legacy save structures to current model
       this.migrateLegacySave(parsedData);
+      this.data.schemaVersion = initial.schemaVersion;
+      this.syncDerivedProgressionTotals();
 
       // Validate loaded state. Persist repaired saves without warning on boot;
       // recurring runtime corruption is still reported by periodic validation.
       const loadedStateValid = this.validate({ log: false });
-      if (!loadedStateValid) {
+      const needsMigrationSave =
+        parsedData.schemaVersion !== initial.schemaVersion ||
+        !parsedData.progression?.actions ||
+        !parsedData.history;
+      if (!loadedStateValid || needsMigrationSave) {
         this.save();
       }
 
@@ -734,6 +1015,8 @@ export class GameState {
     this.data.civSpecializations = {};
     this.data.tradeRoutes = { activeRoutes: [], routeProgress: {} };
     this.data.wonders = preservedWonders;
+    this.data.history = { events: [], disasters: [] };
+    this.syncDerivedProgressionTotals();
 
     this.notifyListeners("gameReset", this.data);
   }

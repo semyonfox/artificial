@@ -35,6 +35,8 @@ export class GameManager {
 
     // store reference for notifications (set by gameStore.initialize)
     this.store = null;
+    this.actionSaveFailureNotified = false;
+    this.beforeUnloadHandler = null;
 
     this.initPromise = this.initialize();
   }
@@ -85,6 +87,9 @@ export class GameManager {
           "success",
           6000,
         );
+        if (this.gameState.data.settings.autoSave) {
+          this.gameState.save();
+        }
       }
 
       this.initialized = true;
@@ -167,7 +172,6 @@ export class GameManager {
   setupEventListeners() {
     // Listen for resource changes to update UI
     this.gameState.addListener("resourceChange", (data) => {
-      this.updateProgression();
       if (this.systems.uiManager) {
         this.systems.uiManager.updateResources();
       }
@@ -201,6 +205,13 @@ export class GameManager {
         this.gameState.save();
       }
     }, config.storage.autoSaveInterval);
+
+    this.beforeUnloadHandler = () => {
+      if (this.gameState) {
+        this.gameState.save();
+      }
+    };
+    window.addEventListener("beforeunload", this.beforeUnloadHandler);
   }
 
   /**
@@ -306,7 +317,15 @@ export class GameManager {
   doClickAction(action) {
     const result = this.systems.resourceManager.performClickAction(action);
     if (result) {
-      this.updateProgression(1);
+      this.updateProgression({
+        actionId: action.id,
+        actionName: action.name,
+        era: this.gameState.data.currentEra,
+        produced: result.failed ? {} : result,
+        consumed: action.consumes || {},
+        failed: result.failed === true,
+      });
+      this.saveActionState();
     }
     return result;
   }
@@ -597,9 +616,9 @@ export class GameManager {
   /**
    * Update game progression
    */
-  updateProgression(amount = 1) {
+  updateProgression(actionOrAmount = 1, details = {}) {
     if (this.gameState && this.gameState.data) {
-      return this.gameState.recordClickAction(amount);
+      return this.gameState.recordClickAction(actionOrAmount, details);
     }
     return 0;
   }
@@ -703,6 +722,24 @@ export class GameManager {
     if (!saved) {
       this.showNotification(
         `${actionLabel} completed, but saving failed. Export your save before refreshing.`,
+        "warning",
+        8000,
+      );
+    }
+    return saved;
+  }
+
+  /**
+   * Persist manual action progress without spamming success notifications.
+   */
+  saveActionState() {
+    if (!this.gameState?.data?.settings?.autoSave) return true;
+
+    const saved = this.gameState.save();
+    if (!saved && !this.actionSaveFailureNotified) {
+      this.actionSaveFailureNotified = true;
+      this.showNotification(
+        "Action completed, but saving failed. Export your save before refreshing.",
         "warning",
         8000,
       );
@@ -1200,6 +1237,11 @@ export class GameManager {
       if (this.autoSaveInterval) {
         clearInterval(this.autoSaveInterval);
         this.autoSaveInterval = null;
+      }
+
+      if (this.beforeUnloadHandler) {
+        window.removeEventListener("beforeunload", this.beforeUnloadHandler);
+        this.beforeUnloadHandler = null;
       }
 
       // Reset references

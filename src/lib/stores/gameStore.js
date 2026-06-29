@@ -4,6 +4,34 @@ function getAchievementSnapshot(gameManager) {
   return gameManager?.systems?.achievementManager?.getAllAchievements() || [];
 }
 
+function cloneActionProgress(actions = {}) {
+  return {
+    total: actions.total || 0,
+    byId: Object.fromEntries(
+      Object.entries(actions.byId || {}).map(([id, action]) => [
+        id,
+        {
+          ...action,
+          produced: { ...(action.produced || {}) },
+          consumed: { ...(action.consumed || {}) },
+          lastResult: action.lastResult
+            ? {
+                ...action.lastResult,
+                produced: { ...(action.lastResult.produced || {}) },
+                consumed: { ...(action.lastResult.consumed || {}) },
+              }
+            : null,
+        },
+      ]),
+    ),
+    recent: (actions.recent || []).map((entry) => ({
+      ...entry,
+      produced: { ...(entry.produced || {}) },
+      consumed: { ...(entry.consumed || {}) },
+    })),
+  };
+}
+
 function getStateSnapshot(gameState, gameManager = null) {
   return {
     gameState,
@@ -12,13 +40,18 @@ function getStateSnapshot(gameState, gameManager = null) {
     workers: { ...gameState.data.workers },
     upgrades: { ...gameState.data.upgrades },
     currentEra: gameState.data.currentEra,
-    progression: { ...gameState.data.progression },
+    progression: {
+      ...gameState.data.progression,
+      actions: cloneActionProgress(gameState.data.progression.actions),
+    },
     achievements: getAchievementSnapshot(gameManager),
     prestige: gameState.data.prestige || null,
     eraSpecializations: { ...gameState.data.eraSpecializations },
     civSpecializations: { ...gameState.data.civSpecializations },
     tradeRoutes: { ...gameState.data.tradeRoutes },
     wonders: { ...gameState.data.wonders },
+    eventLog: [...(gameState.data.history?.events || [])],
+    disasterLog: [...(gameState.data.history?.disasters || [])],
   };
 }
 
@@ -39,6 +72,7 @@ function createGameStore() {
       totalResources: 0,
       totalWorkers: 0,
       totalUpgrades: 0,
+      actions: { total: 0, byId: {}, recent: [] },
       achievements: [],
     },
     prestige: null,
@@ -53,12 +87,14 @@ function createGameStore() {
   });
 
   let notificationId = 0;
+  let attachedGameState = null;
 
   return {
     subscribe,
 
     initialize(gameManager) {
       const gs = gameManager.gameState;
+      attachedGameState = gs;
 
       // connect gameManager to this store for notifications
       gameManager.setStore({
@@ -101,7 +137,10 @@ function createGameStore() {
       gs.addListener('progressionChange', () => {
         update(s => ({
           ...s,
-          progression: { ...gs.data.progression },
+          progression: {
+            ...gs.data.progression,
+            actions: cloneActionProgress(gs.data.progression.actions),
+          },
           achievements: getAchievementSnapshot(gameManager),
         }));
       });
@@ -109,7 +148,10 @@ function createGameStore() {
       gs.addListener('achievementUnlocked', () => {
         update(s => ({
           ...s,
-          progression: { ...gs.data.progression },
+          progression: {
+            ...gs.data.progression,
+            actions: cloneActionProgress(gs.data.progression.actions),
+          },
           achievements: getAchievementSnapshot(gameManager),
         }));
       });
@@ -117,7 +159,10 @@ function createGameStore() {
       gs.addListener('achievementChange', ({ achievements }) => {
         update(s => ({
           ...s,
-          progression: { ...gs.data.progression },
+          progression: {
+            ...gs.data.progression,
+            actions: cloneActionProgress(gs.data.progression.actions),
+          },
           achievements,
         }));
       });
@@ -154,6 +199,14 @@ function createGameStore() {
         update(s => ({
           ...s,
           wonders: { ...gs.data.wonders },
+        }));
+      });
+
+      gs.addListener('historyChange', () => {
+        update(s => ({
+          ...s,
+          eventLog: [...(gs.data.history?.events || [])],
+          disasterLog: [...(gs.data.history?.disasters || [])],
         }));
       });
 
@@ -213,6 +266,10 @@ function createGameStore() {
     },
 
     logEvent(event) {
+      if (attachedGameState?.appendHistory) {
+        attachedGameState.appendHistory('events', event);
+        return;
+      }
       update(s => ({
         ...s,
         eventLog: [{ ...event, timestamp: Date.now() }, ...s.eventLog].slice(0, 50),
@@ -220,6 +277,10 @@ function createGameStore() {
     },
 
     logDisaster(disaster) {
+      if (attachedGameState?.appendHistory) {
+        attachedGameState.appendHistory('disasters', disaster);
+        return;
+      }
       update(s => ({
         ...s,
         disasterLog: [{ ...disaster, timestamp: Date.now() }, ...s.disasterLog].slice(0, 50),
