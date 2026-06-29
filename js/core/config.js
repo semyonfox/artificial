@@ -803,6 +803,10 @@ export const config = {
     populationGrowth: {
       baseRate: 0.05, // 0.05 pop/sec base (5x previous)
       eraScaling: 0.3, // rate = base * (1 + eraIndex * 0.3)
+      model: {
+        populationExponent: 0.5, // sqrt(population): scaled growth without runaway exponential spikes
+        minCapacityFactor: 0.03, // keeps late-cap growth from becoming asymptotically stuck
+      },
       clothingBonus: 1.5,
       shelterBonus: 2.0,
       aqueductBonus: 1.3, // Classical+ with aqueducts upgrade

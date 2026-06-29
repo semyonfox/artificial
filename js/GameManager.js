@@ -624,29 +624,21 @@ export class GameManager {
   }
 
   /**
-   * Update population growth - era-scaled with upgrade and prestige multipliers
-   * Base: 0.05 * (1 + eraIndex * 0.3) pop/sec
+   * Era carrying capacity, including specialization effects.
    */
-  updatePopulationGrowth(deltaTime) {
-    const currentPop = this.gameState.getResource("population");
-    const currentEra = this.gameState.data.currentEra;
-    const eraIdx = getEraIndex(currentEra);
+  getPopulationCap(era = this.gameState.data.currentEra) {
+    let maxPop = config.balance?.maxPopulationPerEra?.[era] || 50;
 
-    // Robotic Age specialization reduces pop cap by 30%
-    let maxPop = config.balance?.maxPopulationPerEra?.[currentEra] || 50;
+    // Robotic Age specialization reduces human population cap by 30%.
     const spec = this.gameState.data.eraSpecializations;
     if (spec && spec.industrial === 'roboticAge') {
       maxPop = Math.floor(maxPop * 0.7);
     }
 
-    if (currentPop >= maxPop) return;
+    return maxPop;
+  }
 
-    // Base growth with era scaling
-    const baseRate = config.balance.populationGrowth.baseRate;
-    const eraScaling = config.balance.populationGrowth.eraScaling;
-    let baseGrowthPerSecond = baseRate * (1 + eraIdx * eraScaling);
-
-    // Apply upgrade multipliers (all stack multiplicatively)
+  getPopulationGrowthMultiplier(eraIdx = getEraIndex(this.gameState.data.currentEra)) {
     let growthMultiplier = 1.0;
 
     if (this.gameState.hasUpgrade("clothing")) {
@@ -655,28 +647,82 @@ export class GameManager {
     if (this.gameState.hasUpgrade("shelterBuilding")) {
       growthMultiplier *= config.balance.populationGrowth.shelterBonus;
     }
-    // aqueducts bonus from Classical onward
     if (this.gameState.hasUpgrade("civilEngineering") && eraIdx >= 4) {
       growthMultiplier *= config.balance.populationGrowth.aqueductBonus;
     }
-    // medicine bonus from Classical onward
     if (this.gameState.hasUpgrade("classicalMedicine") && eraIdx >= 4) {
       growthMultiplier *= config.balance.populationGrowth.medicineBonus;
     }
 
-    // Prestige perk: populationBoom x3
     const pm = this.systems.prestigeManager;
     if (pm) {
       growthMultiplier *= pm.getPopulationGrowthMultiplier();
     }
 
-    const growth = baseGrowthPerSecond * growthMultiplier * (deltaTime / 1000);
-    const newPop = Math.min(currentPop + growth, maxPop);
-    const actualGrowth = newPop - currentPop;
+    return growthMultiplier;
+  }
 
+  /**
+   * Population growth is cap-aware: larger populations grow faster, then slow
+   * as they approach the current era's carrying capacity.
+   */
+  getPopulationGrowthPerSecond(population = this.gameState.getResource("population")) {
+    const currentEra = this.gameState.data.currentEra;
+    const eraIdx = getEraIndex(currentEra);
+    const maxPop = this.getPopulationCap(currentEra);
+    if (population >= maxPop) return 0;
+
+    const cfg = config.balance.populationGrowth;
+    const baseGrowthPerSecond = cfg.baseRate * (1 + eraIdx * cfg.eraScaling);
+    const growthMultiplier = this.getPopulationGrowthMultiplier(eraIdx);
+
+    const model = cfg.model || {};
+    const populationExponent = model.populationExponent ?? 0.5;
+    const minCapacityFactor = model.minCapacityFactor ?? 0.03;
+    const density = Math.min(1, Math.max(0, population / maxPop));
+    const populationScale = Math.pow(Math.max(1, population), populationExponent);
+    const capacityScale = Math.max(minCapacityFactor, 1 - density);
+
+    return baseGrowthPerSecond * growthMultiplier * populationScale * capacityScale;
+  }
+
+  /**
+   * Apply population growth for a duration in seconds. Offline calls use the
+   * same model as live ticks, integrated in chunks so cap pressure changes as
+   * population rises.
+   */
+  applyPopulationGrowth(seconds) {
+    if (!Number.isFinite(seconds) || seconds <= 0) return 0;
+
+    const maxPop = this.getPopulationCap();
+    let currentPop = this.gameState.getResource("population");
+    const startingPop = currentPop;
+    if (currentPop >= maxPop) return 0;
+
+    let remaining = seconds;
+    const stepSeconds = 60;
+
+    while (remaining > 0 && currentPop < maxPop) {
+      const step = Math.min(stepSeconds, remaining);
+      const growth = this.getPopulationGrowthPerSecond(currentPop) * step;
+      if (growth <= 0) break;
+      currentPop = Math.min(currentPop + growth, maxPop);
+      remaining -= step;
+    }
+
+    const actualGrowth = currentPop - startingPop;
     if (actualGrowth > 0) {
       this.gameState.addResource("population", actualGrowth);
     }
+
+    return actualGrowth;
+  }
+
+  /**
+   * Update population growth.
+   */
+  updatePopulationGrowth(deltaTime) {
+    this.applyPopulationGrowth(deltaTime / 1000);
   }
 
   /**

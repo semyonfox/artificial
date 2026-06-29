@@ -19,7 +19,7 @@
       .filter(([key, value]) => {
         if (value <= 0) return false;
         if (key === 'fire') return false;
-        // only show resources relevant to current or past eras
+        // show active-era resources plus global population
         return relevantResources.has(key);
       })
       .map(([key, value]) => {

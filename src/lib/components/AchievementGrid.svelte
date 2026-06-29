@@ -7,7 +7,6 @@
   let selectedAchievement = $state(null);
 
   function openAchievement(achievement) {
-    if (!achievement.unlocked) return;
     selectedAchievement = achievement;
   }
 
@@ -36,13 +35,10 @@
     {#each achievements as ach (ach.id)}
       <button
         type="button"
-        class="group relative flex min-h-16 w-full items-center gap-2.5 p-2.5 bg-surface-2 border border-ink/10 rounded-lg transition-all text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-default"
+        class="group relative flex min-h-16 w-full cursor-pointer items-center gap-2.5 p-2.5 bg-surface-2 border border-ink/10 rounded-lg transition-all text-left hover:bg-surface-3 hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         class:opacity-40={!ach.unlocked}
-        class:hover:bg-surface-3={ach.unlocked}
-        class:hover:border-accent={ach.unlocked}
         class:cursor-help={ach.unlocked}
-        disabled={!ach.unlocked}
-        aria-label={ach.unlocked ? `${ach.name}: ${ach.description}` : 'Locked achievement'}
+        aria-label={ach.unlocked ? `${ach.name}: ${ach.description}` : 'Locked achievement details'}
         onclick={() => openAchievement(ach)}
       >
         <span class="w-8 h-8 flex items-center justify-center bg-ink/5 border border-ink/10 rounded-md text-lg shrink-0">
@@ -97,14 +93,14 @@
       <div class="flex items-start justify-between gap-4 border-b border-ink/10 p-4">
         <div class="flex min-w-0 items-center gap-3">
           <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-accent/40 bg-accent/10 text-2xl">
-            {selectedAchievement.icon}
+            {selectedAchievement.unlocked ? selectedAchievement.icon : '?'}
           </span>
           <div class="min-w-0">
             <h3 id="achievement-detail-title" class="truncate text-base font-bold text-paper">
-              {selectedAchievement.name}
+              {selectedAchievement.unlocked ? selectedAchievement.name : 'Locked Achievement'}
             </h3>
             <p class="text-xs font-semibold uppercase tracking-wide text-accent">
-              {selectedAchievement.category}
+              {selectedAchievement.unlocked ? selectedAchievement.category : 'Undiscovered'}
             </p>
           </div>
         </div>
@@ -119,20 +115,27 @@
       </div>
 
       <div class="space-y-4 p-4">
-        <div>
-          <p class="section-label mb-1">Unlocked By</p>
-          <p class="text-sm leading-relaxed text-ink-soft">{selectedAchievement.objective}</p>
-        </div>
+        {#if selectedAchievement.unlocked}
+          <div>
+            <p class="section-label mb-1">Unlocked By</p>
+            <p class="text-sm leading-relaxed text-ink-soft">{selectedAchievement.objective}</p>
+          </div>
 
-        <div>
-          <p class="section-label mb-1">Purpose</p>
-          <p class="text-sm leading-relaxed text-ink-soft">{selectedAchievement.purpose}</p>
-        </div>
+          <div>
+            <p class="section-label mb-1">Purpose</p>
+            <p class="text-sm leading-relaxed text-ink-soft">{selectedAchievement.purpose}</p>
+          </div>
 
-        <div>
-          <p class="section-label mb-1">Gameplay Effect</p>
-          <p class="text-sm leading-relaxed text-ink-soft">{selectedAchievement.effect}</p>
-        </div>
+          <div>
+            <p class="section-label mb-1">Gameplay Effect</p>
+            <p class="text-sm leading-relaxed text-ink-soft">{selectedAchievement.effect}</p>
+          </div>
+        {:else}
+          <div>
+            <p class="section-label mb-1">Status</p>
+            <p class="text-sm leading-relaxed text-ink-soft">This achievement has not been unlocked yet.</p>
+          </div>
+        {/if}
       </div>
     </div>
   </div>

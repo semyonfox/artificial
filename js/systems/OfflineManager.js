@@ -9,10 +9,6 @@
  * Click actions never run offline; only workers and population growth do.
  */
 
-import { config } from '../core/config.js';
-
-const ERA_ORDER = config.eraOrder;
-
 export class OfflineManager {
 	constructor(gameState) {
 		this.gameState = gameState;
@@ -102,8 +98,8 @@ export class OfflineManager {
 			}
 		});
 
-		// population growth while offline (up to cap)
-		this.applyOfflinePopulation(gameManager, totalEffectiveSec);
+		// population growth while offline uses the same model as live ticks.
+		gameManager.applyPopulationGrowth(totalEffectiveSec);
 
 		if (Object.keys(produced).length === 0) return { offlineMinutes: Math.floor(offlineMs / 60000), produced: {} };
 
@@ -113,32 +109,4 @@ export class OfflineManager {
 		};
 	}
 
-	/**
-	 * Grow population over the offline duration, clamped to era cap.
-	 */
-	applyOfflinePopulation(gameManager, seconds) {
-		const data = this.gameState.data;
-		const currentEra = data.currentEra;
-		const eraIdx = ERA_ORDER.indexOf(currentEra);
-		const maxPop = config.balance?.maxPopulationPerEra?.[currentEra] || 50;
-		const currentPop = this.gameState.getResource('population');
-		if (currentPop >= maxPop) return;
-
-		const baseRate = config.balance.populationGrowth.baseRate;
-		const eraScaling = config.balance.populationGrowth.eraScaling;
-		let perSec = baseRate * (1 + eraIdx * eraScaling);
-
-		let mult = 1.0;
-		if (this.gameState.hasUpgrade('clothing')) mult *= config.balance.populationGrowth.clothingBonus;
-		if (this.gameState.hasUpgrade('shelterBuilding')) mult *= config.balance.populationGrowth.shelterBonus;
-		if (this.gameState.hasUpgrade('civilEngineering') && eraIdx >= 4) mult *= config.balance.populationGrowth.aqueductBonus;
-		if (this.gameState.hasUpgrade('classicalMedicine') && eraIdx >= 4) mult *= config.balance.populationGrowth.medicineBonus;
-		const pm = gameManager.systems?.prestigeManager;
-		if (pm) mult *= pm.getPopulationGrowthMultiplier();
-
-		const growth = perSec * mult * seconds;
-		const newPop = Math.min(currentPop + growth, maxPop);
-		const actualGrowth = newPop - currentPop;
-		if (actualGrowth > 0) this.gameState.addResource('population', actualGrowth);
-	}
 }

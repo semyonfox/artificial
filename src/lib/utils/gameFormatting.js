@@ -20,12 +20,14 @@ export function formatCost(cost = {}) {
     .join(', ');
 }
 
-export function getRelevantResources(currentEra) {
+export function getRelevantResources(currentEra, { includePrevious = false } = {}) {
   const currentIdx = config.eraOrder.indexOf(currentEra);
   if (currentIdx < 0) return new Set();
 
   const relevant = new Set();
-  for (let i = 0; i <= currentIdx; i++) {
+  relevant.add('population');
+  const startIdx = includePrevious ? 0 : currentIdx;
+  for (let i = startIdx; i <= currentIdx; i++) {
     for (const resource of config.resourcesByEra[config.eraOrder[i]] || []) {
       relevant.add(resource);
     }
