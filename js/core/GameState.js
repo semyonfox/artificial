@@ -334,21 +334,85 @@ export class GameState {
   }
 
   /**
+   * Get total assigned workers across all worker types.
+   */
+  getTotalWorkers() {
+    return Object.values(this.data.workers).reduce(
+      (sum, count) => sum + count,
+      0,
+    );
+  }
+
+  /**
+   * Population is total settlement size; workers are assigned people within it.
+   */
+  getAvailablePopulation() {
+    return Math.max(0, Math.floor(this.getResource("population")) - this.getTotalWorkers());
+  }
+
+  /**
+   * Keep loaded/perk-granted saves internally consistent.
+   */
+  ensurePopulationForWorkers() {
+    const totalWorkers = this.getTotalWorkers();
+    if (totalWorkers > this.getResource("population")) {
+      this.addResource("population", totalWorkers - this.getResource("population"));
+    }
+  }
+
+  /**
+   * If population falls below assigned workers, remove assignments until the
+   * invariant is restored. Higher-era/later-added worker slots are reduced
+   * first so early survival jobs are the last to be removed.
+   */
+  clampWorkersToPopulation() {
+    const oldTotalWorkers = this.getTotalWorkers();
+    let overflow = oldTotalWorkers - Math.floor(this.getResource("population"));
+    if (overflow <= 0) return 0;
+
+    const workerEntries = Object.entries(this.data.workers).reverse();
+    let removed = 0;
+    for (const [workerType, count] of workerEntries) {
+      if (overflow <= 0) break;
+      const reduction = Math.min(count, overflow);
+      this.data.workers[workerType] = count - reduction;
+      overflow -= reduction;
+      removed += reduction;
+    }
+
+    if (removed > 0) {
+      this.notifyListeners("workerChange", {
+        workerType: "populationClamp",
+        oldCount: oldTotalWorkers,
+        newCount: oldTotalWorkers - removed,
+        count: -removed,
+      });
+    }
+
+    return removed;
+  }
+
+  /**
    * Add workers
    */
-  addWorker(workerType, count = 1) {
+  addWorker(workerType, count = 1, options = {}) {
     const oldCount = this.data.workers[workerType] || 0;
-    const newCount = oldCount + count;
+    const assignableCount = count > 0 && !options.allowPopulationGrant
+      ? Math.min(count, this.getAvailablePopulation())
+      : count;
+    const newCount = oldCount + assignableCount;
     this.data.workers[workerType] = Math.max(0, newCount);
-
-    // Each worker adds 1 to population (they are people!)
-    this.addResource("population", count);
+    if (options.allowPopulationGrant) {
+      this.ensurePopulationForWorkers();
+    }
+    const storedNewCount = this.data.workers[workerType] || 0;
+    if (storedNewCount === oldCount) return false;
 
     this.notifyListeners("workerChange", {
       workerType,
       oldCount,
-      newCount,
-      count,
+      newCount: storedNewCount,
+      count: storedNewCount - oldCount,
     });
     return true;
   }
@@ -548,6 +612,7 @@ export class GameState {
         this.data.workers[worker] = 0;
       }
     });
+    this.clampWorkersToPopulation();
 
     // Validate lifetimeProduced (must be non-negative numbers, monotonic)
     if (this.data.lifetimeProduced) {

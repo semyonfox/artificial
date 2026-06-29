@@ -39,6 +39,14 @@ export class WorkerManager {
 		this.gameManager = gameManager;
 	}
 
+	notify(message, type = 'info', duration = 2000) {
+		if (this.gameManager) {
+			this.gameManager.showNotification(message, type, duration);
+		} else {
+			this.uiManager?.showNotification(message, type, duration);
+		}
+	}
+
 	update(deltaTime) {
 		// intervals handle production; no per-frame logic needed
 	}
@@ -50,28 +58,33 @@ export class WorkerManager {
 		const gameData = this.gameState.getState();
 
 		if (!this.gameManager) {
-			this.uiManager?.showNotification('GameManager not available', 'error');
+			this.notify('GameManager not available', 'error');
 			return false;
 		}
 
 		const currentEraData = this.gameManager.getCurrentEraData();
 		if (!currentEraData || !currentEraData.workers) {
-			this.uiManager?.showNotification('No workers available in this era', 'error');
+			this.notify('No workers available in this era', 'error');
 			return false;
 		}
 
 		const workerData = currentEraData.workers.find((w) => w.id === workerType);
 		if (!workerData) {
-			this.uiManager?.showNotification('Worker type not found', 'error');
+			this.notify('Worker type not found', 'error');
 			return false;
 		}
 
 		// check upgrade requirements
 		if (workerData.requiresUpgrade && !gameData.upgrades[workerData.requiresUpgrade]) {
-			this.uiManager?.showNotification(
+			this.notify(
 				`${workerData.name} requires the ${workerData.requiresUpgrade} upgrade!`,
 				'error'
 			);
+			return false;
+		}
+
+		if (this.gameState.getAvailablePopulation() < 1) {
+			this.notify(`Need more population for ${workerData.name}`, 'warning');
 			return false;
 		}
 
@@ -80,14 +93,20 @@ export class WorkerManager {
 		const cost = this.calculateWorkerCost(workerData.cost, currentCount);
 
 		if (!this.gameState.canAfford(cost)) {
-			this.uiManager?.showNotification(`Cannot afford ${workerData.name}`, 'error');
+			this.notify(`Cannot afford ${workerData.name}`, 'error');
 			return false;
 		}
 
 		if (this.gameState.spendResources(cost)) {
-			this.gameState.addWorker(workerType, 1);
+			if (!this.gameState.addWorker(workerType, 1)) {
+				Object.entries(cost).forEach(([resource, amount]) => {
+					this.gameState.addResource(resource, amount);
+				});
+				this.notify(`Need more population for ${workerData.name}`, 'warning');
+				return false;
+			}
 			this.startWorkerAutomation(workerType, workerData);
-			this.uiManager?.showNotification(`Hired ${workerData.name}!`, 'success');
+			this.notify(`Hired ${workerData.name}!`, 'success');
 			return true;
 		}
 
@@ -396,7 +415,9 @@ export class WorkerManager {
 			cost: this.calculateWorkerCost(workerData.cost, count),
 			canHire: this.gameState.canAfford(
 				this.calculateWorkerCost(workerData.cost, count)
-			),
+			) && this.gameState.getAvailablePopulation() >= 1,
+			availablePopulation: this.gameState.getAvailablePopulation(),
+			hasAvailablePopulation: this.gameState.getAvailablePopulation() >= 1,
 			requirementMet:
 				!workerData.requiresUpgrade ||
 				gameData.upgrades[workerData.requiresUpgrade],
