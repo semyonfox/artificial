@@ -85,9 +85,13 @@ export class OfflineManager {
 					basePerWorker * count * totalCycles * prestigeMult * workerSpecMult * masteryMult * rateMult,
 				);
 				if (amount > 0) {
+					const before = this.gameState.getResource(resource);
 					this.gameState.addResource(resource, amount);
-					produced[resource] = (produced[resource] || 0) + amount;
-					masteryMap[resource] = true;
+					const actual = this.gameState.getResource(resource) - before;
+					if (actual > 0) {
+						produced[resource] = (produced[resource] || 0) + actual;
+						masteryMap[resource] = true;
+					}
 				}
 			});
 

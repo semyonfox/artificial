@@ -246,6 +246,18 @@ export class GameState {
   }
 
   /**
+   * Maximum settlement population for an era. Active, offline, and prestige
+   * population grants use this same cap.
+   */
+  getPopulationCapacity(eraKey = this.data.currentEra) {
+    let maxPop = config.balance?.maxPopulationPerEra?.[eraKey] || 50;
+    if (this.data.eraSpecializations?.industrial === "roboticAge") {
+      maxPop = Math.floor(maxPop * 0.7);
+    }
+    return Math.max(1, maxPop);
+  }
+
+  /**
    * Add resources with validation. positive amounts also bump the lifetime
    * production counter, which is monotonic and used by prestige EP.
    */
@@ -256,7 +268,18 @@ export class GameState {
     }
 
     const oldValue = this.data.resources[resourceType] || 0;
-    const newValue = Math.max(0, oldValue + amount);
+    let actualAmount = amount;
+
+    if (resourceType === "population" && amount > 0) {
+      const populationRoom = this.getPopulationCapacity() - oldValue;
+      actualAmount = Math.min(amount, Math.max(0, populationRoom));
+    }
+
+    const newValue = Math.max(0, oldValue + actualAmount);
+    if (newValue === oldValue) {
+      return false;
+    }
+
     if (newValue > 0) {
       this.data.resources[resourceType] = newValue;
     } else {
@@ -264,10 +287,14 @@ export class GameState {
     }
 
     // bump lifetime counter on positive grants only
-    if (amount > 0) {
+    if (actualAmount > 0) {
       if (!this.data.lifetimeProduced) this.data.lifetimeProduced = {};
       this.data.lifetimeProduced[resourceType] =
-        (this.data.lifetimeProduced[resourceType] || 0) + amount;
+        (this.data.lifetimeProduced[resourceType] || 0) + actualAmount;
+    }
+
+    if (resourceType === "population" && actualAmount < 0) {
+      this.clampWorkersToPopulation();
     }
 
     // Trigger resource change listeners
@@ -275,7 +302,7 @@ export class GameState {
       resourceType,
       oldValue,
       newValue,
-      amount,
+      amount: actualAmount,
     });
 
     return true;
@@ -306,6 +333,7 @@ export class GameState {
     if (!this.canAfford(costs)) return false;
 
     Object.entries(costs).forEach(([resource, amount]) => {
+      if (resource === "population") return;
       this.addResource(resource, -amount);
     });
 
@@ -384,12 +412,44 @@ export class GameState {
   }
 
   /**
+   * Release worker assignments that are not available in the active era.
+   */
+  releaseWorkersOutsideEra(eraKey = this.data.currentEra, options = {}) {
+    const allowedWorkers = new Set(
+      (config.eraData?.[eraKey]?.workers || []).map((worker) => worker.id),
+    );
+    const oldTotalWorkers = this.getTotalWorkers();
+    let removed = 0;
+
+    Object.entries(this.data.workers || {}).forEach(([workerType, count]) => {
+      if (!allowedWorkers.has(workerType)) {
+        removed += count;
+        delete this.data.workers[workerType];
+      }
+    });
+
+    if (removed > 0 && options.notify !== false) {
+      this.notifyListeners("workerChange", {
+        workerType: "eraTransition",
+        oldCount: oldTotalWorkers,
+        newCount: oldTotalWorkers - removed,
+        count: -removed,
+      });
+    }
+
+    return removed;
+  }
+
+  /**
    * Add workers
    */
   addWorker(workerType, count = 1, options = {}) {
     const oldCount = this.data.workers[workerType] || 0;
-    const assignableCount = count > 0 && !options.allowPopulationGrant
-      ? Math.min(count, this.getAvailablePopulation())
+    const assignableLimit = options.allowPopulationGrant
+      ? Math.max(0, this.getPopulationCapacity() - this.getTotalWorkers())
+      : this.getAvailablePopulation();
+    const assignableCount = count > 0
+      ? Math.min(count, assignableLimit)
       : count;
     const newCount = Math.max(0, oldCount + assignableCount);
     if (newCount > 0) {
@@ -496,7 +556,8 @@ export class GameState {
     const oldEra = this.data.currentEra;
     this.data.currentEra = newEra;
     this.data.progression.eraProgress = 0;
-    this.notifyListeners("eraAdvancement", { oldEra, newEra });
+    const releasedWorkers = this.releaseWorkersOutsideEra(newEra);
+    this.notifyListeners("eraAdvancement", { oldEra, newEra, releasedWorkers });
   }
 
   /**
@@ -599,6 +660,11 @@ export class GameState {
         this.data.resources[resource] = 0;
       }
     });
+    const maxPopulation = this.getPopulationCapacity();
+    if (this.getResource("population") > maxPopulation) {
+      errors.push(`Population exceeds ${this.data.currentEra} cap; clamped to ${maxPopulation}`);
+      this.data.resources.population = maxPopulation;
+    }
 
     // Validate workers
     Object.entries(this.data.workers).forEach(([worker, count]) => {
@@ -662,11 +728,12 @@ export class GameState {
       // Shallow merge top-level
       this.data = { ...initial, ...parsedData };
 
-      // Deep-merge critical nested objects to preserve default keys
-      this.data.resources = {
-        ...initial.resources,
-        ...(parsedData.resources || {}),
-      };
+      // Deep-merge critical nested objects to preserve default keys. Resources
+      // are intentionally sparse; absent saved resources should stay absent
+      // instead of resurrecting starter resources after reload.
+      this.data.resources = parsedData.resources && typeof parsedData.resources === "object"
+        ? { ...parsedData.resources }
+        : { ...initial.resources };
       this.data.workers = { ...initial.workers, ...(parsedData.workers || {}) };
       this.data.upgrades = {
         ...initial.upgrades,
@@ -713,6 +780,7 @@ export class GameState {
 
       // Migrate legacy save structures to current model
       this.migrateLegacySave(parsedData);
+      this.releaseWorkersOutsideEra(this.data.currentEra, { notify: false });
 
       // Validate loaded state
       this.validate();

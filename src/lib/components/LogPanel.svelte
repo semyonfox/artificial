@@ -7,6 +7,9 @@
     visible = !visible;
   }
 
+  let hasEvents = $derived($gameStore.eventLog.length > 0);
+  let hasDisasters = $derived($gameStore.disasterLog.length > 0);
+
   function formatTime(timestamp) {
     return new Date(timestamp).toLocaleTimeString();
   }
@@ -28,13 +31,11 @@
   </div>
 
   {#if visible}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div>
-        <h3 class="section-label mb-2">Events</h3>
-        <div class="max-h-48 overflow-y-auto rounded-lg bg-surface-2 border border-ink/10 p-3 space-y-3">
-          {#if $gameStore.eventLog.length === 0}
-            <p class="text-xs text-ink-muted">No events yet</p>
-          {:else}
+    <div class={`grid grid-cols-1 gap-4 ${hasEvents && hasDisasters ? 'md:grid-cols-2' : ''}`}>
+      {#if hasEvents}
+        <div>
+          <h3 class="section-label mb-2">Events</h3>
+          <div class="max-h-48 overflow-y-auto rounded-lg bg-surface-2 border border-ink/10 p-3 space-y-3">
             {#each $gameStore.eventLog as event (event.timestamp)}
               <div class="pb-2 border-b border-ink/10 last:border-0 last:pb-0">
                 <h4 class="text-sm font-semibold text-paper">{event.name}</h4>
@@ -45,16 +46,14 @@
                 <span class="text-[0.6rem] text-ink-muted">{formatTime(event.timestamp)}</span>
               </div>
             {/each}
-          {/if}
+          </div>
         </div>
-      </div>
+      {/if}
 
-      <div>
-        <h3 class="section-label mb-2">Disasters</h3>
-        <div class="max-h-48 overflow-y-auto rounded-lg bg-surface-2 border border-ink/10 p-3 space-y-3">
-          {#if $gameStore.disasterLog.length === 0}
-            <p class="text-xs text-ink-muted">No disasters yet</p>
-          {:else}
+      {#if hasDisasters}
+        <div>
+          <h3 class="section-label mb-2">Disasters</h3>
+          <div class="max-h-48 overflow-y-auto rounded-lg bg-surface-2 border border-ink/10 p-3 space-y-3">
             {#each $gameStore.disasterLog as disaster (disaster.timestamp)}
               <div class="pb-2 border-b border-ink/10 last:border-0 last:pb-0">
                 <h4 class="text-sm font-semibold text-danger">{disaster.name}</h4>
@@ -65,9 +64,9 @@
                 <span class="text-[0.6rem] text-ink-muted">{formatTime(disaster.timestamp)}</span>
               </div>
             {/each}
-          {/if}
+          </div>
         </div>
-      </div>
+      {/if}
     </div>
   {/if}
 </div>

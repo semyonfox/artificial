@@ -3,7 +3,7 @@
  * Manages hiring, feeding, and production of workers
  *
  * Balance changes:
- * - Cost scaling: 1.15^n (was 1.5^n)
+ * - Cost scaling comes from config.balance.workerCostScaling
  * - Diminishing returns: each duplicate worker -5% efficiency
  * - Food: 1 per 3 work cycles, not 1 per cycle
  * - Efficiency: wellFed 100%, hungry 60%, starving 20%
@@ -88,7 +88,7 @@ export class WorkerManager {
 			return false;
 		}
 
-		// calculate cost with new 1.15^n scaling and prestige discount
+		// calculate cost with configured scaling and prestige discount
 		const currentCount = gameData.workers[workerType] || 0;
 		const cost = this.calculateWorkerCost(workerData.cost, currentCount);
 

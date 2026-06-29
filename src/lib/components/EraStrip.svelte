@@ -19,8 +19,9 @@
   });
 
   let timeline = $derived.by(() => {
-    return config.eraOrder.map((eraKey, index) => {
-      const info = config.eras[eraKey] || config.eraData[eraKey] || {};
+    const revealThrough = Math.min(config.eraOrder.length - 1, Math.max(currentIdx, highestIdx) + 1);
+    return config.eraOrder.slice(0, revealThrough + 1).map((eraKey, index) => {
+      const info = config.eras?.[eraKey] || config.eraData?.[eraKey] || {};
       const unlocked = index <= highestIdx;
       return {
         key: eraKey,
@@ -33,6 +34,10 @@
         timespan: unlocked ? info.timespan : '',
       };
     });
+  });
+
+  let timelineMinWidth = $derived.by(() => {
+    return `${Math.max(320, timeline.length * 88)}px`;
   });
 
   function advanceEra() {
@@ -63,11 +68,14 @@
   </div>
 
   <div class="relative min-w-0 overflow-x-auto pb-1 lg:flex-1">
-    <div class="relative flex min-w-[920px] items-start px-1 pt-1">
+    <div
+      class="relative grid items-start px-1 pt-1"
+      style={`grid-template-columns: repeat(${timeline.length}, minmax(72px, 1fr)); min-width: ${timelineMinWidth};`}
+    >
       <div class="absolute left-5 right-5 top-4 h-px bg-ink/15"></div>
 
       {#each timeline as era (era.key)}
-        <div class="relative z-10 flex min-w-0 flex-1 flex-col items-center gap-1">
+        <div class="relative z-10 flex min-w-0 flex-col items-center gap-1">
           <div
             class={`relative flex h-7 w-7 items-center justify-center rounded-full border text-[0.65rem] font-bold transition-colors ${
               era.current

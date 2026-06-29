@@ -75,6 +75,12 @@ function createGameStore() {
         ...getStateSnapshot(gs, gameManager),
       }));
 
+      const eraInfo = gameManager.getCurrentEraData?.();
+      this.logEvent({
+        name: `${eraInfo?.name || 'Paleolithic Era'} begun`,
+        description: eraInfo?.description || 'A new run has begun.',
+      });
+
       // listen to GameState events and sync store
       gs.addListener('resourceChange', () => {
         update(s => ({

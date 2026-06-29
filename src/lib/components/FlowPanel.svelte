@@ -19,7 +19,7 @@
     if (currentIdx < 0 || currentIdx >= config.eraOrder.length - 1) return null;
 
     const nextKey = config.eraOrder[currentIdx + 1];
-    return config.eras[nextKey] || config.eraData[nextKey] || { name: nextKey };
+    return config.eras?.[nextKey] || config.eraData?.[nextKey] || { name: nextKey };
   });
 
   let progressPercent = $derived.by(() => {

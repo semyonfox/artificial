@@ -645,18 +645,40 @@ export class GameManager {
   }
 
   getPopulationCapacity(currentEra) {
-    let maxPop = config.balance?.maxPopulationPerEra?.[currentEra] || 50;
-    const spec = this.gameState.data.eraSpecializations;
-    if (spec && spec.industrial === 'roboticAge') {
-      maxPop = Math.floor(maxPop * 0.7);
-    }
-    return Math.max(1, maxPop);
+    return this.gameState.getPopulationCapacity?.(currentEra)
+      || config.balance?.maxPopulationPerEra?.[currentEra]
+      || 50;
+  }
+
+  getPopulationSupportResources(eraIdx) {
+    const eraKey = config.eraOrder[eraIdx] || this.gameState.data.currentEra;
+    const supportByEra = {
+      paleolithic: ['cookedMeat', 'meat'],
+      neolithic: ['grain', 'livestock', 'cookedMeat'],
+      bronze: ['grain', 'livestock', 'trade'],
+      iron: ['grain', 'livestock', 'cities', 'trade'],
+      classical: ['grain', 'cities', 'medicine'],
+      medieval: ['agriculture', 'grain', 'mills'],
+      renaissance: ['agriculture', 'trade', 'banking'],
+      enlightenment: ['agriculture', 'academies', 'reason'],
+      industrial: ['factories', 'steam', 'electricity'],
+      electric: ['electricity', 'automobile', 'chemicals'],
+      atomic: ['electricity', 'plastics', 'television'],
+      information: ['electricity', 'data', 'internet'],
+      space: ['fusion', 'spaceStations', 'robotics'],
+      galactic: ['dysonSpheres', 'antimatter', 'quantumComputers'],
+      universal: ['realityEngines', 'existentialEnergy', 'universalConstants'],
+    };
+    return supportByEra[eraKey] || ['grain', 'agriculture', 'cities'];
   }
 
   getPopulationFoodFactor(currentPop, eraIdx) {
     const growthCfg = config.balance.populationGrowth;
-    const foodResource = eraIdx >= 1 ? 'grain' : 'cookedMeat';
-    const availableFood = this.gameState.getResource(foodResource);
+    const supportResources = this.getPopulationSupportResources(eraIdx);
+    const availableFood = supportResources.reduce(
+      (total, resource) => total + this.gameState.getResource(resource),
+      0,
+    );
     const targetBuffer = Math.max(1, currentPop * (growthCfg.foodBufferPerCapita || 0.6));
     const foodRatio = availableFood / targetBuffer;
     return Math.max(
@@ -1083,7 +1105,8 @@ export class GameManager {
       return false;
     }
 
-    // Spend advancement cost
+    // Spend advancement cost. Population is a threshold for era readiness,
+    // not a consumed resource.
     const eraData = this.getCurrentEraData();
     if (eraData.advancementCost) {
       this.gameState.spendResources(eraData.advancementCost);

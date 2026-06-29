@@ -304,7 +304,7 @@ export class PrestigeManager {
 			const maxPop = config.balance.maxPopulationPerEra[highestEra] || 50;
 			const startPop = Math.floor(maxPop * 0.25);
 			if (startPop > this.gameState.getResource('population')) {
-				this.gameState.data.resources.population = startPop;
+				this.gameState.addResource('population', startPop - this.gameState.getResource('population'));
 			}
 		}
 		// firstWorkers handled by GameManager (needs automation hooks)
