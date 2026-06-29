@@ -315,7 +315,12 @@ export class GameManager {
    * Hire a worker
    */
   hireWorker(workerType) {
-    this.systems.workerManager.hireWorker(workerType);
+    const hired = this.systems.workerManager.hireWorker(workerType);
+    if (hired) {
+      this.saveImportantState("Worker hire");
+      this.updateUI();
+    }
+    return hired;
   }
 
   /**
@@ -365,6 +370,7 @@ export class GameManager {
         `Purchased ${upgrade.name}!`,
         "success",
       );
+      this.saveImportantState("Upgrade purchase");
       this.updateUI();
       return true;
     }
@@ -397,11 +403,13 @@ export class GameManager {
     }
 
     this.gameState.data.eraSpecializations[eraKey] = specId;
+    this.gameState.notifyListeners('eraSpecializationChosen', { era: eraKey, specId });
     this.showNotification(
       `Chose ${spec.name}!`,
       'success',
       5000,
     );
+    this.saveImportantState("Specialization choice");
     this.updateUI();
     return true;
   }
@@ -436,6 +444,7 @@ export class GameManager {
       5000,
     );
     this.gameState.notifyListeners('civSpecializationChosen', { era: eraKey, civId });
+    this.saveImportantState("Civilization choice");
     this.updateUI();
     return true;
   }
@@ -500,14 +509,24 @@ export class GameManager {
    * Establish a trade route
    */
   establishTradeRoute(routeId) {
-    return this.systems.tradeRouteManager?.establishRoute(routeId) || false;
+    const established = this.systems.tradeRouteManager?.establishRoute(routeId) || false;
+    if (established) {
+      this.saveImportantState("Trade route");
+      this.updateUI();
+    }
+    return established;
   }
 
   /**
    * Build a wonder
    */
   buildWonder(wonderId) {
-    return this.systems.wonderManager?.buildWonder(wonderId) || false;
+    const built = this.systems.wonderManager?.buildWonder(wonderId) || false;
+    if (built) {
+      this.saveImportantState("Wonder construction");
+      this.updateUI();
+    }
+    return built;
   }
 
   /**
@@ -676,6 +695,22 @@ export class GameManager {
   }
 
   /**
+   * Force a save after important one-shot state changes.
+   * Regular resource churn still uses autosave to avoid excessive localStorage writes.
+   */
+  saveImportantState(actionLabel = "Important progress") {
+    const saved = this.gameState.save();
+    if (!saved) {
+      this.showNotification(
+        `${actionLabel} completed, but saving failed. Export your save before refreshing.`,
+        "warning",
+        8000,
+      );
+    }
+    return saved;
+  }
+
+  /**
    * Load the game
    */
   loadGame() {
@@ -814,14 +849,46 @@ export class GameManager {
       }
     }
 
+    this.restartWorkerAutomation();
+
+    const saved = this.gameState.save();
+    this.gameState.notifyListeners("prestigeChange", {
+      prestige: pm.getPrestigeData(),
+      epGain: earned,
+      saved,
+    });
+
     this.showNotification(
-      `Prestiged! Earned ${earned} EP. Multiplier: ${pm.getMultiplier().toFixed(1)}x`,
-      "success",
-      6000,
+      saved
+        ? `Prestiged! Earned ${earned} EP. Multiplier: ${pm.getMultiplier().toFixed(1)}x`
+        : `Prestiged! Earned ${earned} EP, but saving failed. Export your save before refreshing.`,
+      saved ? "success" : "warning",
+      saved ? 6000 : 8000,
     );
 
-    this.restartWorkerAutomation();
     this.updateUI();
+  }
+
+  /**
+   * Purchase a permanent prestige perk and persist it immediately.
+   */
+  purchasePrestigePerk(perkId) {
+    const pm = this.systems.prestigeManager;
+    if (!pm?.purchasePerk(perkId)) return false;
+
+    const saved = this.saveImportantState("Prestige perk purchase");
+    this.gameState.notifyListeners("prestigeChange", {
+      prestige: pm.getPrestigeData(),
+      perkId,
+      saved,
+    });
+
+    if (saved) {
+      this.showNotification("Perk purchased!", "success");
+    }
+
+    this.updateUI();
+    return true;
   }
 
   /**
@@ -997,11 +1064,13 @@ export class GameManager {
       10000,
     );
 
-    // Update UI
-    this.updateUI();
-
     // Restart worker automation for new era
     this.restartWorkerAutomation();
+
+    this.saveImportantState("Era advancement");
+
+    // Update UI
+    this.updateUI();
 
     return true;
   }

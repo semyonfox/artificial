@@ -130,6 +130,13 @@ function createGameStore() {
         }));
       });
 
+      gs.addListener('eraSpecializationChosen', () => {
+        update(s => ({
+          ...s,
+          eraSpecializations: { ...gs.data.eraSpecializations },
+        }));
+      });
+
       gs.addListener('civSpecializationChosen', () => {
         update(s => ({
           ...s,
@@ -159,6 +166,13 @@ function createGameStore() {
       });
 
       gs.addListener('gameReset', () => {
+        update(s => ({
+          ...s,
+          ...getStateSnapshot(gs, gameManager),
+        }));
+      });
+
+      gs.addListener('prestigeChange', () => {
         update(s => ({
           ...s,
           ...getStateSnapshot(gs, gameManager),

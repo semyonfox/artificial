@@ -748,8 +748,7 @@ export class UIManager {
       if (!btn.disabled) {
         btn.addEventListener('click', () => {
           const perkId = btn.dataset.perkId;
-          if (pm.purchasePerk(perkId)) {
-            this.showNotification('Perk purchased!', 'success');
+          if (this.gameManager.purchasePrestigePerk(perkId)) {
             this.updatePrestige();
           }
         });

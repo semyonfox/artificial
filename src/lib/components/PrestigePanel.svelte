@@ -35,8 +35,7 @@
   }
 
   function buyPerk(perkId) {
-    if (pm?.purchasePerk(perkId)) {
-      gameStore.showNotification('Perk purchased!', 'success');
+    if ($gameStore.gameManager?.purchasePrestigePerk(perkId)) {
       gameStore.refresh();
     }
   }
