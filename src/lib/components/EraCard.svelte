@@ -15,6 +15,7 @@
 
   function advanceEra() {
     $gameStore.gameManager?.advanceEra();
+    gameStore.refresh();
   }
 
   function saveGame() {

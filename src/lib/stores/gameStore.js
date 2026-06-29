@@ -122,11 +122,10 @@ function createGameStore() {
         }));
       });
 
-      gs.addListener('eraAdvancement', ({ newEra }) => {
+      gs.addListener('eraAdvancement', () => {
         update(s => ({
           ...s,
-          currentEra: newEra,
-          eraSpecializations: { ...gs.data.eraSpecializations },
+          ...getStateSnapshot(gs, gameManager),
         }));
       });
 

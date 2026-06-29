@@ -266,7 +266,7 @@ export class GameState {
    * production counter, which is monotonic and used by prestige EP.
    */
   addResource(resourceType, amount) {
-    if (typeof amount !== "number" || isNaN(amount)) {
+    if (typeof amount !== "number" || !Number.isFinite(amount)) {
       console.warn(`Invalid amount for resource ${resourceType}:`, amount);
       return false;
     }
@@ -521,7 +521,8 @@ export class GameState {
   /**
    * Validate game state integrity
    */
-  validate() {
+  validate(options = {}) {
+    const { log = true } = options;
     const errors = [];
 
     // Validate current era
@@ -535,7 +536,7 @@ export class GameState {
 
     // Validate resources
     Object.entries(this.data.resources).forEach(([resource, value]) => {
-      if (typeof value !== "number" || isNaN(value) || value < 0) {
+      if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
         errors.push(`Invalid resource value: ${resource} = ${value}`);
         this.data.resources[resource] = 0;
       }
@@ -543,7 +544,7 @@ export class GameState {
 
     // Validate workers
     Object.entries(this.data.workers).forEach(([worker, count]) => {
-      if (typeof count !== "number" || isNaN(count) || count < 0) {
+      if (typeof count !== "number" || !Number.isFinite(count) || count < 0) {
         errors.push(`Invalid worker count: ${worker} = ${count}`);
         this.data.workers[worker] = 0;
       }
@@ -552,14 +553,14 @@ export class GameState {
     // Validate lifetimeProduced (must be non-negative numbers, monotonic)
     if (this.data.lifetimeProduced) {
       Object.entries(this.data.lifetimeProduced).forEach(([resource, value]) => {
-        if (typeof value !== "number" || isNaN(value) || value < 0) {
+        if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
           errors.push(`Invalid lifetimeProduced: ${resource} = ${value}`);
           this.data.lifetimeProduced[resource] = 0;
         }
       });
     }
 
-    if (errors.length > 0) {
+    if (log && errors.length > 0) {
       console.warn("Game state validation errors:", errors);
     }
 
@@ -656,8 +657,12 @@ export class GameState {
       // Migrate legacy save structures to current model
       this.migrateLegacySave(parsedData);
 
-      // Validate loaded state
-      this.validate();
+      // Validate loaded state. Persist repaired saves without warning on boot;
+      // recurring runtime corruption is still reported by periodic validation.
+      const loadedStateValid = this.validate({ log: false });
+      if (!loadedStateValid) {
+        this.save();
+      }
 
       this.notifyListeners("gameLoaded", this.data);
 
