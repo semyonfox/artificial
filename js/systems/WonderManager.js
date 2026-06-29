@@ -120,6 +120,10 @@ export class WonderManager {
       "success",
       6000
     );
+    this.gameManager?.logGameEvent?.({
+      name: `Wonder Built: ${wonder.name}`,
+      description: wonder.description,
+    });
 
     // emit event for store sync
     this.gameState.notifyListeners("wonderBuilt", { wonderId, wonder });

@@ -6,6 +6,14 @@
   let currentEra = $derived($gameStore.currentEra);
   let civSpecs = $derived(config.civSpecializations?.[currentEra] || []);
   let chosenCiv = $derived($gameStore.civSpecializations?.[currentEra]);
+  let currentEraIdx = $derived(config.eraOrder.indexOf(currentEra));
+
+  let nextCivEra = $derived.by(() => {
+    return config.eraOrder.find((eraKey) => {
+      const eraIdx = config.eraOrder.indexOf(eraKey);
+      return eraIdx > currentEraIdx && (config.civSpecializations?.[eraKey] || []).length > 0;
+    });
+  });
 
   function chooseCiv(civId) {
     $gameStore.gameManager?.chooseCivSpecialization(currentEra, civId);
@@ -14,13 +22,13 @@
 
 </script>
 
-{#if civSpecs.length > 0}
-  <div class="space-y-3">
-    <div>
-      <h3 class="panel-title">Civilization Path</h3>
-      <p class="text-xs text-ink-muted">Choose a civilization to specialize your production bonuses. This choice is permanent for this run.</p>
-    </div>
+<div class="space-y-3">
+  <div>
+    <h3 class="panel-title">Civilization Path</h3>
+    <p class="text-xs text-ink-muted">Choose a civilization to specialize your production bonuses. This choice is permanent for this run.</p>
+  </div>
 
+  {#if civSpecs.length > 0}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {#each civSpecs as civ (civ.id)}
         {@const isChosen = chosenCiv === civ.id}
@@ -61,5 +69,15 @@
         </div>
       {/each}
     </div>
+  {:else}
+    <div class="stat-box text-center">
+      <p class="text-xs text-ink-muted">
+        {#if nextCivEra}
+          Civilization choices unlock in {config.eras[nextCivEra]?.name || nextCivEra}.
+        {:else}
+          No civilization choice is available in this era.
+        {/if}
+      </p>
+    </div>
+  {/if}
   </div>
-{/if}

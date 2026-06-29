@@ -6,6 +6,9 @@
   let wm = $derived($gameStore.gameManager?.systems?.wonderManager);
   let availableWonders = $derived(wm?.getAvailableWonders() || []);
   let builtWonders = $derived($gameStore.wonders?.built || []);
+  let currentEraIdx = $derived(config.eraOrder.indexOf($gameStore.currentEra));
+  let bronzeIdx = $derived(config.eraOrder.indexOf('bronze'));
+  let hasChosenCiv = $derived(Object.keys($gameStore.civSpecializations || {}).length > 0);
 
   function buildWonder(wonderId) {
     $gameStore.gameManager?.buildWonder(wonderId);
@@ -83,7 +86,17 @@
       {/each}
     </div>
   {:else if builtWonders.length === 0}
-    <p class="text-xs text-ink-muted text-center py-4">Advance to Bronze Age to unlock wonders</p>
+    <div class="stat-box text-center">
+      <p class="text-xs text-ink-muted">
+        {#if currentEraIdx < bronzeIdx}
+          Advance to Bronze Age to unlock wonders.
+        {:else if !hasChosenCiv}
+          Choose a civilization path to reveal its wonders.
+        {:else}
+          No wonders are currently buildable for this run.
+        {/if}
+      </p>
+    </div>
   {:else}
     <p class="text-xs text-ink-muted text-center py-4">No new wonders available in this era</p>
   {/if}

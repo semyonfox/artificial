@@ -108,6 +108,10 @@ export class TradeRouteManager {
       "success",
       5000
     );
+    this.gameManager?.logGameEvent?.({
+      name: `Trade Route: ${route.name}`,
+      description: route.description,
+    });
 
     // emit event for store sync
     this.gameState.notifyListeners("tradeRouteEstablished", { routeId, route });
