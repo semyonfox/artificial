@@ -760,7 +760,7 @@ export class GameManager {
     ) {
       try {
         // Stop run-specific timers without stopping the main game loop.
-        this.systems.workerManager?.stopAllWorkers();
+        this.systems.workerManager?.resetRunState();
         this.systems.tradeRouteManager?.reset();
 
         // Reset all progress. Prestige uses the preserving reset path separately.
@@ -816,7 +816,7 @@ export class GameManager {
     }
 
     // Stop all workers before reset
-    this.systems.workerManager.stopAllWorkers();
+    this.systems.workerManager.resetRunState();
 
     // Reset trade routes (wonders persist)
     if (this.systems.tradeRouteManager) {
