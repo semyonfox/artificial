@@ -162,6 +162,17 @@ export class GameManager {
   }
 
   /**
+   * Add important run milestones to the event log.
+   */
+  logGameEvent(event) {
+    if (this.store) {
+      this.store.logEvent(event);
+    } else if (this.systems.uiManager) {
+      this.systems.uiManager.logEvent(event);
+    }
+  }
+
+  /**
    * Set up event listeners for cross-system communication
    */
   setupEventListeners() {
@@ -867,6 +878,10 @@ export class GameManager {
       "success",
       6000,
     );
+    this.logGameEvent({
+      name: "Prestige",
+      description: `Earned ${earned} Evolution Points. New multiplier: ${pm.getMultiplier().toFixed(1)}x.`,
+    });
 
     this.restartWorkerAutomation();
     this.updateUI();
@@ -1044,6 +1059,10 @@ export class GameManager {
       "success",
       10000,
     );
+    this.logGameEvent({
+      name: `Entered ${eraInfo?.name || nextEra}`,
+      description: eraInfo?.description || "Civilization advanced to a new era.",
+    });
 
     // Update UI
     this.updateUI();

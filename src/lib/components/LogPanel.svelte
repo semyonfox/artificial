@@ -1,7 +1,7 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
 
-  let visible = $state(false);
+  let visible = $state(true);
 
   function toggle() {
     visible = !visible;

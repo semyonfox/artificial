@@ -6,6 +6,14 @@
   let trm = $derived($gameStore.gameManager?.systems?.tradeRouteManager);
   let availableRoutes = $derived(trm?.getAvailableRoutes() || []);
   let activeRoutes = $derived($gameStore.tradeRoutes?.activeRoutes || []);
+  let currentEraIdx = $derived(config.eraOrder.indexOf($gameStore.currentEra));
+
+  let nextRouteEra = $derived.by(() => {
+    const lockedRoutes = Object.values(config.tradeRoutes || [])
+      .filter((route) => config.eraOrder.indexOf(route.unlockEra) > currentEraIdx)
+      .sort((a, b) => config.eraOrder.indexOf(a.unlockEra) - config.eraOrder.indexOf(b.unlockEra));
+    return lockedRoutes[0]?.unlockEra || null;
+  });
 
   function establishRoute(routeId) {
     $gameStore.gameManager?.establishTradeRoute(routeId);
@@ -14,13 +22,13 @@
 
 </script>
 
-{#if availableRoutes.length > 0 || activeRoutes.length > 0}
-  <div class="space-y-3">
-    <div>
-      <h3 class="panel-title">Trade Routes</h3>
-      <p class="text-xs text-ink-muted">Establish trade routes to boost resource production. Routes reset on prestige.</p>
-    </div>
+<div class="space-y-3">
+  <div>
+    <h3 class="panel-title">Trade Routes</h3>
+    <p class="text-xs text-ink-muted">Establish trade routes to boost resource production. Routes reset on prestige.</p>
+  </div>
 
+  {#if availableRoutes.length > 0 || activeRoutes.length > 0}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {#each availableRoutes as route (route.id)}
         {@const routeDef = config.tradeRoutes?.[route.id]}
@@ -80,5 +88,15 @@
         </div>
       </div>
     {/if}
-  </div>
-{/if}
+  {:else}
+    <div class="stat-box text-center">
+      <p class="text-xs text-ink-muted">
+        {#if nextRouteEra}
+          Trade routes unlock in {config.eras[nextRouteEra]?.name || nextRouteEra}.
+        {:else}
+          No trade routes are available for the current civilization choices.
+        {/if}
+      </p>
+    </div>
+  {/if}
+</div>
