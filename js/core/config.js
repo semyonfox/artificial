@@ -831,7 +831,9 @@ export const config = {
       galactic: 80000000,
       universal: 500000000,
     },
-    workerCostScaling: 1.15, // was 1.5, now much gentler
+    upgradeCostMultiplier: 1.2,
+    eraStarterPackMultiplier: 0.55,
+    workerCostScaling: 1.22,
     workerDiminishingReturns: 0.05, // each duplicate worker -5% efficiency
     workerEfficiency: {
       wellFed: 1.0,
@@ -1247,7 +1249,7 @@ export const config = {
           name: "Gatherer",
           description:
             "Collects sticks, stones, and plant materials. The foundation of Paleolithic survival.",
-          cost: { sticks: 3 }, // Reduced from 5 to ease early grind
+          cost: { sticks: 12, stones: 3 },
           produces: { sticks: 1, stones: 0.3 },
           interval: 4000,
         },
@@ -1256,7 +1258,7 @@ export const config = {
           name: "Hunter",
           description:
             "Hunts animals for meat, bones, and fur using stone tools. Requires stone knapping knowledge.",
-          cost: { stones: 5, bones: 1 }, // Reduced from 8/2/2 to ease early grind
+          cost: { stones: 8, bones: 2 },
           produces: { meat: 1, bones: 0.4, fur: 0.3 },
           interval: 6000,
           requiresUpgrade: "stoneKnapping",
@@ -1266,7 +1268,7 @@ export const config = {
           name: "Cook",
           description:
             "Cooks meat over fire, making it safer and more nutritious. Essential for population growth.",
-          cost: { sticks: 5, stones: 1 }, // Reduced from 10/2/1 and removed cookedMeat requirement
+          cost: { sticks: 12, stones: 3 },
           produces: { cookedMeat: 1 },
           consumes: { meat: 1 },
           interval: 3000,
@@ -1352,9 +1354,10 @@ export const config = {
           name: "Farmer",
           description:
             "Cultivates grain crops, revolutionizing food production and enabling larger populations.",
-          cost: { grain: 15, tools: 5, pottery: 3 },
+          cost: { grain: 30, tools: 8, pottery: 5 },
           produces: { grain: 3, population: 0.1 },
           interval: 8000,
+          requiresUpgrade: "agriculture",
         },
         {
           id: "potter",
