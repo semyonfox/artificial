@@ -4,53 +4,97 @@
 
 import { config } from '../core/config.js';
 
-// achievement definitions: id, name, description, icon, check function
+const ACHIEVEMENT_EFFECT =
+	'Progress marker only. It increases your achievement total and stays unlocked after prestige, but does not change production, costs, workers, or era rules.';
+
+const ACHIEVEMENT_GROUPS = {
+	actions: {
+		category: 'Actions',
+		purpose: 'Tracks how much you have directly pushed civilization forward with manual actions.',
+	},
+	population: {
+		category: 'Population',
+		purpose: 'Marks civilization scale milestones as your population grows.',
+	},
+	workers: {
+		category: 'Workers',
+		purpose: 'Marks automation milestones as more work is delegated to hired workers.',
+	},
+	upgrades: {
+		category: 'Upgrades',
+		purpose: 'Marks technology progress as upgrades are purchased.',
+	},
+	eras: {
+		category: 'Era Progress',
+		purpose: 'Marks major civilization transitions as new eras are reached.',
+	},
+	cooking: {
+		category: 'Resource Chain',
+		purpose: 'Marks progress through the early food-processing chain.',
+	},
+	prestige: {
+		category: 'Prestige',
+		purpose: 'Marks long-run reset milestones and repeat civilization cycles.',
+	},
+};
+
+function achievementDetails(achievement) {
+	const group = ACHIEVEMENT_GROUPS[achievement.group] || ACHIEVEMENT_GROUPS.actions;
+	return {
+		category: group.category,
+		objective: achievement.objective || achievement.description,
+		purpose: achievement.purpose || group.purpose,
+		effect: achievement.effect || ACHIEVEMENT_EFFECT,
+	};
+}
+
+// achievement definitions: id, name, description, icon, group, check function
 const ACHIEVEMENTS = [
 	// clicking milestones
-	{ id: 'firstClick', name: 'First Steps', description: 'Perform your first action', icon: '👆', check: (d) => d.progression.totalClicks >= 1 },
-	{ id: 'click100', name: 'Busy Hands', description: 'Perform 100 actions', icon: '🖐️', check: (d) => d.progression.totalClicks >= 100 },
-	{ id: 'click1000', name: 'Tireless', description: 'Perform 1,000 actions', icon: '💪', check: (d) => d.progression.totalClicks >= 1000 },
+	{ id: 'firstClick', name: 'First Steps', description: 'Perform your first action', icon: '👆', group: 'actions', check: (d) => d.progression.totalClicks >= 1 },
+	{ id: 'click100', name: 'Busy Hands', description: 'Perform 100 actions', icon: '🖐️', group: 'actions', check: (d) => d.progression.totalClicks >= 100 },
+	{ id: 'click1000', name: 'Tireless', description: 'Perform 1,000 actions', icon: '💪', group: 'actions', check: (d) => d.progression.totalClicks >= 1000 },
 
 	// population milestones
-	{ id: 'pop10', name: 'Small Band', description: 'Reach 10 population', icon: '👥', check: (d) => (d.resources.population || 0) >= 10 },
-	{ id: 'pop50', name: 'Growing Tribe', description: 'Reach 50 population', icon: '🏕️', check: (d) => (d.resources.population || 0) >= 50 },
-	{ id: 'pop200', name: 'Village', description: 'Reach 200 population', icon: '🏘️', check: (d) => (d.resources.population || 0) >= 200 },
-	{ id: 'pop1000', name: 'Town', description: 'Reach 1,000 population', icon: '🏙️', check: (d) => (d.resources.population || 0) >= 1000 },
-	{ id: 'pop10000', name: 'City', description: 'Reach 10,000 population', icon: '🌆', check: (d) => (d.resources.population || 0) >= 10000 },
-	{ id: 'pop1M', name: 'Metropolis', description: 'Reach 1,000,000 population', icon: '🌍', check: (d) => (d.resources.population || 0) >= 1000000 },
+	{ id: 'pop10', name: 'Small Band', description: 'Reach 10 population', icon: '👥', group: 'population', check: (d) => (d.resources.population || 0) >= 10 },
+	{ id: 'pop50', name: 'Growing Tribe', description: 'Reach 50 population', icon: '🏕️', group: 'population', check: (d) => (d.resources.population || 0) >= 50 },
+	{ id: 'pop200', name: 'Village', description: 'Reach 200 population', icon: '🏘️', group: 'population', check: (d) => (d.resources.population || 0) >= 200 },
+	{ id: 'pop1000', name: 'Town', description: 'Reach 1,000 population', icon: '🏙️', group: 'population', check: (d) => (d.resources.population || 0) >= 1000 },
+	{ id: 'pop10000', name: 'City', description: 'Reach 10,000 population', icon: '🌆', group: 'population', check: (d) => (d.resources.population || 0) >= 10000 },
+	{ id: 'pop1M', name: 'Metropolis', description: 'Reach 1,000,000 population', icon: '🌍', group: 'population', check: (d) => (d.resources.population || 0) >= 1000000 },
 
 	// worker milestones
-	{ id: 'firstWorker', name: 'Delegation', description: 'Hire your first worker', icon: '👷', check: (d) => Object.values(d.workers).reduce((a, b) => a + b, 0) >= 1 },
-	{ id: 'workers10', name: 'Workforce', description: 'Have 10 workers', icon: '🏗️', check: (d) => Object.values(d.workers).reduce((a, b) => a + b, 0) >= 10 },
-	{ id: 'workers50', name: 'Industry', description: 'Have 50 workers', icon: '🏭', check: (d) => Object.values(d.workers).reduce((a, b) => a + b, 0) >= 50 },
+	{ id: 'firstWorker', name: 'Delegation', description: 'Hire your first worker', icon: '👷', group: 'workers', check: (d) => Object.values(d.workers).reduce((a, b) => a + b, 0) >= 1 },
+	{ id: 'workers10', name: 'Workforce', description: 'Have 10 workers', icon: '🏗️', group: 'workers', check: (d) => Object.values(d.workers).reduce((a, b) => a + b, 0) >= 10 },
+	{ id: 'workers50', name: 'Industry', description: 'Have 50 workers', icon: '🏭', group: 'workers', check: (d) => Object.values(d.workers).reduce((a, b) => a + b, 0) >= 50 },
 
 	// upgrade milestones
-	{ id: 'firstUpgrade', name: 'Innovation', description: 'Purchase your first upgrade', icon: '💡', check: (d) => Object.values(d.upgrades).filter(Boolean).length >= 1 },
-	{ id: 'upgrades5', name: 'Researcher', description: 'Purchase 5 upgrades', icon: '🔬', check: (d) => Object.values(d.upgrades).filter(Boolean).length >= 5 },
-	{ id: 'upgrades15', name: 'Polymath', description: 'Purchase 15 upgrades', icon: '🎓', check: (d) => Object.values(d.upgrades).filter(Boolean).length >= 15 },
+	{ id: 'firstUpgrade', name: 'Innovation', description: 'Purchase your first upgrade', icon: '💡', group: 'upgrades', check: (d) => Object.values(d.upgrades).filter(Boolean).length >= 1 },
+	{ id: 'upgrades5', name: 'Researcher', description: 'Purchase 5 upgrades', icon: '🔬', group: 'upgrades', check: (d) => Object.values(d.upgrades).filter(Boolean).length >= 5 },
+	{ id: 'upgrades15', name: 'Polymath', description: 'Purchase 15 upgrades', icon: '🎓', group: 'upgrades', check: (d) => Object.values(d.upgrades).filter(Boolean).length >= 15 },
 
 	// era milestones — indices follow config.eraOrder
-	{ id: 'eraNeolithic', name: 'Agricultural Revolution', description: 'Reach the Neolithic Era', icon: '🌾', check: (d) => eraIndex(d.currentEra) >= 1 },
-	{ id: 'eraBronze', name: 'Age of Metal', description: 'Reach the Bronze Age', icon: '🔨', check: (d) => eraIndex(d.currentEra) >= 2 },
-	{ id: 'eraIron', name: 'Iron Will', description: 'Reach the Iron Age', icon: '⛓️', check: (d) => eraIndex(d.currentEra) >= 3 },
-	{ id: 'eraClassical', name: 'Classical Thinker', description: 'Reach the Classical Era', icon: '🏛️', check: (d) => eraIndex(d.currentEra) >= 4 },
-	{ id: 'eraMedieval', name: 'Middle Ages', description: 'Reach the Medieval Era', icon: '🏰', check: (d) => eraIndex(d.currentEra) >= 5 },
-	{ id: 'eraRenaissance', name: 'Rebirth', description: 'Reach the Renaissance', icon: '🎨', check: (d) => eraIndex(d.currentEra) >= 6 },
-	{ id: 'eraEnlightenment', name: 'Age of Reason', description: 'Reach the Age of Enlightenment', icon: '💡', check: (d) => eraIndex(d.currentEra) >= 7 },
-	{ id: 'eraIndustrial', name: 'Industrial Titan', description: 'Reach the Industrial Age', icon: '🚂', check: (d) => eraIndex(d.currentEra) >= 8 },
-	{ id: 'eraElectric', name: 'Live Wire', description: 'Reach the Electric Age', icon: '⚡', check: (d) => eraIndex(d.currentEra) >= 9 },
-	{ id: 'eraAtomic', name: 'Atomic Power', description: 'Reach the Atomic Age', icon: '☢️', check: (d) => eraIndex(d.currentEra) >= 10 },
-	{ id: 'eraInformation', name: 'Digital Age', description: 'Reach the Information Age', icon: '💻', check: (d) => eraIndex(d.currentEra) >= 11 },
-	{ id: 'eraSpace', name: 'To the Stars', description: 'Reach the Space Age', icon: '🚀', check: (d) => eraIndex(d.currentEra) >= 12 },
-	{ id: 'eraGalactic', name: 'Galactic Civilization', description: 'Reach the Galactic Era', icon: '🌌', check: (d) => eraIndex(d.currentEra) >= 13 },
-	{ id: 'eraUniversal', name: 'Transcendence', description: 'Reach the Universal Era', icon: '🌀', check: (d) => eraIndex(d.currentEra) >= 14 },
+	{ id: 'eraNeolithic', name: 'Agricultural Revolution', description: 'Reach the Neolithic Era', icon: '🌾', group: 'eras', check: (d) => eraIndex(d.currentEra) >= 1 },
+	{ id: 'eraBronze', name: 'Age of Metal', description: 'Reach the Bronze Age', icon: '🔨', group: 'eras', check: (d) => eraIndex(d.currentEra) >= 2 },
+	{ id: 'eraIron', name: 'Iron Will', description: 'Reach the Iron Age', icon: '⛓️', group: 'eras', check: (d) => eraIndex(d.currentEra) >= 3 },
+	{ id: 'eraClassical', name: 'Classical Thinker', description: 'Reach the Classical Era', icon: '🏛️', group: 'eras', check: (d) => eraIndex(d.currentEra) >= 4 },
+	{ id: 'eraMedieval', name: 'Middle Ages', description: 'Reach the Medieval Era', icon: '🏰', group: 'eras', check: (d) => eraIndex(d.currentEra) >= 5 },
+	{ id: 'eraRenaissance', name: 'Rebirth', description: 'Reach the Renaissance', icon: '🎨', group: 'eras', check: (d) => eraIndex(d.currentEra) >= 6 },
+	{ id: 'eraEnlightenment', name: 'Age of Reason', description: 'Reach the Age of Enlightenment', icon: '💡', group: 'eras', check: (d) => eraIndex(d.currentEra) >= 7 },
+	{ id: 'eraIndustrial', name: 'Industrial Titan', description: 'Reach the Industrial Age', icon: '🚂', group: 'eras', check: (d) => eraIndex(d.currentEra) >= 8 },
+	{ id: 'eraElectric', name: 'Live Wire', description: 'Reach the Electric Age', icon: '⚡', group: 'eras', check: (d) => eraIndex(d.currentEra) >= 9 },
+	{ id: 'eraAtomic', name: 'Atomic Power', description: 'Reach the Atomic Age', icon: '☢️', group: 'eras', check: (d) => eraIndex(d.currentEra) >= 10 },
+	{ id: 'eraInformation', name: 'Digital Age', description: 'Reach the Information Age', icon: '💻', group: 'eras', check: (d) => eraIndex(d.currentEra) >= 11 },
+	{ id: 'eraSpace', name: 'To the Stars', description: 'Reach the Space Age', icon: '🚀', group: 'eras', check: (d) => eraIndex(d.currentEra) >= 12 },
+	{ id: 'eraGalactic', name: 'Galactic Civilization', description: 'Reach the Galactic Era', icon: '🌌', group: 'eras', check: (d) => eraIndex(d.currentEra) >= 13 },
+	{ id: 'eraUniversal', name: 'Transcendence', description: 'Reach the Universal Era', icon: '🌀', group: 'eras', check: (d) => eraIndex(d.currentEra) >= 14 },
 
 	// cooking
-	{ id: 'firstCook', name: 'Chef', description: 'Cook your first meat', icon: '🍳', check: (d) => (d.resources.cookedMeat || 0) >= 1 },
+	{ id: 'firstCook', name: 'Chef', description: 'Cook your first meat', icon: '🍳', group: 'cooking', check: (d) => (d.resources.cookedMeat || 0) >= 1 },
 
 	// prestige
-	{ id: 'firstPrestige', name: 'Time Loop', description: 'Prestige for the first time', icon: '🔄', check: (d) => (d.prestige?.totalResets || 0) >= 1 },
-	{ id: 'prestige5', name: 'Eternal Return', description: 'Prestige 5 times', icon: '♾️', check: (d) => (d.prestige?.totalResets || 0) >= 5 },
+	{ id: 'firstPrestige', name: 'Time Loop', description: 'Prestige for the first time', icon: '🔄', group: 'prestige', check: (d) => (d.prestige?.totalResets || 0) >= 1 },
+	{ id: 'prestige5', name: 'Eternal Return', description: 'Prestige 5 times', icon: '♾️', group: 'prestige', check: (d) => (d.prestige?.totalResets || 0) >= 5 },
 ];
 
 const ERA_ORDER = config.eraOrder;
@@ -129,6 +173,7 @@ export class AchievementManager {
 		const unlocked = this.gameState.data.progression.achievements;
 		return ACHIEVEMENTS.map((a) => ({
 			...a,
+			...achievementDetails(a),
 			unlocked: unlocked.includes(a.id),
 		}));
 	}
