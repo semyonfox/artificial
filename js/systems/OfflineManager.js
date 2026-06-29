@@ -121,23 +121,34 @@ export class OfflineManager {
 		const data = this.gameState.data;
 		const currentEra = data.currentEra;
 		const eraIdx = ERA_ORDER.indexOf(currentEra);
-		const maxPop = config.balance?.maxPopulationPerEra?.[currentEra] || 50;
+		const maxPop = gameManager.getPopulationCapacity?.(currentEra)
+			|| config.balance?.maxPopulationPerEra?.[currentEra]
+			|| 50;
 		const currentPop = this.gameState.getResource('population');
+		if (currentPop <= 0) {
+			this.gameState.addResource('population', 1);
+			return;
+		}
 		if (currentPop >= maxPop) return;
 
-		const baseRate = config.balance.populationGrowth.baseRate;
-		const eraScaling = config.balance.populationGrowth.eraScaling;
-		let perSec = baseRate * (1 + eraIdx * eraScaling);
+		const growthCfg = config.balance.populationGrowth;
+		const baseRate = growthCfg.baseRate || 0.025;
+		const perCapitaRate = growthCfg.perCapitaRate || 0.003;
+		const eraScaling = growthCfg.eraScaling || 0.18;
+		const perSec = (baseRate + currentPop * perCapitaRate) * (1 + eraIdx * eraScaling);
 
 		let mult = 1.0;
-		if (this.gameState.hasUpgrade('clothing')) mult *= config.balance.populationGrowth.clothingBonus;
-		if (this.gameState.hasUpgrade('shelterBuilding')) mult *= config.balance.populationGrowth.shelterBonus;
-		if (this.gameState.hasUpgrade('civilEngineering') && eraIdx >= 4) mult *= config.balance.populationGrowth.aqueductBonus;
-		if (this.gameState.hasUpgrade('classicalMedicine') && eraIdx >= 4) mult *= config.balance.populationGrowth.medicineBonus;
+		if (this.gameState.hasUpgrade('clothing')) mult *= growthCfg.clothingBonus;
+		if (this.gameState.hasUpgrade('shelterBuilding')) mult *= growthCfg.shelterBonus;
+		if (this.gameState.hasUpgrade('civilEngineering') && eraIdx >= 4) mult *= growthCfg.aqueductBonus;
+		if (this.gameState.hasUpgrade('classicalMedicine') && eraIdx >= 4) mult *= growthCfg.medicineBonus;
 		const pm = gameManager.systems?.prestigeManager;
 		if (pm) mult *= pm.getPopulationGrowthMultiplier();
 
-		const growth = perSec * mult * seconds;
+		const capacityPressure = Math.max(0, 1 - currentPop / maxPop);
+		const foodFactor = gameManager.getPopulationFoodFactor?.(currentPop, eraIdx) ?? 1;
+		const workerLoadFactor = gameManager.getPopulationWorkerLoadFactor?.(currentPop) ?? 1;
+		const growth = perSec * capacityPressure * foodFactor * workerLoadFactor * mult * seconds;
 		const newPop = Math.min(currentPop + growth, maxPop);
 		const actualGrowth = newPop - currentPop;
 		if (actualGrowth > 0) this.gameState.addResource('population', actualGrowth);

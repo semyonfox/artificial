@@ -16,8 +16,9 @@
 
   let workerStatus = $derived(() => {
     const entries = Object.entries($gameStore.workers).filter(([_, count]) => count > 0);
-    if (entries.length === 0) return 'No workers hired';
-    return entries.map(([type, count]) => `${formatResourceName(type)}: ${count}`).join(', ');
+    const available = Math.floor($gameStore.gameState?.getAvailablePopulation?.() ?? ($gameStore.resources.population || 0));
+    if (entries.length === 0) return `Available population: ${available}`;
+    return `${entries.map(([type, count]) => `${formatResourceName(type)}: ${count}`).join(', ')} - Available: ${available}`;
   });
 </script>
 
@@ -34,7 +35,8 @@
       {@const actualCost = info?.cost || worker.cost}
       {@const canAfford = $gameStore.gameState?.canAfford(actualCost) ?? false}
       {@const hasRequiredUpgrade = info?.requirementMet ?? true}
-      {@const canHire = canAfford && hasRequiredUpgrade}
+      {@const hasPopulation = info?.hasAvailablePopulation ?? true}
+      {@const canHire = canAfford && hasRequiredUpgrade && hasPopulation}
 
       <div class="item-card" class:locked={!hasRequiredUpgrade}>
         <div class="flex justify-between gap-3">
@@ -65,6 +67,8 @@
           <div class="flex flex-col items-end justify-between shrink-0">
             {#if !hasRequiredUpgrade}
               <span class="text-[0.65rem] text-warning">Requires: {worker.requiresUpgrade}</span>
+            {:else if !hasPopulation}
+              <span class="text-[0.65rem] text-warning">Need population</span>
             {:else if !canAfford}
               <span class="text-[0.65rem] text-ink-muted">Need resources</span>
             {:else}

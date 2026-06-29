@@ -632,28 +632,67 @@ export class GameManager {
     return 0;
   }
 
-  /**
-   * Update population growth - era-scaled with upgrade and prestige multipliers
-   * Base: 0.05 * (1 + eraIndex * 0.3) pop/sec
-   */
-  updatePopulationGrowth(deltaTime) {
-    const currentPop = this.gameState.getResource("population");
-    const currentEra = this.gameState.data.currentEra;
-    const eraIdx = getEraIndex(currentEra);
-
-    // Robotic Age specialization reduces pop cap by 30%
+  getPopulationCapacity(currentEra) {
     let maxPop = config.balance?.maxPopulationPerEra?.[currentEra] || 50;
     const spec = this.gameState.data.eraSpecializations;
     if (spec && spec.industrial === 'roboticAge') {
       maxPop = Math.floor(maxPop * 0.7);
     }
+    return Math.max(1, maxPop);
+  }
 
-    if (currentPop >= maxPop) return;
+  getPopulationFoodFactor(currentPop, eraIdx) {
+    const growthCfg = config.balance.populationGrowth;
+    const foodResource = eraIdx >= 1 ? 'grain' : 'cookedMeat';
+    const availableFood = this.gameState.getResource(foodResource);
+    const targetBuffer = Math.max(1, currentPop * (growthCfg.foodBufferPerCapita || 0.6));
+    const foodRatio = availableFood / targetBuffer;
+    return Math.max(
+      growthCfg.minFoodFactor || 0.2,
+      Math.min(1, foodRatio),
+    );
+  }
 
-    // Base growth with era scaling
-    const baseRate = config.balance.populationGrowth.baseRate;
-    const eraScaling = config.balance.populationGrowth.eraScaling;
-    let baseGrowthPerSecond = baseRate * (1 + eraIdx * eraScaling);
+  getPopulationWorkerLoadFactor(currentPop) {
+    const growthCfg = config.balance.populationGrowth;
+    const totalWorkers = this.gameState.getTotalWorkers?.() || 0;
+    if (currentPop <= 0 || totalWorkers <= 0) return 1;
+
+    const load = totalWorkers / currentPop;
+    const softCap = growthCfg.workerLoadSoftCap || 0.65;
+    if (load <= softCap) return 1;
+
+    const penalty = (load - softCap) * (growthCfg.workerLoadPenalty || 0.6);
+    return Math.max(growthCfg.minWorkerLoadFactor || 0.45, 1 - penalty);
+  }
+
+  /**
+   * Update population growth with a capped settlement model.
+   *
+   * Population is total settlement size. Workers are assigned population, not
+   * extra people. Growth scales with population, slows near the era cap, and is
+   * moderated by food reserves and over-assignment to work.
+   */
+  updatePopulationGrowth(deltaTime) {
+    const currentPop = this.gameState.getResource("population");
+    const currentEra = this.gameState.data.currentEra;
+    const eraIdx = getEraIndex(currentEra);
+    const maxPop = this.getPopulationCapacity(currentEra);
+
+    if (currentPop <= 0) {
+      this.gameState.addResource("population", 1);
+      return;
+    }
+
+    const capacityPressure = Math.max(0, 1 - currentPop / maxPop);
+    if (capacityPressure <= 0) return;
+
+    const growthCfg = config.balance.populationGrowth;
+    const baseRate = growthCfg.baseRate || 0.025;
+    const perCapitaRate = growthCfg.perCapitaRate || 0.003;
+    const eraScaling = growthCfg.eraScaling || 0.18;
+    const baseGrowthPerSecond =
+      (baseRate + currentPop * perCapitaRate) * (1 + eraIdx * eraScaling);
 
     // Apply upgrade multipliers (all stack multiplicatively)
     let growthMultiplier = 1.0;
@@ -679,7 +718,14 @@ export class GameManager {
       growthMultiplier *= pm.getPopulationGrowthMultiplier();
     }
 
-    const growth = baseGrowthPerSecond * growthMultiplier * (deltaTime / 1000);
+    const foodFactor = this.getPopulationFoodFactor(currentPop, eraIdx);
+    const workerLoadFactor = this.getPopulationWorkerLoadFactor(currentPop);
+    const growth = baseGrowthPerSecond
+      * capacityPressure
+      * foodFactor
+      * workerLoadFactor
+      * growthMultiplier
+      * (deltaTime / 1000);
     const newPop = Math.min(currentPop + growth, maxPop);
     const actualGrowth = newPop - currentPop;
 
@@ -833,11 +879,11 @@ export class GameManager {
         const gathererData = eraData.workers.find(w => w.id === 'gatherer');
         const cookData = eraData.workers.find(w => w.id === 'cook');
         if (gathererData) {
-          this.gameState.data.workers.gatherer = 2;
+          this.gameState.addWorker('gatherer', 2, { allowPopulationGrant: true });
           this.systems.workerManager.startWorkerAutomation('gatherer', gathererData);
         }
         if (cookData) {
-          this.gameState.data.workers.cook = 1;
+          this.gameState.addWorker('cook', 1, { allowPopulationGrant: true });
           this.systems.workerManager.startWorkerAutomation('cook', cookData);
         }
       }

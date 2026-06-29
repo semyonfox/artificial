@@ -801,8 +801,14 @@ export const config = {
   balance: {
     basePopulationGrowth: 0.05,
     populationGrowth: {
-      baseRate: 0.05, // 0.05 pop/sec base (5x previous)
-      eraScaling: 0.3, // rate = base * (1 + eraIndex * 0.3)
+      baseRate: 0.025,
+      perCapitaRate: 0.003,
+      eraScaling: 0.18,
+      foodBufferPerCapita: 0.6,
+      minFoodFactor: 0.2,
+      workerLoadSoftCap: 0.65,
+      workerLoadPenalty: 0.6,
+      minWorkerLoadFactor: 0.45,
       clothingBonus: 1.5,
       shelterBonus: 2.0,
       aqueductBonus: 1.3, // Classical+ with aqueducts upgrade
