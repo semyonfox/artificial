@@ -350,7 +350,8 @@ export class GameManager {
     }
 
     // Apply prestige cost discount
-    const costMult = this.systems.prestigeManager?.getUpgradeCostMultiplier() || 1;
+    const costMult = (this.systems.prestigeManager?.getUpgradeCostMultiplier() || 1)
+      * (config.balance?.upgradeCostMultiplier || 1);
     const adjustedCost = scaleCost(upgrade.cost, costMult);
 
     if (!this.gameState.canAfford(adjustedCost)) {
@@ -1156,8 +1157,9 @@ export class GameManager {
     const starterPack = starterPacks[toEra];
     if (!starterPack) return;
 
+    const starterPackMult = config.balance?.eraStarterPackMultiplier ?? 1;
     Object.entries(starterPack).forEach(([resource, amount]) => {
-      this.gameState.addResource(resource, amount);
+      this.gameState.addResource(resource, Math.max(1, Math.floor(amount * starterPackMult)));
     });
   }
 
