@@ -167,7 +167,6 @@ export class GameManager {
   setupEventListeners() {
     // Listen for resource changes to update UI
     this.gameState.addListener("resourceChange", (data) => {
-      this.updateProgression();
       if (this.systems.uiManager) {
         this.systems.uiManager.updateResources();
       }
@@ -305,8 +304,8 @@ export class GameManager {
    */
   doClickAction(action) {
     const result = this.systems.resourceManager.performClickAction(action);
-    if (result) {
-      this.updateProgression(1);
+    if (result && !result.failed) {
+      this.recordManualAction(1);
     }
     return result;
   }
@@ -624,9 +623,9 @@ export class GameManager {
   }
 
   /**
-   * Update game progression
+   * Record a successful manual player action.
    */
-  updateProgression(amount = 1) {
+  recordManualAction(amount = 1) {
     if (this.gameState && this.gameState.data) {
       return this.gameState.recordClickAction(amount);
     }
