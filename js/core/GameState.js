@@ -74,47 +74,31 @@ export class GameState {
   }
 
   /**
-   * Initialize lifetime production counters to 0 for every resource
+   * Initialize lifetime production counters lazily. Resources appear here only
+   * after they are produced in the current run.
    */
   createInitialLifetimeProduced() {
-    const lifetime = {};
-    Object.keys(config.resourceIcons).forEach((resource) => {
-      lifetime[resource] = 0;
-    });
-    return lifetime;
+    return {};
   }
 
   /**
-   * Create initial resource state with all possible resources
+   * Create initial resource state. Keep this sparse so reset/prestige does not
+   * carry old era resources as inert zero-value entries.
    */
   createInitialResources() {
-    const resources = {};
-
-    // Initialize all resources from config to 0, except starting resources
-    Object.keys(config.resourceIcons).forEach((resource) => {
-      resources[resource] = 0;
-    });
-
-    // Set starting resources for paleolithic era
-    resources.sticks = 10;
-    resources.stones = 5;
-    resources.population = 1; // Start with 1 - the player!
-
-    return resources;
+    return {
+      sticks: 10,
+      stones: 5,
+      population: 1,
+    };
   }
 
   /**
-   * Create initial worker state
+   * Create initial worker state. Workers are added lazily when hired so old
+   * era worker slots do not remain after prestige.
    */
   createInitialWorkers() {
-    const workers = {};
-
-    // Initialize all worker types from config
-    Object.keys(config.workerTimers).forEach((workerType) => {
-      workers[workerType] = 0;
-    });
-
-    return workers;
+    return {};
   }
 
   /**
@@ -273,13 +257,15 @@ export class GameState {
 
     const oldValue = this.data.resources[resourceType] || 0;
     const newValue = Math.max(0, oldValue + amount);
-    this.data.resources[resourceType] = newValue;
+    if (newValue > 0) {
+      this.data.resources[resourceType] = newValue;
+    } else {
+      delete this.data.resources[resourceType];
+    }
 
     // bump lifetime counter on positive grants only
     if (amount > 0) {
-      if (!this.data.lifetimeProduced) {
-        this.data.lifetimeProduced = this.createInitialLifetimeProduced();
-      }
+      if (!this.data.lifetimeProduced) this.data.lifetimeProduced = {};
       this.data.lifetimeProduced[resourceType] =
         (this.data.lifetimeProduced[resourceType] || 0) + amount;
     }
@@ -338,8 +324,12 @@ export class GameState {
    */
   addWorker(workerType, count = 1) {
     const oldCount = this.data.workers[workerType] || 0;
-    const newCount = oldCount + count;
-    this.data.workers[workerType] = Math.max(0, newCount);
+    const newCount = Math.max(0, oldCount + count);
+    if (newCount > 0) {
+      this.data.workers[workerType] = newCount;
+    } else {
+      delete this.data.workers[workerType];
+    }
 
     // Each worker adds 1 to population (they are people!)
     this.addResource("population", count);
@@ -571,6 +561,7 @@ export class GameState {
    */
   save() {
     try {
+      this.compactRunState();
       const saveData = {
         ...this.data,
         lastSave: Date.now(),
@@ -618,10 +609,7 @@ export class GameState {
       // lifetimeProduced: merge defaults with saved values. for old saves
       // that lack it, seed with current resource amounts so prestige math
       // still works (best-effort migration).
-      this.data.lifetimeProduced = {
-        ...initial.lifetimeProduced,
-        ...(parsedData.lifetimeProduced || {}),
-      };
+      this.data.lifetimeProduced = { ...(parsedData.lifetimeProduced || {}) };
       if (!parsedData.lifetimeProduced) {
         Object.entries(this.data.resources).forEach(([r, v]) => {
           if (v > 0 && (this.data.lifetimeProduced[r] || 0) < v) {
@@ -658,6 +646,7 @@ export class GameState {
 
       // Validate loaded state
       this.validate();
+      this.compactRunState();
 
       this.notifyListeners("gameLoaded", this.data);
 
@@ -731,6 +720,29 @@ export class GameState {
     this.data.wonders = preservedWonders;
 
     this.notifyListeners("gameReset", this.data);
+  }
+
+  /**
+   * Drop inert zero entries from sparse run-state containers.
+   */
+  compactRunState() {
+    Object.entries(this.data.resources || {}).forEach(([resource, value]) => {
+      if (!Number.isFinite(value) || value <= 0) {
+        delete this.data.resources[resource];
+      }
+    });
+
+    Object.entries(this.data.workers || {}).forEach(([worker, count]) => {
+      if (!Number.isFinite(count) || count <= 0) {
+        delete this.data.workers[worker];
+      }
+    });
+
+    Object.entries(this.data.lifetimeProduced || {}).forEach(([resource, value]) => {
+      if (!Number.isFinite(value) || value <= 0) {
+        delete this.data.lifetimeProduced[resource];
+      }
+    });
   }
 
   /**

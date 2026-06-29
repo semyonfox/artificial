@@ -340,6 +340,14 @@ export class WorkerManager {
 		this.workerIntervals.clear();
 	}
 
+	resetRunState() {
+		this.stopAllWorkers();
+		this.workerTimers.clear();
+		this.productionRemainders = {};
+		this.workCycleCounts = {};
+		this.lastFoodStatusByWorker = {};
+	}
+
 	restartAllWorkers() {
 		const gameData = this.gameState.getState();
 
@@ -406,6 +414,6 @@ export class WorkerManager {
 	}
 
 	destroy() {
-		this.stopAllWorkers();
+		this.resetRunState();
 	}
 }
