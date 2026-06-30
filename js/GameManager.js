@@ -985,10 +985,41 @@ export class GameManager {
    * Import save from base64 string
    */
   importSave(encoded) {
+    const maxEncodedLength = 512 * 1024;
+    const maxDecodedLength = 384 * 1024;
+
     try {
-      const decoded = atob(encoded.trim());
-      JSON.parse(decoded); // validate JSON
-      localStorage.setItem(config.storage.saveKey, decoded);
+      const trimmed = typeof encoded === "string" ? encoded.trim() : "";
+      if (!trimmed || trimmed.length > maxEncodedLength) {
+        throw new Error("Save import is empty or too large");
+      }
+      if (!/^[A-Za-z0-9+/]+={0,2}$/.test(trimmed) || trimmed.length % 4 !== 0) {
+        throw new Error("Save import is not valid base64");
+      }
+
+      const decoded = atob(trimmed);
+      if (decoded.length > maxDecodedLength) {
+        throw new Error("Decoded save import is too large");
+      }
+
+      const parsed = JSON.parse(decoded);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("Save import must be a JSON object");
+      }
+
+      const currentSchemaVersion = this.gameState.createInitialState().schemaVersion;
+      if (parsed.schemaVersion && parsed.schemaVersion > currentSchemaVersion) {
+        throw new Error(`Unsupported save schema version: ${parsed.schemaVersion}`);
+      }
+
+      const importedState = new GameState();
+      importedState.loadParsedSave(parsed);
+      const saveData = {
+        ...importedState.data,
+        lastSave: Date.now(),
+      };
+
+      localStorage.setItem(config.storage.saveKey, JSON.stringify(saveData));
       this.loadGame();
       this.showNotification("Save imported!", "success");
     } catch (error) {
