@@ -5,6 +5,9 @@
 
 import { config } from "./config.js";
 
+const MAX_SAFE_STATE_VALUE = 1_000_000_000_000;
+const MAX_SAFE_PLAY_TIME_MS = 1000 * 60 * 60 * 24 * 365 * 25;
+
 export class GameState {
   constructor() {
     this.data = this.createInitialState();
@@ -644,6 +647,26 @@ export class GameState {
   validate() {
     const errors = [];
 
+    const clampSafeNumber = (value, fallback = 0, max = MAX_SAFE_STATE_VALUE) => {
+      if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+        return fallback;
+      }
+      return Math.min(value, max);
+    };
+
+    const initial = this.createInitialState();
+    if (!Number.isInteger(this.data.schemaVersion) || this.data.schemaVersion < 1) {
+      errors.push(`Invalid schema version: ${this.data.schemaVersion}`);
+      this.data.schemaVersion = initial.schemaVersion;
+    } else if (this.data.schemaVersion > initial.schemaVersion) {
+      errors.push(`Unsupported future schema version: ${this.data.schemaVersion}`);
+      this.data.schemaVersion = initial.schemaVersion;
+    }
+
+    this.data.gameStartTime = clampSafeNumber(this.data.gameStartTime, Date.now(), Date.now());
+    this.data.totalPlayTime = clampSafeNumber(this.data.totalPlayTime, 0, MAX_SAFE_PLAY_TIME_MS);
+    this.data.lastSave = clampSafeNumber(this.data.lastSave, Date.now(), Date.now());
+
     // Validate current era
     const normalizedEra = this.normalizeEraKey(this.data.currentEra);
     if (normalizedEra !== this.data.currentEra) {
@@ -655,9 +678,10 @@ export class GameState {
 
     // Validate resources
     Object.entries(this.data.resources).forEach(([resource, value]) => {
-      if (typeof value !== "number" || isNaN(value) || value < 0) {
+      const clamped = clampSafeNumber(value, 0);
+      if (clamped !== value) {
         errors.push(`Invalid resource value: ${resource} = ${value}`);
-        this.data.resources[resource] = 0;
+        this.data.resources[resource] = clamped;
       }
     });
     const maxPopulation = this.getPopulationCapacity();
@@ -668,9 +692,10 @@ export class GameState {
 
     // Validate workers
     Object.entries(this.data.workers).forEach(([worker, count]) => {
-      if (typeof count !== "number" || isNaN(count) || count < 0) {
+      const clamped = Math.floor(clampSafeNumber(count, 0));
+      if (clamped !== count) {
         errors.push(`Invalid worker count: ${worker} = ${count}`);
-        this.data.workers[worker] = 0;
+        this.data.workers[worker] = clamped;
       }
     });
     this.clampWorkersToPopulation();
@@ -678,11 +703,53 @@ export class GameState {
     // Validate lifetimeProduced (must be non-negative numbers, monotonic)
     if (this.data.lifetimeProduced) {
       Object.entries(this.data.lifetimeProduced).forEach(([resource, value]) => {
-        if (typeof value !== "number" || isNaN(value) || value < 0) {
+        const clamped = clampSafeNumber(value, 0);
+        if (clamped !== value) {
           errors.push(`Invalid lifetimeProduced: ${resource} = ${value}`);
-          this.data.lifetimeProduced[resource] = 0;
+          this.data.lifetimeProduced[resource] = clamped;
         }
       });
+    }
+
+    // Validate progression counters without trusting imported numeric extremes.
+    if (!this.data.progression || typeof this.data.progression !== "object" || Array.isArray(this.data.progression)) {
+      this.data.progression = initial.progression;
+    }
+    ["eraProgress", "totalClicks", "totalResources", "totalWorkers", "totalUpgrades"].forEach((key) => {
+      const clamped = clampSafeNumber(this.data.progression[key], 0);
+      if (clamped !== this.data.progression[key]) {
+        errors.push(`Invalid progression value: ${key} = ${this.data.progression[key]}`);
+        this.data.progression[key] = clamped;
+      }
+    });
+    if (!Array.isArray(this.data.progression.achievements)) {
+      this.data.progression.achievements = [];
+    }
+
+    if (!this.data.settings || typeof this.data.settings !== "object" || Array.isArray(this.data.settings)) {
+      this.data.settings = { ...initial.settings };
+    }
+    ["autoSave", "notifications", "soundEnabled", "fastMode"].forEach((key) => {
+      if (typeof this.data.settings[key] !== "boolean") {
+        this.data.settings[key] = initial.settings[key];
+      }
+    });
+
+    if (this.data.prestige) {
+      ["evolutionPoints", "lifetimeEP", "totalResets"].forEach((key) => {
+        const clamped = clampSafeNumber(this.data.prestige[key], 0);
+        if (clamped !== this.data.prestige[key]) {
+          errors.push(`Invalid prestige value: ${key} = ${this.data.prestige[key]}`);
+          this.data.prestige[key] = clamped;
+        }
+      });
+      this.data.prestige.highestEra = this.normalizeEraKey(this.data.prestige.highestEra);
+      if (!Array.isArray(this.data.prestige.purchasedPerks)) {
+        this.data.prestige.purchasedPerks = [];
+      }
+      if (!Array.isArray(this.data.prestige.completedEras)) {
+        this.data.prestige.completedEras = [];
+      }
     }
 
     if (errors.length > 0) {
@@ -721,78 +788,110 @@ export class GameState {
       if (!saveData) return false;
 
       const parsedData = JSON.parse(saveData);
-
-      // Start from a fresh initial state
-      const initial = this.createInitialState();
-
-      // Shallow merge top-level
-      this.data = { ...initial, ...parsedData };
-
-      // Deep-merge critical nested objects to preserve default keys. Resources
-      // are intentionally sparse; absent saved resources should stay absent
-      // instead of resurrecting starter resources after reload.
-      this.data.resources = parsedData.resources && typeof parsedData.resources === "object"
-        ? { ...parsedData.resources }
-        : { ...initial.resources };
-      this.data.workers = { ...initial.workers, ...(parsedData.workers || {}) };
-      this.data.upgrades = {
-        ...initial.upgrades,
-        ...(parsedData.upgrades || {}),
-      };
-      this.data.progression = {
-        ...initial.progression,
-        ...(parsedData.progression || {}),
-      };
-      // lifetimeProduced: merge defaults with saved values. for old saves
-      // that lack it, seed with current resource amounts so prestige math
-      // still works (best-effort migration).
-      this.data.lifetimeProduced = { ...(parsedData.lifetimeProduced || {}) };
-      if (!parsedData.lifetimeProduced) {
-        Object.entries(this.data.resources).forEach(([r, v]) => {
-          if (v > 0 && (this.data.lifetimeProduced[r] || 0) < v) {
-            this.data.lifetimeProduced[r] = v;
-          }
-        });
-      }
-      if (parsedData.prestige) {
-        this.data.prestige = {
-          ...parsedData.prestige,
-          purchasedPerks: [...(parsedData.prestige.purchasedPerks || [])],
-        };
-      }
-      if (parsedData.eraSpecializations) {
-        this.data.eraSpecializations = { ...parsedData.eraSpecializations };
-      }
-      if (parsedData.civSpecializations) {
-        this.data.civSpecializations = { ...parsedData.civSpecializations };
-      }
-      if (parsedData.tradeRoutes) {
-        this.data.tradeRoutes = {
-          activeRoutes: [...(parsedData.tradeRoutes.activeRoutes || [])],
-          routeProgress: { ...(parsedData.tradeRoutes.routeProgress || {}) },
-        };
-      }
-      if (parsedData.wonders) {
-        this.data.wonders = {
-          built: [...(parsedData.wonders.built || [])],
-        };
-      }
-
-      // Migrate legacy save structures to current model
-      this.migrateLegacySave(parsedData);
-      this.releaseWorkersOutsideEra(this.data.currentEra, { notify: false });
-
-      // Validate loaded state
-      this.validate();
-      this.compactRunState();
-
-      this.notifyListeners("gameLoaded", this.data);
-
-      return true;
+      return this.loadParsedSave(parsedData);
     } catch (error) {
       console.error("Failed to load game:", error);
       return false;
     }
+  }
+
+  /**
+   * Load an already-parsed save object after migrating and sanitizing it.
+   */
+  loadParsedSave(parsedData) {
+    if (!parsedData || typeof parsedData !== "object" || Array.isArray(parsedData)) {
+      throw new Error("Save data must be an object");
+    }
+
+    const initial = this.createInitialState();
+
+    // Shallow merge top-level known fields only. Unknown import keys are ignored
+    // so malformed saves cannot persist arbitrary object shapes.
+    this.data = {
+      ...initial,
+      schemaVersion: parsedData.schemaVersion,
+      currentEra: parsedData.currentEra,
+      gameStartTime: parsedData.gameStartTime,
+      totalPlayTime: parsedData.totalPlayTime,
+      lastSave: parsedData.lastSave,
+    };
+
+    // Deep-merge critical nested objects to preserve default keys. Resources
+    // are intentionally sparse; absent saved resources should stay absent
+    // instead of resurrecting starter resources after reload.
+    this.data.resources = parsedData.resources && typeof parsedData.resources === "object" && !Array.isArray(parsedData.resources)
+      ? { ...parsedData.resources }
+      : { ...initial.resources };
+    this.data.workers = parsedData.workers && typeof parsedData.workers === "object" && !Array.isArray(parsedData.workers)
+      ? { ...initial.workers, ...parsedData.workers }
+      : { ...initial.workers };
+    this.data.upgrades = parsedData.upgrades && typeof parsedData.upgrades === "object" && !Array.isArray(parsedData.upgrades)
+      ? { ...initial.upgrades, ...parsedData.upgrades }
+      : { ...initial.upgrades };
+    this.data.progression = parsedData.progression && typeof parsedData.progression === "object" && !Array.isArray(parsedData.progression)
+      ? { ...initial.progression, ...parsedData.progression }
+      : { ...initial.progression };
+    this.data.settings = parsedData.settings && typeof parsedData.settings === "object" && !Array.isArray(parsedData.settings)
+      ? { ...initial.settings, ...parsedData.settings }
+      : { ...initial.settings };
+
+    // lifetimeProduced: merge defaults with saved values. for old saves
+    // that lack it, seed with current resource amounts so prestige math
+    // still works (best-effort migration).
+    this.data.lifetimeProduced = parsedData.lifetimeProduced && typeof parsedData.lifetimeProduced === "object" && !Array.isArray(parsedData.lifetimeProduced)
+      ? { ...parsedData.lifetimeProduced }
+      : {};
+    if (!parsedData.lifetimeProduced) {
+      Object.entries(this.data.resources).forEach(([r, v]) => {
+        if (v > 0 && (this.data.lifetimeProduced[r] || 0) < v) {
+          this.data.lifetimeProduced[r] = v;
+        }
+      });
+    }
+    if (parsedData.prestige && typeof parsedData.prestige === "object" && !Array.isArray(parsedData.prestige)) {
+      this.data.prestige = {
+        ...parsedData.prestige,
+        purchasedPerks: Array.isArray(parsedData.prestige.purchasedPerks)
+          ? [...parsedData.prestige.purchasedPerks]
+          : [],
+        completedEras: Array.isArray(parsedData.prestige.completedEras)
+          ? [...parsedData.prestige.completedEras]
+          : [],
+      };
+    }
+    if (parsedData.eraSpecializations && typeof parsedData.eraSpecializations === "object" && !Array.isArray(parsedData.eraSpecializations)) {
+      this.data.eraSpecializations = { ...parsedData.eraSpecializations };
+    }
+    if (parsedData.civSpecializations && typeof parsedData.civSpecializations === "object" && !Array.isArray(parsedData.civSpecializations)) {
+      this.data.civSpecializations = { ...parsedData.civSpecializations };
+    }
+    if (parsedData.tradeRoutes && typeof parsedData.tradeRoutes === "object" && !Array.isArray(parsedData.tradeRoutes)) {
+      this.data.tradeRoutes = {
+        activeRoutes: Array.isArray(parsedData.tradeRoutes.activeRoutes)
+          ? [...parsedData.tradeRoutes.activeRoutes]
+          : [],
+        routeProgress: parsedData.tradeRoutes.routeProgress && typeof parsedData.tradeRoutes.routeProgress === "object" && !Array.isArray(parsedData.tradeRoutes.routeProgress)
+          ? { ...parsedData.tradeRoutes.routeProgress }
+          : {},
+      };
+    }
+    if (parsedData.wonders && typeof parsedData.wonders === "object" && !Array.isArray(parsedData.wonders)) {
+      this.data.wonders = {
+        built: Array.isArray(parsedData.wonders.built) ? [...parsedData.wonders.built] : [],
+      };
+    }
+
+    // Migrate legacy save structures to current model
+    this.migrateLegacySave(parsedData);
+    this.releaseWorkersOutsideEra(this.data.currentEra, { notify: false });
+
+    // Validate loaded state
+    this.validate();
+    this.compactRunState();
+
+    this.notifyListeners("gameLoaded", this.data);
+
+    return true;
   }
 
   /**
