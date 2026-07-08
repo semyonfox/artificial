@@ -7,7 +7,7 @@ A civilization progression clicker game where you guide humanity through differe
 ### Prerequisites
 
 - A modern web browser that supports ES6 modules
-- Python (for development server) or any other HTTP server
+- Node.js and npm (for the Vite development server) or any other HTTP server
 
 ### Running the Game
 
@@ -16,9 +16,9 @@ A civilization progression clicker game where you guide humanity through differe
 2. **Start a local server** (required for ES6 modules):
 
    ```bash
-   # Using Python (recommended)
+   # Using Vite (recommended)
    npm run dev
-   # or
+   # or, for the static files
    python -m http.server 8000
 
    # Using Node.js (if you have it installed)
