@@ -75,7 +75,9 @@ export class OfflineManager {
 			const wm = gameManager.systems?.workerManager;
 			const interval = wm?.getEffectiveInterval(workerData) || workerData.interval || 10000;
 			const cyclesPerSec = 1000 / interval;
-			let totalCycles = totalEffectiveSec * cyclesPerSec;
+			// Offline rate perks speed up complete work cycles, including their
+			// input use; treating the boost as output-only would create free yield.
+			let totalCycles = totalEffectiveSec * cyclesPerSec * rateMult;
 
 			// Chain workers must have their inputs just as they do while online.
 			// Cap the simulated cycles before producing anything; the old flow
@@ -103,7 +105,7 @@ export class OfflineManager {
 				const amount = Math.floor(
 					basePerWorker * count * totalCycles * prestigeMult * workerSpecMult
 						* diminishMult * specializationMult * masteryMult * grainMult
-						* chainMult * capMult * rateMult,
+						* chainMult * capMult,
 				);
 				if (amount > 0) {
 					const before = this.gameState.getResource(resource);
