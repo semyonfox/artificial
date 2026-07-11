@@ -101,12 +101,22 @@ export class OfflineManager {
 				const masteryMult = pm?.getMasteryMultiplier(resource) || 1;
 				const specializationMult = gameManager?.getSpecializationMultiplier(resource) || 1;
 				const grainMult = resource === 'grain' ? (pm?.getGrainMultiplier() || 1) : 1;
-				const capMult = wm?.getSoftCapMultiplier(resource) ?? 1;
-				const amount = Math.floor(
+				const nominalAmount =
 					basePerWorker * count * totalCycles * prestigeMult * workerSpecMult
 						* diminishMult * specializationMult * masteryMult * grainMult
-						* chainMult * capMult,
-				);
+						* chainMult;
+				const effectiveCap = wm?.getEffectiveSoftCap?.(resource);
+				let cappedAmount = nominalAmount;
+				if (Number.isFinite(effectiveCap)) {
+					const current = this.gameState.getResource(resource);
+					const penalty = config.softCaps?.capPenalty || 0.25;
+					const fullRateRoom = Math.max(0, effectiveCap - current);
+					const fullRateAmount = Math.min(nominalAmount, fullRateRoom);
+					cappedAmount = fullRateAmount + (nominalAmount - fullRateAmount) * penalty;
+				} else {
+					cappedAmount *= wm?.getSoftCapMultiplier(resource) ?? 1;
+				}
+				const amount = Math.floor(cappedAmount);
 				if (amount > 0) {
 					const before = this.gameState.getResource(resource);
 					this.gameState.addResource(resource, amount);

@@ -307,14 +307,27 @@ export class WorkerManager {
 	 * (default 0.25) above cap. Cap scales with pop and workers-in-era.
 	 */
 	getSoftCapMultiplier(resource) {
+		const effectiveCap = this.getEffectiveSoftCap(resource);
+		if (effectiveCap === null) return 1.0;
+
+		const current = this.gameState.getResource(resource) || 0;
+		if (current >= effectiveCap) return config.softCaps.capPenalty || 0.25;
+		return 1.0;
+	}
+
+	/**
+	 * Current soft-cap threshold for a resource, or null when uncapped.
+	 * Exposed so bulk/offline production can split yield at the boundary.
+	 */
+	getEffectiveSoftCap(resource) {
 		const cfg = config.softCaps;
-		if (!cfg?.enabled) return 1.0;
+		if (!cfg?.enabled) return null;
 
 		const eraIdx = config.resourceEra?.[resource];
-		if (eraIdx === undefined) return 1.0;
+		if (eraIdx === undefined) return null;
 
 		const baseCap = cfg.base?.[eraIdx];
-		if (!baseCap) return 1.0;
+		if (!baseCap) return null;
 
 		const pop = this.gameState.getResource('population') || 1;
 		const popMult = 1 + Math.log10(1 + pop) * (cfg.popFactor || 0);
@@ -331,10 +344,7 @@ export class WorkerManager {
 		}
 		const workerMult = 1 + workersInEra * (cfg.workerFactor || 0);
 
-		const effectiveCap = baseCap * popMult * workerMult;
-		const current = this.gameState.getResource(resource) || 0;
-		if (current >= effectiveCap) return cfg.capPenalty || 0.25;
-		return 1.0;
+		return baseCap * popMult * workerMult;
 	}
 
 	getFoodStatus(workerType) {

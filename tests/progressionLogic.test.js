@@ -151,3 +151,47 @@ test('offline rate boosts accelerate both chain output and input use', () => {
     globalThis.localStorage = originalLocalStorage;
   }
 });
+
+test('offline production applies the reduced rate after crossing a soft cap', () => {
+  const originalWindow = globalThis.window;
+  const originalLocalStorage = globalThis.localStorage;
+  const storage = new Map();
+  globalThis.window = { addEventListener() {} };
+  globalThis.localStorage = {
+    getItem: (key) => storage.get(key) ?? null,
+    setItem: (key, value) => storage.set(key, String(value)),
+  };
+
+  try {
+    const state = new GameState();
+    state.data.workers = { gatherer: 1 };
+    state.data.resources = { population: 1 };
+    storage.set('lastActive', String(Date.now() - 60 * 1000));
+
+    const offline = new OfflineManager(state);
+    const gameManager = {
+      systems: {
+        workerManager: {
+          getEffectiveInterval: () => 1000,
+          getDiminishingReturnsFactor: () => 1,
+          getEffectiveSoftCap: () => 10,
+        },
+      },
+      getCurrentEraData: () => ({
+        workers: [{ id: 'gatherer', interval: 1000, produces: { sticks: 1 } }],
+      }),
+      getPopulationCapacity: () => 50,
+      getPopulationFoodFactor: () => 1,
+      getPopulationWorkerLoadFactor: () => 1,
+      getSpecializationMultiplier: () => 1,
+      getWorkerSpecializationMultiplier: () => 1,
+    };
+
+    const result = offline.applyOfflineProduction(gameManager);
+    // 10 at full rate, then roughly 50 at the configured 25% rate.
+    assert.equal(result.produced.sticks, 22);
+  } finally {
+    globalThis.window = originalWindow;
+    globalThis.localStorage = originalLocalStorage;
+  }
+});
