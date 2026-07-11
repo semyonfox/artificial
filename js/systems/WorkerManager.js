@@ -170,7 +170,7 @@ export class WorkerManager {
 	/**
 	 * Start automated worker production
 	 */
-	startWorkerAutomation(workerType, workerData) {
+	startWorkerAutomation(workerType, workerData, { runImmediately = true } = {}) {
 		this.stopWorkerAutomation(workerType);
 
 		const interval = this.getEffectiveInterval(workerData);
@@ -179,7 +179,9 @@ export class WorkerManager {
 			this.performWorkerWork(workerType, workerData);
 		};
 
-		workFunction();
+		// Hiring should feel responsive, but restoring a save must not award a
+		// free production cycle every time the page is refreshed.
+		if (runImmediately) workFunction();
 		const intervalId = setInterval(workFunction, interval);
 		this.workerIntervals.set(workerType, intervalId);
 	}
@@ -384,7 +386,7 @@ export class WorkerManager {
 			if (count > 0) {
 				const workerData = currentEraData.workers.find((w) => w.id === workerType);
 				if (workerData) {
-					this.startWorkerAutomation(workerType, workerData);
+					this.startWorkerAutomation(workerType, workerData, { runImmediately: false });
 				}
 			}
 		});
