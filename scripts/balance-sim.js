@@ -95,7 +95,10 @@ function canAfford(state, cost = {}) {
 
 function spend(state, cost = {}) {
   if (!canAfford(state, cost)) return false;
-  Object.entries(cost).forEach(([resource, amount]) => add(state, resource, -amount));
+  Object.entries(cost).forEach(([resource, amount]) => {
+    // Population is an advancement threshold in the game, not a currency.
+    if (resource !== "population") add(state, resource, -amount);
+  });
   return true;
 }
 

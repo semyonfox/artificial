@@ -72,36 +72,71 @@ export class OfflineManager {
 			const count = gameData.workers[workerData.id] || 0;
 			if (count <= 0 || !workerData.produces) return;
 
-			const interval = workerData.interval || 10000;
+			const wm = gameManager.systems?.workerManager;
+			const interval = wm?.getEffectiveInterval(workerData) || workerData.interval || 10000;
 			const cyclesPerSec = 1000 / interval;
-			const totalCycles = totalEffectiveSec * cyclesPerSec;
+			// Offline rate perks speed up complete work cycles, including their
+			// input use; treating the boost as output-only would create free yield.
+			let totalCycles = totalEffectiveSec * cyclesPerSec * rateMult;
+
+			// Chain workers must have their inputs just as they do while online.
+			// Cap the simulated cycles before producing anything; the old flow
+			// produced a full offline haul first and only then consumed whatever
+			// inputs happened to be available, allowing output from nothing.
+			if (workerData.consumes) {
+				for (const [resource, perWorkerCycle] of Object.entries(workerData.consumes)) {
+					const available = this.gameState.getResource(resource);
+					const requiredPerCycle = perWorkerCycle * count;
+					if (requiredPerCycle > 0) {
+						totalCycles = Math.min(totalCycles, available / requiredPerCycle);
+					}
+				}
+			}
+			// A fleet may run a partial interval when only some workers have inputs,
+			// but an individual worker cannot perform a fractional work cycle.
+			const workerCycles = Math.floor(totalCycles * count);
+			totalCycles = workerCycles / count;
 			if (totalCycles <= 0) return;
 
-			const masteryMap = {};
 			const workerSpecMult = gameManager?.getWorkerSpecializationMultiplier(workerData.id) || 1;
+			const diminishMult = wm?.getDiminishingReturnsFactor(workerData.id) || 1;
+			const chainMult = pm?.getChainBonusMultiplier(workerData) || 1;
 			Object.entries(workerData.produces).forEach(([resource, basePerWorker]) => {
 				const masteryMult = pm?.getMasteryMultiplier(resource) || 1;
-				const amount = Math.floor(
-					basePerWorker * count * totalCycles * prestigeMult * workerSpecMult * masteryMult * rateMult,
-				);
+				const specializationMult = gameManager?.getSpecializationMultiplier(resource) || 1;
+				const grainMult = resource === 'grain' ? (pm?.getGrainMultiplier() || 1) : 1;
+				const nominalAmount =
+					basePerWorker * count * totalCycles * prestigeMult * workerSpecMult
+						* diminishMult * specializationMult * masteryMult * grainMult
+						* chainMult;
+				const effectiveCap = wm?.getEffectiveSoftCap?.(resource);
+				let cappedAmount = nominalAmount;
+				if (Number.isFinite(effectiveCap)) {
+					const current = this.gameState.getResource(resource);
+					const penalty = config.softCaps?.capPenalty || 0.25;
+					const fullRateRoom = Math.max(0, effectiveCap - current);
+					const fullRateAmount = Math.min(nominalAmount, fullRateRoom);
+					cappedAmount = fullRateAmount + (nominalAmount - fullRateAmount) * penalty;
+				} else {
+					cappedAmount *= wm?.getSoftCapMultiplier(resource) ?? 1;
+				}
+				const amount = Math.floor(cappedAmount);
 				if (amount > 0) {
 					const before = this.gameState.getResource(resource);
 					this.gameState.addResource(resource, amount);
 					const actual = this.gameState.getResource(resource) - before;
 					if (actual > 0) {
 						produced[resource] = (produced[resource] || 0) + actual;
-						masteryMap[resource] = true;
 					}
 				}
 			});
 
-			// best-effort consume on offline production (chain workers eat their inputs)
+			// Consume exactly the inputs for the cycles that were actually possible.
 			if (workerData.consumes) {
 				for (const [resource, perCycle] of Object.entries(workerData.consumes)) {
-					const total = Math.floor(perCycle * count * totalCycles * rateMult);
+					const total = perCycle * count * totalCycles;
 					if (total > 0) {
-						const avail = this.gameState.getResource(resource);
-						this.gameState.addResource(resource, -Math.min(avail, total));
+						this.gameState.addResource(resource, -total);
 					}
 				}
 			}

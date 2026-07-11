@@ -87,6 +87,11 @@ export class GameManager {
         );
       }
 
+      // Loading restores worker counts, not their runtime timers. Resume them
+      // after offline production so returning players do not end up with a
+      // valid-looking save whose automation is permanently stopped.
+      this.restartWorkerAutomation();
+
       this.initialized = true;
     } catch (error) {
       console.error("Failed to initialize game:", error);

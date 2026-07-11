@@ -733,7 +733,7 @@ export const config = {
     // bronze (2)
     copper: 2, tin: 2, bronze: 2, wheel: 2, writing: 2, trade: 2,
     // iron (3)
-    iron: 3, steel: 3, coins: 3, roads: 3, cities: 3, knowledge: 3,
+    iron: 3, steel: 3, coins: 3, roads: 3, cities: 3, knowledge: 3, coal: 3,
     // classical (4)
     engineering: 4, aqueducts: 4, philosophy: 4, mathematics: 4, medicine: 4, art: 4,
     // medieval (5)
@@ -744,7 +744,7 @@ export const config = {
     // enlightenment (7)
     reason: 7, academies: 7, clockwork: 7, colonialGoods: 7, naturalHistory: 7, calculus: 7,
     // industrial (8)
-    coal: 8, steam: 8, factories: 8, railways: 8, electricity: 8, oil: 8, telegraph: 8,
+    steam: 8, factories: 8, railways: 8, electricity: 8, oil: 8, telegraph: 8,
     // electric (9)
     dynamo: 9, telephone: 9, automobile: 9, chemicals: 9, massProduction: 9, skyscrapers: 9,
     // atomic (10)
