@@ -89,6 +89,12 @@ test('offline chain workers cannot produce without their required inputs', () =>
     assert.deepEqual(result.produced, {});
     assert.equal(state.getResource('steel'), 0);
 
+    state.data.resources.iron = 0.5;
+    storage.set('lastActive', String(Date.now() - 10 * 60 * 1000));
+    const partialInputResult = offline.applyOfflineProduction(gameManager);
+    assert.deepEqual(partialInputResult.produced, {});
+    assert.equal(state.getResource('iron'), 0.5);
+
     state.data.resources.iron = 3;
     storage.set('lastActive', String(Date.now() - 10 * 60 * 1000));
     const suppliedResult = offline.applyOfflineProduction(gameManager);

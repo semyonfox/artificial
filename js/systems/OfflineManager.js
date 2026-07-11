@@ -92,6 +92,10 @@ export class OfflineManager {
 					}
 				}
 			}
+			// A fleet may run a partial interval when only some workers have inputs,
+			// but an individual worker cannot perform a fractional work cycle.
+			const workerCycles = Math.floor(totalCycles * count);
+			totalCycles = workerCycles / count;
 			if (totalCycles <= 0) return;
 
 			const workerSpecMult = gameManager?.getWorkerSpecializationMultiplier(workerData.id) || 1;
