@@ -1,6 +1,7 @@
 {
 	"name": "artificial",
 	"version": "1.0.0",
+	"packageManager": "pnpm@11.18.0",
 	"description": "Evolution Clicker - A civilization progression game",
 	"main": "game.js",
 	"type": "module",
