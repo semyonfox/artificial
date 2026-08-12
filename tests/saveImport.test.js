@@ -27,6 +27,35 @@ function makeStorage() {
   };
 }
 
+function replaceGlobal(key, value) {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, key);
+  Object.defineProperty(globalThis, key, {
+    configurable: true,
+    writable: true,
+    value,
+  });
+  return () => {
+    if (descriptor) {
+      Object.defineProperty(globalThis, key, descriptor);
+    } else {
+      delete globalThis[key];
+    }
+  };
+}
+
+function withMutedConsole(run) {
+  const originalError = console.error;
+  const originalWarn = console.warn;
+  console.error = () => {};
+  console.warn = () => {};
+  try {
+    return run();
+  } finally {
+    console.error = originalError;
+    console.warn = originalWarn;
+  }
+}
+
 function makeImportHarness() {
   const notifications = [];
   const storage = makeStorage();
@@ -46,7 +75,8 @@ function makeImportHarness() {
   return { manager, notifications, storage };
 }
 
-test('importSave persists only a sanitized current save object', () => {
+test('importSave persists only a sanitized current save object', () =>
+  withMutedConsole(() => {
   const { manager, notifications, storage } = makeImportHarness();
   const save = {
     schemaVersion: 2,
@@ -70,7 +100,7 @@ test('importSave persists only a sanitized current save object', () => {
   assert.equal(persisted.settings.autoSave, false);
   assert.equal(persisted.settings.fastMode, true);
   assert.equal(Object.hasOwn(persisted, 'unexpectedTopLevel'), false);
-});
+  }));
 
 test('importSave migrates old save fields before persistence', () => {
   const { manager, storage } = makeImportHarness();
@@ -93,7 +123,8 @@ test('importSave migrates old save fields before persistence', () => {
   assert.equal(Object.hasOwn(persisted.workers, 'forager'), false);
 });
 
-test('importSave rejects oversized, corrupt, non-object, and future-version saves', () => {
+test('importSave rejects oversized, corrupt, non-object, and future-version saves', () =>
+  withMutedConsole(() => {
   const cases = [
     Buffer.from('x'.repeat(385 * 1024), 'utf8').toString('base64'),
     'not-valid-base64',
@@ -110,9 +141,10 @@ test('importSave rejects oversized, corrupt, non-object, and future-version save
     assert.equal(notifications.at(-1).message, 'Invalid save data');
     assert.equal(notifications.at(-1).type, 'error');
   }
-});
+  }));
 
-test('importSave clamps hostile numeric state before writing localStorage', () => {
+test('importSave clamps hostile numeric state before writing localStorage', () =>
+  withMutedConsole(() => {
   const { manager, storage } = makeImportHarness();
   const hostileSave = {
     schemaVersion: 2,
@@ -157,4 +189,103 @@ test('importSave clamps hostile numeric state before writing localStorage', () =
   assert.equal(persisted.prestige.highestEra, 'paleolithic');
   assert.deepEqual(persisted.prestige.purchasedPerks, []);
   assert.deepEqual(persisted.prestige.completedEras, []);
+  }));
+
+test('local saves reject future schemas before changing the active run', () => {
+  const storage = makeStorage();
+  const restoreLocalStorage = replaceGlobal('localStorage', storage);
+  const originalConsoleError = console.error;
+  console.error = () => {};
+
+  try {
+    storage.setItem(config.storage.saveKey, JSON.stringify({
+      schemaVersion: 999,
+      currentEra: 'neolithic',
+      resources: { sticks: 999 },
+    }));
+
+    const state = new GameState();
+    assert.equal(state.load(), false);
+    assert.equal(state.data.currentEra, 'paleolithic');
+    assert.equal(state.getResource('sticks'), 10);
+  } finally {
+    console.error = originalConsoleError;
+    restoreLocalStorage();
+  }
+});
+
+test('exportSave serializes the current in-memory state', async () => {
+  const manager = Object.create(GameManager.prototype);
+  manager.gameState = new GameState();
+  manager.gameState.data.resources.sticks = 999;
+  const notifications = [];
+  manager.showNotification = (message, type) => notifications.push({ message, type });
+
+  let exported = null;
+  const restoreNavigator = replaceGlobal('navigator', {
+    clipboard: { writeText: async (value) => { exported = value; } },
+  });
+  const restoreBtoa = replaceGlobal(
+    'btoa',
+    (value) => Buffer.from(value, 'utf8').toString('base64'),
+  );
+
+  try {
+    manager.exportSave();
+    await Promise.resolve();
+
+    const exportedSave = JSON.parse(Buffer.from(exported, 'base64').toString('utf8'));
+    assert.equal(exportedSave.resources.sticks, 999);
+    assert.deepEqual(notifications.at(-1), {
+      message: 'Save exported to clipboard!',
+      type: 'success',
+    });
+  } finally {
+    restoreBtoa();
+    restoreNavigator();
+  }
+});
+
+test('exportSave reports rejected clipboard writes', async () => {
+  const manager = Object.create(GameManager.prototype);
+  manager.gameState = new GameState();
+  const notifications = [];
+  manager.showNotification = (message, type) => notifications.push({ message, type });
+
+  const restoreNavigator = replaceGlobal('navigator', {
+    clipboard: { writeText: () => Promise.reject(new Error('blocked')) },
+  });
+  const originalConsoleError = console.error;
+  console.error = () => {};
+
+  try {
+    manager.exportSave();
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.deepEqual(notifications.at(-1), { message: 'Export failed', type: 'error' });
+  } finally {
+    console.error = originalConsoleError;
+    restoreNavigator();
+  }
+});
+
+test('click action cooldowns are enforced outside the UI', () => {
+  const manager = Object.create(GameManager.prototype);
+  manager.actionCooldowns = new Map();
+  manager.actionCooldownTimers = new Map();
+  manager.gameState = { notifyListeners() {} };
+  manager.systems = {
+    resourceManager: {
+      performClickAction: () => ({ sticks: 1 }),
+    },
+  };
+  let manualActions = 0;
+  manager.recordManualAction = () => { manualActions += 1; };
+
+  const action = { id: 'gather', cooldown: 1_000 };
+  assert.deepEqual(manager.doClickAction(action), { sticks: 1 });
+  assert.equal(manager.doClickAction(action), null);
+  assert.equal(manualActions, 1);
+
+  manager.clearActionCooldowns();
 });

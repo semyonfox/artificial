@@ -1,36 +1,21 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
-  import { config } from '../../../js/core/config.js';
   import { formatCost, getPurchaseButtonClasses } from '../utils/gameFormatting.js';
-  import { scaleCost } from '../../../js/core/resourceUtils.js';
 
-  let eraData = $derived($gameStore.gameManager?.getCurrentEraData());
-  let upgradeDefs = $derived(eraData?.upgrades || []);
-
-  function getAdjustedCost(upgrade) {
-    const prestigeMultiplier = $gameStore.gameManager?.systems?.prestigeManager?.getUpgradeCostMultiplier?.() || 1;
-    const multiplier = prestigeMultiplier * (config.balance?.upgradeCostMultiplier || 1);
-    return scaleCost(upgrade.cost, multiplier);
-  }
-
-  function hasPrestigeDiscount() {
-    return ($gameStore.gameManager?.systems?.prestigeManager?.getUpgradeCostMultiplier?.() || 1) < 1;
-  }
+  let upgradeDefs = $derived($gameStore.upgradeViews);
 
   function buyUpgrade(upgradeId) {
-    $gameStore.gameManager?.buyUpgrade(upgradeId);
-    gameStore.refresh();
+    gameStore.buyUpgrade(upgradeId);
   }
 </script>
 
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
   {#each upgradeDefs as upgrade (upgrade.id)}
-    {@const isUnlocked = $gameStore.upgrades[upgrade.id] === true}
-    {@const adjustedCost = getAdjustedCost(upgrade)}
-    {@const hasDiscount = hasPrestigeDiscount()}
-    {@const canAfford = !isUnlocked && ($gameStore.gameState?.canAfford(adjustedCost) ?? false)}
-    {@const hasRequiredUpgrade = !upgrade.requiresUpgrade || $gameStore.upgrades[upgrade.requiresUpgrade] === true}
-    {@const canBuy = !isUnlocked && canAfford && hasRequiredUpgrade}
+    {@const isUnlocked = upgrade.isUnlocked}
+    {@const adjustedCost = upgrade.adjustedCost}
+    {@const hasDiscount = upgrade.hasPrestigeDiscount}
+    {@const hasRequiredUpgrade = upgrade.hasRequiredUpgrade}
+    {@const canBuy = upgrade.canBuy}
 
     <div
       class="item-card flex flex-col"

@@ -5,7 +5,6 @@
 
 import { GameState } from "./core/GameState.js";
 import { ResourceManager } from "./systems/ResourceManager.js";
-import { UIManager } from "./systems/UIManager.js";
 import { WorkerManager } from "./systems/WorkerManager.js";
 import { EventManager } from "./systems/EventManager.js";
 import { OfflineManager } from "./systems/OfflineManager.js";
@@ -16,6 +15,24 @@ import { TradeRouteManager } from "./systems/TradeRouteManager.js";
 import { WonderManager } from "./systems/WonderManager.js";
 import { config } from "./core/config.js";
 import { formatResourceList, getEraIndex, scaleCost } from "./core/resourceUtils.js";
+
+const POPULATION_SUPPORT_RESOURCES = {
+  paleolithic: ["cookedMeat", "meat"],
+  neolithic: ["grain", "livestock", "cookedMeat"],
+  bronze: ["grain", "livestock", "trade"],
+  iron: ["grain", "livestock", "cities", "trade"],
+  classical: ["grain", "cities", "medicine"],
+  medieval: ["agriculture", "grain", "mills"],
+  renaissance: ["agriculture", "trade", "banking"],
+  enlightenment: ["agriculture", "academies", "reason"],
+  industrial: ["factories", "steam", "electricity"],
+  electric: ["electricity", "automobile", "chemicals"],
+  atomic: ["electricity", "plastics", "television"],
+  information: ["electricity", "data", "internet"],
+  space: ["fusion", "spaceStations", "robotics"],
+  galactic: ["dysonSpheres", "antimatter", "quantumComputers"],
+  universal: ["realityEngines", "existentialEnergy", "universalConstants"],
+};
 
 export class GameManager {
   constructor() {
@@ -35,6 +52,13 @@ export class GameManager {
 
     // store reference for notifications (set by gameStore.initialize)
     this.store = null;
+    this.pendingNotifications = [];
+    this.pendingLogEntries = [];
+
+    // Cooldowns are game rules, not a presentation concern. Keeping them here
+    // makes click actions behave the same through every UI surface.
+    this.actionCooldowns = new Map();
+    this.actionCooldownTimers = new Map();
 
     this.initPromise = this.initialize();
   }
@@ -58,7 +82,7 @@ export class GameManager {
       this.gameState.load();
 
       // Initialize systems in dependency order
-      this.initializeSystems();
+      await this.initializeSystems();
 
       // Connect system dependencies
       this.connectSystems();
@@ -102,7 +126,7 @@ export class GameManager {
   /**
    * Initialize all game systems
    */
-  initializeSystems() {
+  async initializeSystems() {
     // Initialize systems that don't depend on others first
     this.systems.resourceManager = new ResourceManager(this.gameState);
     this.systems.workerManager = new WorkerManager(this.gameState);
@@ -116,9 +140,11 @@ export class GameManager {
     this.systems.tradeRouteManager = new TradeRouteManager(this.gameState);
     this.systems.wonderManager = new WonderManager(this.gameState);
 
-    // UIManager is now optional (Svelte takes over UI duties)
-    // Only initialize if running in legacy mode (index.bootstrap.html)
-    if (document.getElementById('action-buttons-container')) {
+    // The Bootstrap screen remains available for direct legacy use, but it is
+    // not part of the Vite app. Load its DOM renderer only on that surface so
+    // Svelte users do not download two UIs.
+    if (typeof document !== "undefined" && document.getElementById("action-buttons-container")) {
+      const { UIManager } = await import("./systems/UIManager.js");
       this.systems.uiManager = new UIManager(this.gameState, this);
     }
   }
@@ -153,6 +179,25 @@ export class GameManager {
    */
   setStore(store) {
     this.store = store;
+    this.flushPendingPresentation();
+  }
+
+  flushPendingPresentation() {
+    if (!this.store) return;
+
+    const notifications = this.pendingNotifications.splice(0);
+    notifications.forEach(({ message, type, duration }) => {
+      this.store.showNotification(message, type, duration);
+    });
+
+    const logEntries = this.pendingLogEntries.splice(0);
+    logEntries.forEach(({ event, isDisaster }) => {
+      if (isDisaster) {
+        this.store.logDisaster(event);
+      } else {
+        this.store.logEvent(event);
+      }
+    });
   }
 
   /**
@@ -163,6 +208,8 @@ export class GameManager {
       this.store.showNotification(message, type, duration);
     } else if (this.systems.uiManager) {
       this.systems.uiManager.showNotification(message, type, duration);
+    } else {
+      this.pendingNotifications.push({ message, type, duration });
     }
   }
 
@@ -174,6 +221,22 @@ export class GameManager {
       this.store.logEvent(event);
     } else if (this.systems.uiManager) {
       this.systems.uiManager.logEvent(event);
+    } else {
+      this.pendingLogEntries.push({ event, isDisaster: false });
+    }
+  }
+
+  /**
+   * Add a disaster to the active presentation surface, or keep it until one
+   * attaches during boot.
+   */
+  logGameDisaster(event) {
+    if (this.store) {
+      this.store.logDisaster(event);
+    } else if (this.systems.uiManager) {
+      this.systems.uiManager.logDisaster(event);
+    } else {
+      this.pendingLogEntries.push({ event, isDisaster: true });
     }
   }
 
@@ -253,10 +316,6 @@ export class GameManager {
       this.systems.eventManager.update(this.lastUpdateTime);
     }
 
-    if (this.systems.workerManager) {
-      this.systems.workerManager.update(deltaTime);
-    }
-
     if (this.systems.achievementManager) {
       this.systems.achievementManager.update(deltaTime);
     }
@@ -319,18 +378,83 @@ export class GameManager {
    * Perform a config-driven click action
    */
   doClickAction(action) {
+    if (!action || this.isActionOnCooldown(action.id)) return null;
+
     const result = this.systems.resourceManager.performClickAction(action);
-    if (result && !result.failed) {
-      this.recordManualAction(1);
+    if (result) {
+      if (!result.failed) {
+        this.recordManualAction(1);
+      }
+      this.startActionCooldown(action);
     }
     return result;
+  }
+
+  getCurrentActionViews() {
+    const actions = this.getCurrentEraData()?.actions || [];
+    return actions
+      .filter((action) => !action.requiresUpgrade || this.gameState.hasUpgrade(action.requiresUpgrade))
+      .map((action) => {
+        const cooldownRemaining = this.getActionCooldownRemaining(action.id);
+        return {
+          ...action,
+          canAfford: !action.consumes || this.gameState.canAfford(action.consumes),
+          cooldownMs: action.cooldown || 1000,
+          cooldownRemaining,
+          isOnCooldown: cooldownRemaining > 0,
+        };
+      });
+  }
+
+  getActionCooldownRemaining(actionId) {
+    const expiresAt = this.actionCooldowns.get(actionId);
+    if (!expiresAt) return 0;
+
+    const remaining = Math.max(0, expiresAt - Date.now());
+    if (remaining === 0) {
+      this.actionCooldowns.delete(actionId);
+      this.clearActionCooldownTimer(actionId);
+    }
+    return remaining;
+  }
+
+  isActionOnCooldown(actionId) {
+    return this.getActionCooldownRemaining(actionId) > 0;
+  }
+
+  startActionCooldown(action) {
+    const cooldownMs = action.cooldown || 1000;
+    if (!action.id || cooldownMs <= 0) return;
+
+    const expiresAt = Date.now() + cooldownMs;
+    this.actionCooldowns.set(action.id, expiresAt);
+    this.clearActionCooldownTimer(action.id);
+    this.actionCooldownTimers.set(action.id, setTimeout(() => {
+      if (this.actionCooldowns.get(action.id) !== expiresAt) return;
+      this.actionCooldowns.delete(action.id);
+      this.actionCooldownTimers.delete(action.id);
+      this.gameState?.notifyListeners("actionCooldownChange", { actionId: action.id });
+    }, cooldownMs));
+    this.gameState?.notifyListeners("actionCooldownChange", { actionId: action.id });
+  }
+
+  clearActionCooldownTimer(actionId) {
+    const timer = this.actionCooldownTimers.get(actionId);
+    if (timer) clearTimeout(timer);
+    this.actionCooldownTimers.delete(actionId);
+  }
+
+  clearActionCooldowns() {
+    this.actionCooldownTimers.forEach((timer) => clearTimeout(timer));
+    this.actionCooldownTimers.clear();
+    this.actionCooldowns.clear();
   }
 
   /**
    * Hire a worker
    */
   hireWorker(workerType) {
-    this.systems.workerManager.hireWorker(workerType);
+    return this.systems.workerManager.hireWorker(workerType);
   }
 
   /**
@@ -418,6 +542,7 @@ export class GameManager {
       'success',
       5000,
     );
+    this.gameState.notifyListeners("eraSpecializationChosen", { era: eraKey, specId });
     this.updateUI();
     return true;
   }
@@ -461,43 +586,7 @@ export class GameManager {
    * Returns a combined multiplier from all active era and civ specializations
    */
   getSpecializationMultiplier(resource) {
-    let mult = 1.0;
-
-    // era specializations
-    const eraSpecs = this.gameState.data.eraSpecializations;
-    if (eraSpecs) {
-      for (const [eraKey, specId] of Object.entries(eraSpecs)) {
-        const specs = config.eraSpecializations[eraKey];
-        if (!specs) continue;
-        const spec = specs.find(s => s.id === specId);
-        if (!spec) continue;
-
-        if (spec.bonuses && spec.bonuses[resource]) {
-          mult *= spec.bonuses[resource];
-        }
-        if (spec.penalties && spec.penalties[resource]) {
-          mult *= spec.penalties[resource];
-        }
-      }
-    }
-
-    // civilization specializations
-    const civSpecs = this.gameState.data.civSpecializations;
-    if (civSpecs) {
-      for (const [eraKey, civId] of Object.entries(civSpecs)) {
-        const specs = config.civSpecializations[eraKey];
-        if (!specs) continue;
-        const spec = specs.find(s => s.id === civId);
-        if (!spec) continue;
-
-        if (spec.bonuses && spec.bonuses[resource]) {
-          mult *= spec.bonuses[resource];
-        }
-        if (spec.penalties && spec.penalties[resource]) {
-          mult *= spec.penalties[resource];
-        }
-      }
-    }
+    let mult = this.getConfiguredSpecializationMultiplier(resource);
 
     // trade route bonuses
     if (this.systems.tradeRouteManager) {
@@ -521,38 +610,25 @@ export class GameManager {
    * worker's total production so those config entries match their descriptions.
    */
   getWorkerSpecializationMultiplier(workerType) {
+    return this.getConfiguredSpecializationMultiplier(workerType);
+  }
+
+  getConfiguredSpecializationMultiplier(target) {
     let mult = 1.0;
 
-    const eraSpecs = this.gameState.data.eraSpecializations;
-    if (eraSpecs) {
-      for (const [eraKey, specId] of Object.entries(eraSpecs)) {
-        const specs = config.eraSpecializations[eraKey];
-        if (!specs) continue;
-        const spec = specs.find(s => s.id === specId);
-        if (!spec) continue;
+    for (const [choices, definitions] of [
+      [this.gameState.data.eraSpecializations, config.eraSpecializations],
+      [this.gameState.data.civSpecializations, config.civSpecializations],
+    ]) {
+      for (const [eraKey, specializationId] of Object.entries(choices || {})) {
+        const specialization = definitions[eraKey]?.find(({ id }) => id === specializationId);
+        if (!specialization) continue;
 
-        if (spec.bonuses && spec.bonuses[workerType]) {
-          mult *= spec.bonuses[workerType];
-        }
-        if (spec.penalties && spec.penalties[workerType]) {
-          mult *= spec.penalties[workerType];
-        }
-      }
-    }
-
-    const civSpecs = this.gameState.data.civSpecializations;
-    if (civSpecs) {
-      for (const [eraKey, civId] of Object.entries(civSpecs)) {
-        const specs = config.civSpecializations[eraKey];
-        if (!specs) continue;
-        const spec = specs.find(s => s.id === civId);
-        if (!spec) continue;
-
-        if (spec.bonuses && spec.bonuses[workerType]) {
-          mult *= spec.bonuses[workerType];
-        }
-        if (spec.penalties && spec.penalties[workerType]) {
-          mult *= spec.penalties[workerType];
+        for (const factors of [specialization.bonuses, specialization.penalties]) {
+          const factor = factors?.[target];
+          if (factor) {
+            mult *= factor;
+          }
         }
       }
     }
@@ -657,24 +733,7 @@ export class GameManager {
 
   getPopulationSupportResources(eraIdx) {
     const eraKey = config.eraOrder[eraIdx] || this.gameState.data.currentEra;
-    const supportByEra = {
-      paleolithic: ['cookedMeat', 'meat'],
-      neolithic: ['grain', 'livestock', 'cookedMeat'],
-      bronze: ['grain', 'livestock', 'trade'],
-      iron: ['grain', 'livestock', 'cities', 'trade'],
-      classical: ['grain', 'cities', 'medicine'],
-      medieval: ['agriculture', 'grain', 'mills'],
-      renaissance: ['agriculture', 'trade', 'banking'],
-      enlightenment: ['agriculture', 'academies', 'reason'],
-      industrial: ['factories', 'steam', 'electricity'],
-      electric: ['electricity', 'automobile', 'chemicals'],
-      atomic: ['electricity', 'plastics', 'television'],
-      information: ['electricity', 'data', 'internet'],
-      space: ['fusion', 'spaceStations', 'robotics'],
-      galactic: ['dysonSpheres', 'antimatter', 'quantumComputers'],
-      universal: ['realityEngines', 'existentialEnergy', 'universalConstants'],
-    };
-    return supportByEra[eraKey] || ['grain', 'agriculture', 'cities'];
+    return POPULATION_SUPPORT_RESOURCES[eraKey] || ["grain", "agriculture", "cities"];
   }
 
   getPopulationFoodFactor(currentPop, eraIdx) {
@@ -814,6 +873,7 @@ export class GameManager {
     try {
       const success = this.gameState.load();
       if (success) {
+        this.clearActionCooldowns();
         this.showNotification(
           "Game loaded successfully!",
           "success",
@@ -846,6 +906,7 @@ export class GameManager {
         // Stop run-specific timers without stopping the main game loop.
         this.systems.workerManager?.resetRunState();
         this.systems.tradeRouteManager?.reset();
+        this.clearActionCooldowns();
 
         // Reset all progress. Prestige uses the preserving reset path separately.
         this.gameState.reset({ preserveWonders: false });
@@ -908,6 +969,7 @@ export class GameManager {
     }
 
     const earned = pm.prestige();
+    this.clearActionCooldowns();
 
     // every run starts at Paleolithic now — era-skip perks are gone.
 
@@ -960,12 +1022,20 @@ export class GameManager {
     this.updateUI();
   }
 
+  purchasePrestigePerk(perkId) {
+    const purchased = this.systems.prestigeManager?.purchasePerk(perkId) || false;
+    if (purchased) {
+      this.showNotification("Perk purchased!", "success");
+    }
+    return purchased;
+  }
+
   /**
    * Export save as base64 string to clipboard
    */
   exportSave() {
     try {
-      const saveData = localStorage.getItem(config.storage.saveKey);
+      const saveData = this.gameState?.getSaveData();
       if (!saveData) {
         this.showNotification(
           "No save data to export",
@@ -973,12 +1043,16 @@ export class GameManager {
         );
         return;
       }
-      const encoded = btoa(saveData);
+
+      const encoded = btoa(JSON.stringify(saveData));
       navigator.clipboard.writeText(encoded).then(() => {
         this.showNotification(
           "Save exported to clipboard!",
           "success",
         );
+      }).catch((error) => {
+        console.error("Export failed:", error);
+        this.showNotification("Export failed", "error");
       });
     } catch (error) {
       console.error("Export failed:", error);
@@ -1046,6 +1120,9 @@ export class GameManager {
     if (this.systems.tradeRouteManager) {
       this.systems.tradeRouteManager.destroy();
     }
+
+    this.systems.offlineManager?.destroy();
+    this.clearActionCooldowns();
 
     // Stop game loop
     if (this.gameLoopId) {
@@ -1150,12 +1227,13 @@ export class GameManager {
 
     // Advance the era (sets era, resets progress, notifies listeners)
     this.gameState.setEra(nextEra);
+    this.clearActionCooldowns();
 
     // Reset the advancement notification flag for the new era
     this.eraAdvanceNotified = false;
 
     // Grant starter resources for the new era
-    this.onEraTransition(currentEra, nextEra);
+    this.onEraTransition(nextEra);
 
     // Show advancement notification
     const eraInfo = config.eras[nextEra];
@@ -1181,7 +1259,7 @@ export class GameManager {
   /**
    * Handle era transition effects
    */
-  onEraTransition(fromEra, toEra) {
+  onEraTransition(toEra) {
     const starterPacks = {
       neolithic: { grain: 80, clay: 50, tools: 25, pottery: 10, livestock: 12 },
       bronze: { copper: 40, tin: 20, tools: 15 },
@@ -1309,6 +1387,9 @@ export class GameManager {
       // Reset references
       this.gameState = null;
       this.systems = {};
+      this.store = null;
+      this.pendingNotifications = [];
+      this.pendingLogEntries = [];
       this.initialized = false;
     } catch (error) {
       console.error("Error destroying GameManager:", error);

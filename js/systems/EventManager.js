@@ -169,20 +169,10 @@ export class EventManager {
    * Log event to game history and UI
    */
   logEvent(event) {
-    // try store first, then UIManager
-    const store = this.gameManager?.store;
-    if (store) {
-      if (event.type === "disaster") {
-        store.logDisaster(event);
-      } else {
-        store.logEvent(event);
-      }
-    } else if (this.uiManager) {
-      if (event.type === "disaster") {
-        this.uiManager.logDisaster(event);
-      } else {
-        this.uiManager.logEvent(event);
-      }
+    if (event.type === "disaster") {
+      this.gameManager?.logGameDisaster(event);
+    } else {
+      this.gameManager?.logGameEvent(event);
     }
   }
 

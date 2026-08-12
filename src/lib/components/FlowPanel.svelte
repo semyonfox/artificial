@@ -1,6 +1,5 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
-  import { config } from '../../../js/core/config.js';
   import {
     formatNumber,
     formatResourceName,
@@ -8,39 +7,21 @@
     getResourceIcon,
   } from '../utils/gameFormatting.js';
 
-  let eraData = $derived($gameStore.gameManager?.getCurrentEraData());
-  let canAdvance = $derived($gameStore.gameState?.canAdvanceEra() ?? false);
+  let eraData = $derived($gameStore.currentEraData);
+  let canAdvance = $derived($gameStore.canAdvance);
   let totalClicks = $derived($gameStore.progression?.totalClicks || 0);
   let unlockedAchievements = $derived(($gameStore.achievements || []).filter(ach => ach.unlocked).length);
   let totalAchievements = $derived(($gameStore.achievements || []).length);
-
-  let nextEra = $derived.by(() => {
-    const currentIdx = config.eraOrder.indexOf($gameStore.currentEra);
-    if (currentIdx < 0 || currentIdx >= config.eraOrder.length - 1) return null;
-
-    const nextKey = config.eraOrder[currentIdx + 1];
-    return config.eras?.[nextKey] || config.eraData?.[nextKey] || { name: nextKey };
-  });
+  let nextEra = $derived($gameStore.nextEra);
 
   let progressPercent = $derived.by(() => {
     return getEraProgressPercent(eraData?.advancementCost, $gameStore.resources);
   });
 
-  let requirements = $derived.by(() => {
-    return Object.entries(eraData?.advancementCost || {}).map(([resource, required]) => {
-      const current = Math.floor($gameStore.resources[resource] || 0);
-      return {
-        resource,
-        current,
-        required,
-        complete: current >= required,
-      };
-    });
-  });
+  let requirements = $derived($gameStore.advancementRequirements);
 
   function advanceEra() {
-    $gameStore.gameManager?.advanceEra();
-    gameStore.refresh();
+    gameStore.advanceEra();
   }
 </script>
 
@@ -71,7 +52,7 @@
       </div>
       <div class="stat-box col-span-2 sm:col-span-1">
         <p class="section-label">Era</p>
-        <p class="text-lg font-bold text-paper tabular-nums">{config.eraOrder.indexOf($gameStore.currentEra) + 1}/{config.eraOrder.length}</p>
+        <p class="text-lg font-bold text-paper tabular-nums">{$gameStore.eraNumber}/{$gameStore.eraCount}</p>
       </div>
     </div>
   </div>

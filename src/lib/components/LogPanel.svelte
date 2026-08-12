@@ -25,13 +25,18 @@
 <div class="space-y-3">
   <div class="flex items-center justify-between">
     <h2 class="panel-title">Logs</h2>
-    <button class="btn btn-ghost btn-sm" onclick={toggle}>
+    <button
+      class="btn btn-ghost btn-sm"
+      aria-expanded={visible}
+      aria-controls="game-log-content"
+      onclick={toggle}
+    >
       {visible ? 'Hide' : 'Show'}
     </button>
   </div>
 
   {#if visible}
-    <div class={`grid grid-cols-1 gap-4 ${hasEvents && hasDisasters ? 'md:grid-cols-2' : ''}`}>
+    <div id="game-log-content" class={`grid grid-cols-1 gap-4 ${hasEvents && hasDisasters ? 'md:grid-cols-2' : ''}`}>
       {#if hasEvents}
         <div>
           <h3 class="section-label mb-2">Events</h3>

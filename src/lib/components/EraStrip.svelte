@@ -1,55 +1,19 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
-  import { config } from '../../../js/core/config.js';
   import { getEraProgressPercent } from '../utils/gameFormatting.js';
 
-  let eraData = $derived($gameStore.gameManager?.getCurrentEraData());
+  let eraData = $derived($gameStore.currentEraData);
 
   let progressPercent = $derived.by(() => {
     return getEraProgressPercent(eraData?.advancementCost, $gameStore.resources);
   });
 
-  let canAdvance = $derived($gameStore.gameState?.canAdvanceEra() ?? false);
-  let currentIdx = $derived(config.eraOrder.indexOf($gameStore.currentEra));
-  let highestEra = $derived($gameStore.prestige?.highestEra || $gameStore.currentEra);
-
-  let highestIdx = $derived.by(() => {
-    const bestIdx = config.eraOrder.indexOf(highestEra);
-    return Math.max(currentIdx, bestIdx >= 0 ? bestIdx : 0);
-  });
-
-  let timeline = $derived.by(() => {
-    const revealThrough = Math.min(config.eraOrder.length - 1, Math.max(currentIdx, highestIdx) + 1);
-    return config.eraOrder.slice(0, revealThrough + 1).map((eraKey, index) => {
-      const info = config.eras?.[eraKey] || config.eraData?.[eraKey] || {};
-      const unlocked = index <= highestIdx;
-      return {
-        key: eraKey,
-        index,
-        unlocked,
-        current: index === currentIdx,
-        best: index === highestIdx && highestIdx !== currentIdx,
-        name: unlocked ? (info.name || eraKey) : '?',
-        shortName: unlocked ? getShortName(info.name || eraKey) : '?',
-        timespan: unlocked ? info.timespan : '',
-      };
-    });
-  });
-
-  let timelineMinWidth = $derived.by(() => {
-    return `${Math.max(320, timeline.length * 88)}px`;
-  });
+  let canAdvance = $derived($gameStore.canAdvance);
+  let timeline = $derived($gameStore.eraTimeline);
+  let timelineMinWidth = $derived($gameStore.timelineMinWidth);
 
   function advanceEra() {
-    $gameStore.gameManager?.advanceEra();
-  }
-
-  function getShortName(name) {
-    return name
-      .replace('Age of ', '')
-      .replace(' Era', '')
-      .replace('Age', '')
-      .trim();
+    gameStore.advanceEra();
   }
 </script>
 

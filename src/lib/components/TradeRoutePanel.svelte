@@ -1,25 +1,15 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
-  import { config } from '../../../js/core/config.js';
   import { formatCost, getPurchaseButtonClasses, getResourceIcon } from '../utils/gameFormatting.js';
 
-  let trm = $derived($gameStore.gameManager?.systems?.tradeRouteManager);
-  let availableRoutes = $derived(trm?.getAvailableRoutes() || []);
+  let availableRoutes = $derived($gameStore.availableRoutes);
   let activeRoutes = $derived($gameStore.tradeRoutes?.activeRoutes || []);
-  let currentEraIdx = $derived(config.eraOrder.indexOf($gameStore.currentEra));
-
-  let nextRouteEra = $derived.by(() => {
-    const lockedRoutes = Object.values(config.tradeRoutes || [])
-      .filter((route) => config.eraOrder.indexOf(route.unlockEra) > currentEraIdx)
-      .sort((a, b) => config.eraOrder.indexOf(a.unlockEra) - config.eraOrder.indexOf(b.unlockEra));
-    return lockedRoutes[0]?.unlockEra || null;
-  });
+  let nextTradeRoute = $derived($gameStore.nextTradeRoute);
+  let activeRouteViews = $derived(availableRoutes.filter((route) => activeRoutes.includes(route.id)));
 
   function establishRoute(routeId) {
-    $gameStore.gameManager?.establishTradeRoute(routeId);
-    gameStore.refresh();
+    gameStore.establishTradeRoute(routeId);
   }
-
 </script>
 
 <div class="space-y-3">
@@ -31,26 +21,24 @@
   {#if availableRoutes.length > 0 || activeRoutes.length > 0}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {#each availableRoutes as route (route.id)}
-        {@const routeDef = config.tradeRoutes?.[route.id]}
-        {@const isActive = activeRoutes.includes(route.id)}
-        {@const canAfford = $gameStore.gameState?.canAfford(routeDef?.cost) ?? false}
+        {@const isActive = route.isActive}
         <div
           class="item-card flex flex-col"
           class:purchased={isActive}
-          class:affordable={canAfford && !isActive}
+          class:affordable={route.canUnlock && !isActive}
         >
           <div class="flex items-center gap-2 mb-1">
-            <span class="text-lg">{routeDef?.icon || '🛤️'}</span>
-            <h4 class="text-sm font-bold text-paper">{routeDef?.name || route.id}</h4>
+            <span class="text-lg">{route.icon || '🛤️'}</span>
+            <h4 class="text-sm font-bold text-paper">{route.name || route.id}</h4>
           </div>
-          <p class="text-xs text-ink-muted mb-2">{routeDef?.description}</p>
+          <p class="text-xs text-ink-muted mb-2">{route.description}</p>
 
           <div class="space-y-1 text-[0.65rem] text-ink-muted mb-3">
-            <p><span class="font-semibold">Era:</span> {routeDef?.unlockEra}</p>
-            <p><span class="font-semibold">Cost:</span> {formatCost(routeDef?.cost)}</p>
+            <p><span class="font-semibold">Era:</span> {route.unlockEra}</p>
+            <p><span class="font-semibold">Cost:</span> {formatCost(route.cost)}</p>
             <div>
               <span class="font-semibold">Bonuses:</span>
-              {#each Object.entries(routeDef?.bonuses || {}) as [resource, mult]}
+              {#each Object.entries(route.bonuses || {}) as [resource, mult]}
                 <span class="inline-block bg-paper/10 rounded px-1 mr-1">
                   {getResourceIcon(resource)} ×{mult}
                 </span>
@@ -58,14 +46,18 @@
             </div>
           </div>
 
-          {#if routeDef?.historical}
-            <p class="text-[0.6rem] text-ink-muted italic mb-2 line-clamp-2">{routeDef.historical}</p>
+          {#if route.historical}
+            <p class="text-[0.6rem] text-ink-muted italic mb-2 line-clamp-2">{route.historical}</p>
+          {/if}
+
+          {#if !isActive && !route.canUnlock && route.reason}
+            <p class="text-[0.65rem] text-warning mb-2">{route.reason}</p>
           {/if}
 
           <div class="mt-auto">
             <button
-              class="btn btn-sm w-full {getPurchaseButtonClasses(isActive, canAfford)}"
-              disabled={isActive || !canAfford}
+              class="btn btn-sm w-full {getPurchaseButtonClasses(isActive, route.canUnlock)}"
+              disabled={isActive || !route.canUnlock}
               onclick={() => establishRoute(route.id)}
             >
               {isActive ? '✓ Established' : 'Establish'}
@@ -79,10 +71,9 @@
       <div class="stat-box">
         <span class="section-label">Active Routes</span>
         <div class="flex flex-wrap gap-2 mt-1">
-          {#each activeRoutes as routeId}
-            {@const routeDef = config.tradeRoutes?.[routeId]}
+          {#each activeRouteViews as route (route.id)}
             <span class="inline-flex items-center gap-1 bg-success/20 text-success text-xs px-2 py-1 rounded">
-              {routeDef?.icon || '🛤️'} {routeDef?.name || routeId}
+              {route.icon || '🛤️'} {route.name || route.id}
             </span>
           {/each}
         </div>
@@ -91,8 +82,8 @@
   {:else}
     <div class="stat-box text-center">
       <p class="text-xs text-ink-muted">
-        {#if nextRouteEra}
-          Trade routes unlock in {config.eras[nextRouteEra]?.name || nextRouteEra}.
+        {#if nextTradeRoute}
+          Trade routes unlock in {nextTradeRoute.eraName}.
         {:else}
           No trade routes are available for the current civilization choices.
         {/if}

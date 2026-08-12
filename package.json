@@ -9,6 +9,7 @@
 		"dev": "vite",
 		"build": "vite build",
 		"test": "node --test",
+		"check": "pnpm test && pnpm build",
 		"sim:balance": "node scripts/balance-sim.js",
 		"preview": "vite preview",
 		"dev:old": "python -m http.server 8000"

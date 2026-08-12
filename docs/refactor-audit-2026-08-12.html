@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Artificial — Code Quality &amp; Refactor Audit</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page: #10131a;
+        --surface: #181d27;
+        --surface-2: #202838;
+        --ink: #edf3ff;
+        --muted: #aab5c9;
+        --line: #34415a;
+        --accent: #91d5ff;
+        --good: #72e0a3;
+        --warn: #ffd67a;
+        --danger: #ff9b9b;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: radial-gradient(circle at top right, #203454 0, var(--page) 36rem);
+        color: var(--ink);
+        font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      main { max-width: 1050px; margin: 0 auto; padding: 48px 24px 72px; }
+      header { border-bottom: 1px solid var(--line); padding-bottom: 28px; }
+      h1, h2, h3 { line-height: 1.2; }
+      h1 { font-size: clamp(2rem, 5vw, 3.5rem); margin: 10px 0; letter-spacing: -0.04em; }
+      h2 { font-size: 1.35rem; margin: 0 0 14px; }
+      h3 { font-size: 1rem; margin: 0; }
+      p { margin: 0 0 12px; }
+      section { margin-top: 34px; }
+      .eyebrow { color: var(--accent); font-size: .8rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+      .lede { max-width: 760px; color: var(--muted); font-size: 1.1rem; }
+      .meta { color: var(--muted); font-size: .9rem; }
+      .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+      .card, .finding, .check { background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--line); border-radius: 12px; padding: 17px; }
+      .card p:last-child, .finding p:last-child, .check p:last-child { margin-bottom: 0; }
+      .architecture { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #d8e9ff; background: #0e1420; border: 1px solid #334968; border-radius: 12px; padding: 18px; overflow-x: auto; white-space: pre-wrap; }
+      .finding { border-left-width: 4px; }
+      .p0 { border-left-color: var(--danger); }
+      .p1 { border-left-color: var(--warn); }
+      .p2 { border-left-color: var(--accent); }
+      .open { border-left-color: var(--muted); }
+      .finding + .finding { margin-top: 12px; }
+      .badge { display: inline-block; border-radius: 999px; font-size: .72rem; font-weight: 750; letter-spacing: .04em; padding: 3px 8px; text-transform: uppercase; }
+      .resolved { background: #163b2a; color: var(--good); }
+      .follow-up { background: #443d22; color: var(--warn); }
+      .risk { background: #472c31; color: var(--danger); }
+      code { color: #cae7ff; font: .88em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      ul { padding-left: 1.25rem; margin: 8px 0 0; }
+      li + li { margin-top: 6px; }
+      table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+      th, td { border-bottom: 1px solid var(--line); padding: 11px 10px; text-align: left; vertical-align: top; }
+      th { color: var(--muted); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; }
+      .pass { color: var(--good); font-weight: 700; }
+      .note { color: var(--muted); font-size: .92rem; }
+      details { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 15px; }
+      summary { cursor: pointer; font-weight: 700; }
+      footer { border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; margin-top: 42px; padding-top: 22px; }
+      @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Artificial · whole-app audit</p>
+        <h1>Smaller seams, fresher UI, safer saves.</h1>
+        <p class="lede">A behavior-preserving code-quality refactor across architecture, game orchestration, browser edges, Svelte UI, tests, and local developer workflows.</p>
+        <p class="meta">Completed 12 August 2026 · Scope deliberately excluded redesigns, dependency churn, migrations, and destructive product changes.</p>
+      </header>
+
+      <section>
+        <h2>Result at a glance</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>UI boundary restored</h3>
+            <p>Svelte components now render store-owned snapshots and issue store commands. They no longer reach into manager internals or poll the entire game once per second.</p>
+          </article>
+          <article class="card">
+            <h3>Concrete gameplay defects fixed</h3>
+            <p>Feature panels refresh after progression, civilization-locked trade routes stay disabled, click cooldowns are enforced by orchestration, and returning-player notices reach Svelte.</p>
+          </article>
+          <article class="card">
+            <h3>Browser edges made safer</h3>
+            <p>Save export uses live state, future schemas are rejected consistently, malformed offline timestamps cannot produce <code>NaN</code>, and unload listeners are cleaned up.</p>
+          </article>
+          <article class="card">
+            <h3>Legacy cost isolated</h3>
+            <p>The retained Bootstrap renderer is loaded only by its legacy DOM surface. Svelte’s initial JavaScript fell from 236.82 kB to 223.39 kB (68.91 kB → 65.87 kB gzip).</p>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <h2>Architecture after the refactor</h2>
+        <pre class="architecture">index.html → src/main.js → App.svelte
+                              ↓
+                         gameStore
+             snapshots + commands + domain-event subscription
+                              ↓
+                         GameManager
+       orchestration, lifecycle, game rules, presentation handoff
+                              ↓
+          GameState + resource / worker / prestige / route / wonder systems
+                              ↓
+          browser boundaries: localStorage · clipboard · offline lifecycle
+
+index.bootstrap.html → GameManager → lazy-loaded UIManager (legacy only)</pre>
+        <p class="note">The store is intentionally small: it is a presentation adapter, not a second rules engine. Provider-specific browser behavior remains at the browser-facing edge; game rules remain in orchestration and domain systems.</p>
+      </section>
+
+      <section>
+        <h2>Findings ranked by impact</h2>
+
+        <article class="finding p0">
+          <p><span class="badge risk">P0</span> <span class="badge resolved">Resolved</span></p>
+          <h3>Feature panels could stay frozen after game state changed</h3>
+          <p>Prestige, trade-route, and wonder panels derived values from a stable manager reference. Svelte did not re-run the nested derivations when manager internals changed, so availability could remain stuck until reload. The store now produces new display snapshots directly from domain events; a regression test proves a manager-backed route view updates after a civilization event.</p>
+        </article>
+
+        <article class="finding p1">
+          <p><span class="badge risk">P1</span> <span class="badge resolved">Resolved</span></p>
+          <h3>UI leaked core internals and relied on manual refreshes/polling</h3>
+          <p>Components recomputed costs, eligibility, and views through <code>GameManager</code>, <code>GameState</code>, and individual systems, then called <code>refresh()</code> selectively. This duplicated rules and obscured missing event contracts. The new store owns rendered action, worker, upgrade, prestige, route, wonder, and progression views, while components remain dumb.</p>
+        </article>
+
+        <article class="finding p1">
+          <p><span class="badge risk">P1</span> <span class="badge resolved">Resolved</span></p>
+          <h3>Several browser-boundary defects could lose feedback or progress</h3>
+          <p>Export encoded an old localStorage save instead of current memory; corrupt offline timestamps yielded <code>NaN</code>; future local schemas were accepted then could be overwritten; rejected clipboard writes were unhandled; and <code>beforeunload</code> listeners survived destruction. Each is now covered by focused tests.</p>
+        </article>
+
+        <article class="finding p1">
+          <p><span class="badge risk">P1</span> <span class="badge resolved">Resolved</span></p>
+          <h3>Displayed trade and cooldown rules were not consistently authoritative</h3>
+          <p>The trade panel enabled affordable routes even when their civilization requirement failed. It now renders the domain’s <code>canUnlock</code>/<code>reason</code>. Click cooldowns previously existed only in the component, so reloads or orchestration calls bypassed them; they now belong to <code>GameManager</code>.</p>
+        </article>
+
+        <article class="finding p1">
+          <p><span class="badge risk">P1</span> <span class="badge resolved">Resolved</span></p>
+          <h3>Legacy DOM code shipped to the Svelte application</h3>
+          <p><code>GameManager</code> statically imported the 811-line Bootstrap <code>UIManager</code>, although Vite deploys only the Svelte entry. The legacy renderer remains supported but is now dynamically imported only when its legacy DOM exists.</p>
+        </article>
+
+        <article class="finding p2">
+          <p><span class="badge">P2</span> <span class="badge resolved">Resolved</span></p>
+          <h3>Dead state and workflow friction added noise without value</h3>
+          <p>Removed confirmed-unused worker timers, configuration blocks, store exports/mutators, and CSS. Replaced the broken VS Code <code>npm run serve</code> task with pnpm tasks and added one canonical <code>pnpm check</code> command used by Jenkins and documented in the README.</p>
+        </article>
+
+        <article class="finding p2">
+          <p><span class="badge">P2</span> <span class="badge resolved">Resolved</span></p>
+          <h3>Small accessibility gaps were inexpensive to close</h3>
+          <p>Notifications now use a polite live region, the log toggle exposes its expanded state and controlled panel, motion-sensitive toast/cooldown animation is reduced, and prestige headings no longer skip levels.</p>
+        </article>
+
+        <article class="finding open">
+          <p><span class="badge follow-up">Open, intentionally</span></p>
+          <h3>The balance simulator is a drifted exploratory model</h3>
+          <p><code>scripts/balance-sim.js</code> uses different prestige, population, and worker calculations from the live game. It still passes its strict scenarios, but that is scenario feedback—not proof of production equivalence. It was not rewritten into a second engine.</p>
+        </article>
+      </section>
+
+      <section>
+        <h2>Changes made and why</h2>
+        <ul>
+          <li>Introduced one explicit game-store adapter: snapshots for rendering, commands for user actions, and event subscriptions for synchronization. This removed repeated component logic and the one-second Svelte polling loop.</li>
+          <li>Added missing domain notifications for era specialization, prestige restoration, perk purchases, and action cooldown transitions so the store can update at the source.</li>
+          <li>Buffered notifications and log entries until a presentation surface attaches, preserving the returning-player offline message in Svelte without changing offline production.</li>
+          <li>Moved configured click cooldown enforcement into orchestration, then exposed its display state through the store. The legacy DOM flow still works; Svelte no longer owns the rule.</li>
+          <li>Extracted the duplicate specialization-multiplier scan and the repeatedly allocated population-support mapping from <code>GameManager</code>.</li>
+          <li>Made save serialization reusable by local save and export, rejected newer schemas before state mutation, and handled browser failure paths cleanly.</li>
+          <li>Kept the legacy Bootstrap surface instead of deleting it. Dynamic loading prevents it from burdening the deployed Svelte entry while preserving current direct-use behavior.</li>
+          <li>Kept targeted existing tests, reduced duplicated test-environment setup, and added regressions only where a concrete defect was found.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Files touched</h2>
+        <details open>
+          <summary>Core, systems, and configuration</summary>
+          <p><code>js/GameManager.js</code>, <code>js/core/GameState.js</code>, <code>js/core/config.js</code>, <code>js/systems/EventManager.js</code>, <code>js/systems/OfflineManager.js</code>, <code>js/systems/PrestigeManager.js</code>, <code>js/systems/WorkerManager.js</code></p>
+        </details>
+        <details>
+          <summary>Svelte app, store, components, and styling</summary>
+          <p><code>src/App.svelte</code>, <code>src/app.css</code>, <code>src/lib/stores/gameStore.js</code>, <code>src/lib/components/ActionButtons.svelte</code>, <code>CivSpecializationPanel.svelte</code>, <code>EraCard.svelte</code>, <code>EraStrip.svelte</code>, <code>FlowPanel.svelte</code>, <code>LogPanel.svelte</code>, <code>NotificationToast.svelte</code>, <code>PrestigePanel.svelte</code>, <code>ResourcePanel.svelte</code>, <code>TradeRoutePanel.svelte</code>, <code>UpgradeGrid.svelte</code>, <code>WonderPanel.svelte</code>, <code>WorkerPanel.svelte</code></p>
+        </details>
+        <details>
+          <summary>Tests, local workflows, documentation, and this report</summary>
+          <p><code>tests/gameStore.test.js</code> (new), <code>tests/progressionLogic.test.js</code>, <code>tests/saveImport.test.js</code>, <code>package.json</code>, <code>.vscode/tasks.json</code>, <code>Jenkinsfile</code>, <code>README.md</code>, <code>docs/refactor-audit-2026-08-12.html</code></p>
+        </details>
+      </section>
+
+      <section>
+        <h2>Verification</h2>
+        <table>
+          <thead>
+            <tr><th>Check</th><th>Result</th><th>What it proves</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>pnpm test</code></td><td class="pass">23/23 passed</td><td>Formatting, progression, offline production, save import/export, store reactivity, presentation handoff, and cooldown contracts.</td></tr>
+            <tr><td><code>pnpm build</code></td><td class="pass">Passed</td><td>Svelte compilation and production bundle generation, including the lazy legacy chunk.</td></tr>
+            <tr><td><code>pnpm sim:balance -- --strict</code></td><td class="pass">Passed; no warnings</td><td>Current exploratory scenarios remain runnable. It is explicitly not treated as runtime-equivalence proof.</td></tr>
+            <tr><td><code>git diff --check</code></td><td class="pass">Passed</td><td>No whitespace errors in the local change set.</td></tr>
+            <tr><td>Vite dev response</td><td class="pass">Passed</td><td>The development entry served the expected application shell at localhost.</td></tr>
+          </tbody>
+        </table>
+        <p class="note">The collaborative browser preview could not attach despite retries, so no visual-browser claim is made. Build output and the local development response were verified instead.</p>
+      </section>
+
+      <section>
+        <h2>Worthwhile follow-ups deliberately left out of scope</h2>
+        <ul>
+          <li><strong>Decide whether to retire the legacy Bootstrap/Rollup app.</strong> It is stale relative to Svelte, but removal changes a potentially supported surface and needs explicit product approval.</li>
+          <li><strong>Consolidate browser persistence behind a small save adapter.</strong> The safety fixes are in place, but moving all localStorage/clipboard/offline ownership at once would be a larger boundary change than necessary here.</li>
+          <li><strong>Make one era-metadata source canonical.</strong> <code>config.eras</code> and <code>config.eraData</code> duplicate some user-facing copy; choosing a source requires editorial/product judgment.</li>
+          <li><strong>Clarify or retire the balance simulator.</strong> If it should guide balancing, share individually tested pure formulas with production incrementally—do not create a generic second runtime.</li>
+          <li><strong>Pin Jenkins deployment to the verified SHA.</strong> The current deploy stage independently fetches <code>origin/main</code>, so a later push could deploy a different commit. This is an infrastructure change and was left untouched.</li>
+          <li><strong>Add product-approved import recovery and startup-error UX.</strong> Import currently overwrites the run after validation, and an initialization rejection can leave the loading screen visible. Both are user-facing behavior decisions.</li>
+          <li><strong>Do not start a TypeScript migration by default.</strong> The app has no TypeScript source or tsconfig. Adding one would be churn, not a proportionate quality fix.</li>
+        </ul>
+      </section>
+
+      <footer>
+        This audit favored the smallest model that makes the actual behavior obvious: dumb UI, explicit adapter boundary, pure-ish orchestration, and browser-specific complexity at the edge.
+      </footer>
+    </main>
+  </body>
+</html>

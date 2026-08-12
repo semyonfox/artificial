@@ -590,75 +590,6 @@ export const config = {
     ],
   },
 
-  // Worker automation timers (ms) - kept for backward compat, actual intervals in eraData
-  workerTimers: {
-    gatherer: 4000,
-    hunter: 6000,
-    cook: 3000,
-    craftsman: 10000,
-    farmer: 8000,
-    miner: 12000,
-    scholar: 20000,
-    engineer: 25000,
-    potter: 6000,
-    herder: 10000,
-    metalworker: 12000,
-    scribe: 15000,
-    merchant: 10000,
-    blacksmith: 10000,
-    architect: 15000,
-    philosopher: 18000,
-    physician: 20000,
-    miller: 10000,
-    monk: 15000,
-    guildMaster: 12000,
-    printer: 8000,
-    explorer: 15000,
-    banker: 10000,
-    // Enlightenment
-    academic: 15000,
-    clockmaker: 12000,
-    colonist: 18000,
-    naturalist: 15000,
-    // Industrial
-    factoryWorker: 8000,
-    inventor: 12000,
-    railwayWorker: 10000,
-    // Electric Age
-    electrician: 8000,
-    chemist: 12000,
-    autoWorker: 10000,
-    steelworker: 10000,
-    // Atomic Age
-    nuclearPhysicist: 15000,
-    pilot: 10000,
-    radarOperator: 12000,
-    petrochemist: 12000,
-    // Information
-    programmer: 6000,
-    networkEngineer: 10000,
-    // Space
-    astronaut: 15000,
-    rocketEngineer: 12000,
-    fusionScientist: 18000,
-    // Galactic
-    dysonBuilder: 20000,
-    quantumResearcher: 18000,
-    antimatterEngineer: 15000,
-    // Universal
-    realityArchitect: 20000,
-    multiverseNavigator: 15000,
-    consciousnessEngineer: 18000,
-  },
-
-  // Base resource yields
-  yields: {
-    huntYield: 2,
-    forageYield: 1,
-    stickYield: 1,
-    stoneYield: 1,
-  },
-
   // Probability values for random events
   probabilities: {
     burnChance: 0.3,
@@ -678,27 +609,10 @@ export const config = {
     populationGrowth: 1,
   },
 
-  // UI configuration
-  ui: {
-    notificationDuration: 2000, // Reduced from 3000 to 2000
-    progressAnimationSpeed: 200,
-  },
-
   // Save/load settings
   storage: {
     saveKey: "evolutionClickerSave",
     autoSaveInterval: 30000,
-  },
-
-  // Worker bonuses and efficiency multipliers (kept small)
-  workerBonuses: {
-    gathering: 0.5,
-    hunting: 0.8,
-    cooking: 0.3,
-    farming: 1.0,
-    crafting: 0.7,
-    scholarly: 1.2,
-    engineering: 1.5,
   },
 
   // Resource efficiency multipliers by upgrade (keep tight)

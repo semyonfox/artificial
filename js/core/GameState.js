@@ -760,15 +760,22 @@ export class GameState {
   }
 
   /**
+   * Create the sanitized representation shared by browser save and export.
+   */
+  getSaveData() {
+    this.compactRunState();
+    return {
+      ...this.data,
+      lastSave: Date.now(),
+    };
+  }
+
+  /**
    * Save game state to localStorage
    */
   save() {
     try {
-      this.compactRunState();
-      const saveData = {
-        ...this.data,
-        lastSave: Date.now(),
-      };
+      const saveData = this.getSaveData();
 
       localStorage.setItem(config.storage.saveKey, JSON.stringify(saveData));
       this.lastSave = Date.now();
@@ -804,6 +811,10 @@ export class GameState {
     }
 
     const initial = this.createInitialState();
+    const importedSchemaVersion = Number(parsedData.schemaVersion);
+    if (Number.isFinite(importedSchemaVersion) && importedSchemaVersion > initial.schemaVersion) {
+      throw new Error(`Unsupported save schema version: ${parsedData.schemaVersion}`);
+    }
 
     // Shallow merge top-level known fields only. Unknown import keys are ignored
     // so malformed saves cannot persist arbitrary object shapes.

@@ -156,13 +156,14 @@ export class PrestigeManager {
 	/**
 	 * Attempt to buy a perk. Returns success.
 	 */
-	purchasePerk(perkId) {
-		if (!this.isPerkAvailable(perkId)) return false;
-		const perk = config.prestigeTalentTree.find((p) => p.id === perkId);
-		const prestige = this.getPrestigeData();
-		prestige.evolutionPoints -= perk.cost;
-		prestige.purchasedPerks.push(perkId);
-		return true;
+  purchasePerk(perkId) {
+    if (!this.isPerkAvailable(perkId)) return false;
+    const perk = config.prestigeTalentTree.find((p) => p.id === perkId);
+    const prestige = this.getPrestigeData();
+    prestige.evolutionPoints -= perk.cost;
+    prestige.purchasedPerks.push(perkId);
+    this.gameState.notifyListeners('prestigeChange', { prestige });
+    return true;
 	}
 
 	hasPerk(perkId) {
@@ -278,9 +279,10 @@ export class PrestigeManager {
 		this.gameState.reset();
 
 		// restore carry-over
-		this.gameState.data.prestige = prestigeData;
-		this.gameState.data.progression.achievements = achievements;
-		this.gameState.data.settings = settings;
+    this.gameState.data.prestige = prestigeData;
+    this.gameState.data.progression.achievements = achievements;
+    this.gameState.data.settings = settings;
+    this.gameState.notifyListeners('prestigeChange', { prestige: prestigeData });
 
 		this.applyPrestigePerks();
 		return epGain;

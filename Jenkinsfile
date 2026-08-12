@@ -28,15 +28,9 @@ pipeline {
       }
     }
 
-    stage('Build') {
+    stage('Verify') {
       steps {
-        sh 'pnpm run build'
-      }
-    }
-
-    stage('Test') {
-      steps {
-        sh 'pnpm run test'
+        sh 'pnpm run check'
       }
     }
 

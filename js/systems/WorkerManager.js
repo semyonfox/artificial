@@ -19,7 +19,6 @@ export class WorkerManager {
 		this.uiManager = null;
 		this.gameManager = null;
 		this.workerIntervals = new Map();
-		this.workerTimers = new Map();
 
 		// accumulate fractional production so small yields add up
 		this.productionRemainders = {};
@@ -45,10 +44,6 @@ export class WorkerManager {
 		} else {
 			this.uiManager?.showNotification(message, type, duration);
 		}
-	}
-
-	update(deltaTime) {
-		// intervals handle production; no per-frame logic needed
 	}
 
 	/**
@@ -373,7 +368,6 @@ export class WorkerManager {
 
 	resetRunState() {
 		this.stopAllWorkers();
-		this.workerTimers.clear();
 		this.productionRemainders = {};
 		this.workCycleCounts = {};
 		this.lastFoodStatusByWorker = {};

@@ -7,11 +7,6 @@
     getResourceIcon,
   } from '../utils/gameFormatting.js';
 
-  function getSoftCapMultiplier(key) {
-    const gm = $gameStore.gameManager;
-    return gm?.systems?.workerManager?.getSoftCapMultiplier?.(key) ?? 1;
-  }
-
   let relevantResources = $derived(getRelevantResources($gameStore.currentEra));
 
   let visibleResources = $derived(
@@ -23,7 +18,7 @@
         return relevantResources.has(key);
       })
       .map(([key, value]) => {
-        const capMult = getSoftCapMultiplier(key);
+        const capMult = $gameStore.resourceSoftCapMultipliers[key] ?? 1;
         const lifetime = $gameStore.lifetimeProduced?.[key] || 0;
         return {
           key,

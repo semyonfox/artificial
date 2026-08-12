@@ -26,9 +26,10 @@ pnpm dev
 ## Validate
 
 ```bash
-pnpm test
-pnpm build
+pnpm check
 ```
+
+Run `pnpm test` or `pnpm build` individually when iterating on a focused change.
 
 ## Repository map
 

@@ -16,7 +16,12 @@
   }
 </script>
 
-<div class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-sm">
+<div
+  class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-sm"
+  role="status"
+  aria-live="polite"
+  aria-atomic="true"
+>
   {#each $gameStore.notifications as notif (notif.id)}
     <div
       class="px-4 py-3 rounded-lg shadow-xl shadow-black/30 border backdrop-blur-sm
@@ -41,5 +46,11 @@
 
   .animate-slide-in {
     animation: slide-in 0.3s ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-slide-in {
+      animation: none;
+    }
   }
 </style>

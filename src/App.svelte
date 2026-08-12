@@ -22,7 +22,6 @@
 
   onMount(() => {
     const gm = new GameManager();
-    let interval = null;
     let destroyed = false;
 
     gm.initPromise.then(() => {
@@ -33,12 +32,6 @@
 
       gameStore.initialize(gm);
       loading = false;
-
-      interval = setInterval(() => {
-        if (gm.initialized) {
-          gameStore.refresh();
-        }
-      }, 1000);
     });
 
     if (import.meta.env.DEV) {
@@ -47,10 +40,10 @@
 
     return () => {
       destroyed = true;
-      if (interval) clearInterval(interval);
       if (window.game === gm) {
         delete window.game;
       }
+      gameStore.dispose(gm);
       gm.destroy();
     };
   });
