@@ -151,6 +151,12 @@
           <h3>Developer and deployment workflows had misleading paths</h3>
           <p>The VS Code task referenced a nonexistent command; a canonical <code>pnpm check</code> replaces it. Jenkins now deploys the exact commit it verified rather than whatever reaches <code>origin/main</code> later in the run.</p>
         </article>
+
+        <article class="finding p1">
+          <p><span class="badge risk">P1</span> <span class="badge resolved">Resolved</span></p>
+          <h3>A high transitive package alert remained after the refactor</h3>
+          <p><code>postcss</code> resolved <code>nanoid@3.3.16</code>, below the patched 3.3.17 release. A pnpm workspace override now pins the compatible fixed patch without upgrading the app's direct dependencies; the production audit returns zero findings.</p>
+        </article>
       </section>
 
       <section>
@@ -163,6 +169,7 @@
           <li>Retired the unsupported Bootstrap/Rollup surface and the drifted balance simulator instead of maintaining parallel implementations. Removed only dependencies used exclusively by those paths.</li>
           <li>Canonicalized era data with the live player-facing metadata preserved, then migrated every runtime consumer.</li>
           <li>Removed confirmed-unused helpers, timers, adapters, store exports, CSS, and unreferenced historical plans. Improved accessible status/error feedback and reduced-motion behavior.</li>
+          <li>Resolved the remaining high transitive security alert with a compatible <code>nanoid@3.3.17</code> workspace override, avoiding a broad dependency update.</li>
         </ul>
       </section>
 
@@ -174,7 +181,7 @@
         </details>
         <details>
           <summary>Svelte, tests, and developer workflow</summary>
-          <p><code>src/App.svelte</code>, <code>src/lib/stores/gameStore.js</code>, <code>ActionButtons.svelte</code>, <code>EraCard.svelte</code>, <code>NotificationToast.svelte</code>, <code>tests/gameStore.test.js</code>, <code>tests/progressionLogic.test.js</code>, <code>tests/saveImport.test.js</code>, <code>README.md</code>, <code>package.json</code>, <code>pnpm-lock.yaml</code>, and <code>Jenkinsfile</code>.</p>
+          <p><code>src/App.svelte</code>, <code>src/lib/stores/gameStore.js</code>, <code>ActionButtons.svelte</code>, <code>EraCard.svelte</code>, <code>NotificationToast.svelte</code>, <code>tests/gameStore.test.js</code>, <code>tests/progressionLogic.test.js</code>, <code>tests/saveImport.test.js</code>, <code>README.md</code>, <code>package.json</code>, <code>pnpm-workspace.yaml</code>, <code>pnpm-lock.yaml</code>, and <code>Jenkinsfile</code>.</p>
         </details>
         <details>
           <summary>Retired obsolete paths</summary>
@@ -192,10 +199,20 @@
             <tr><td><code>pnpm check</code></td><td class="pass">28/28 tests + production build passed</td><td>Formatting, progression, offline production, cleanup, import/export/recovery, cooldown rules, store reactivity, and Svelte compilation.</td></tr>
             <tr><td><code>pnpm test -- tests/gameStore.test.js tests/saveImport.test.js tests/progressionLogic.test.js</code></td><td class="pass">22/22 passed</td><td>Focused coverage of the most consequential behavior changes.</td></tr>
             <tr><td><code>pnpm install --frozen-lockfile --offline --ignore-scripts</code></td><td class="pass">Passed</td><td>The reduced lockfile resolves reproducibly without the retired direct dependencies.</td></tr>
+            <tr><td><code>pnpm audit --prod</code></td><td class="pass">0 vulnerabilities</td><td>The high transitive <code>nanoid</code> alert is resolved by the compatible pinned patch.</td></tr>
             <tr><td><code>node --check</code> on changed core modules and <code>git diff --check</code></td><td class="pass">Passed</td><td>Syntax and whitespace sanity for the changed boundary/orchestration code.</td></tr>
           </tbody>
         </table>
         <p class="note">The collaborative browser preview was unavailable despite retries, so no visual-browser assertion is claimed. The production bundle contains one Svelte entry (221.42 kB / 65.31 kB gzip); no legacy renderer chunk remains. Jenkins/Groovy was reviewed but could not be executed locally because that runtime is not installed.</p>
+      </section>
+
+      <section>
+        <h2>Delivery and repository hygiene</h2>
+        <ul>
+          <li>The refactor and the rebased pinned-Node Docker refresh were reviewed, checked, and merged to the fork's <code>main</code> branch through PRs #35 and #34; no upstream remote was used.</li>
+          <li>Two clean obsolete worktrees, nine stale local branches, and one superseded remote Docker branch were removed only after confirming their merged PR history or obsolete legacy dependency.</li>
+          <li>The repository now has one local worktree on current <code>main</code>, no stale remote topic branches, and no stashes. Unreachable Git recovery objects were deliberately left for normal retention rather than destructively garbage-collected.</li>
+        </ul>
       </section>
 
       <section>
