@@ -14,11 +14,16 @@ import { config } from '../core/config.js';
 const ERA_ORDER = config.eraOrder;
 
 export class OfflineManager {
-	constructor(gameState) {
+	constructor(gameState, persistence = gameState.persistence) {
 		this.gameState = gameState;
-		window.addEventListener('beforeunload', () => {
-			localStorage.setItem('lastActive', Date.now().toString());
-		});
+		this.persistence = persistence;
+		this.browserWindow = typeof window === 'undefined' ? null : window;
+		this.beforeUnloadHandler = () => this.recordLastActive();
+		this.browserWindow?.addEventListener('beforeunload', this.beforeUnloadHandler);
+	}
+
+	recordLastActive() {
+		this.persistence.writeLastActive(Date.now());
 	}
 
 	/**
@@ -40,14 +45,21 @@ export class OfflineManager {
 	 * Apply offline production. Returns summary or null if nothing happened.
 	 */
 	applyOfflineProduction(gameManager) {
-		const lastActive = localStorage.getItem('lastActive');
-		if (!lastActive) {
-			localStorage.setItem('lastActive', Date.now().toString());
+		const now = Date.now();
+		const savedLastActive = this.persistence.readLastActive();
+		if (!savedLastActive) {
+			this.persistence.writeLastActive(now);
 			return null;
 		}
 
-		const offlineMs = Date.now() - parseInt(lastActive);
-		localStorage.setItem('lastActive', Date.now().toString());
+		const lastActive = Number(savedLastActive);
+		if (!Number.isFinite(lastActive) || lastActive <= 0 || lastActive > now) {
+			this.persistence.writeLastActive(now);
+			return null;
+		}
+
+		const offlineMs = now - lastActive;
+		this.persistence.writeLastActive(now);
 		if (offlineMs < 60000) return null; // ignore <1 minute
 
 		const pm = gameManager.systems?.prestigeManager;
@@ -191,5 +203,9 @@ export class OfflineManager {
 		const newPop = Math.min(currentPop + growth, maxPop);
 		const actualGrowth = newPop - currentPop;
 		if (actualGrowth > 0) this.gameState.addResource('population', actualGrowth);
+	}
+
+	destroy() {
+		this.browserWindow?.removeEventListener('beforeunload', this.beforeUnloadHandler);
 	}
 }

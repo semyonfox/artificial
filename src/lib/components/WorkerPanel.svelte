@@ -2,21 +2,15 @@
   import { gameStore } from '../stores/gameStore.js';
   import { formatCost, formatResourceName } from '../utils/gameFormatting.js';
 
-  let eraData = $derived($gameStore.gameManager?.getCurrentEraData());
-  let workerDefs = $derived(eraData?.workers || []);
-
-  function getWorkerInfo(workerId) {
-    return $gameStore.gameManager?.systems?.workerManager?.getWorkerInfo(workerId);
-  }
+  let workerDefs = $derived($gameStore.workerViews);
 
   function hireWorker(workerId) {
-    $gameStore.gameManager?.hireWorker(workerId);
-    gameStore.refresh();
+    gameStore.hireWorker(workerId);
   }
 
   let workerStatus = $derived(() => {
     const entries = Object.entries($gameStore.workers).filter(([_, count]) => count > 0);
-    const available = Math.floor($gameStore.gameState?.getAvailablePopulation?.() ?? ($gameStore.resources.population || 0));
+    const available = $gameStore.availablePopulation;
     if (entries.length === 0) return `Available population: ${available}`;
     return `${entries.map(([type, count]) => `${formatResourceName(type)}: ${count}`).join(', ')} - Available: ${available}`;
   });
@@ -30,13 +24,12 @@
 
   <div class="space-y-3">
     {#each workerDefs as worker (worker.id)}
-      {@const info = getWorkerInfo(worker.id)}
-      {@const workerCount = info?.count || 0}
-      {@const actualCost = info?.cost || worker.cost}
-      {@const canAfford = $gameStore.gameState?.canAfford(actualCost) ?? false}
-      {@const hasRequiredUpgrade = info?.requirementMet ?? true}
-      {@const hasPopulation = info?.hasAvailablePopulation ?? true}
-      {@const canHire = canAfford && hasRequiredUpgrade && hasPopulation}
+      {@const workerCount = worker.count || 0}
+      {@const actualCost = worker.cost}
+      {@const canAfford = worker.canAfford}
+      {@const hasRequiredUpgrade = worker.requirementMet}
+      {@const hasPopulation = worker.hasAvailablePopulation}
+      {@const canHire = worker.canHire}
 
       <div class="item-card" class:locked={!hasRequiredUpgrade}>
         <div class="flex justify-between gap-3">
@@ -48,9 +41,9 @@
               <span>Cost: {formatCost(actualCost)}</span>
               <span class="flex items-center gap-1">
                 Owned: {workerCount}
-                {#if workerCount > 0 && info}
-                  {@const eff = info.efficiencyPct || 100}
-                  {@const foodStatus = info.foodStatus || 'wellFed'}
+                {#if workerCount > 0}
+                  {@const eff = worker.efficiencyPct || 100}
+                  {@const foodStatus = worker.foodStatus || 'wellFed'}
                   <span
                     class="font-medium"
                     class:text-success={foodStatus === 'wellFed'}

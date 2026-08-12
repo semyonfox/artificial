@@ -16,10 +16,8 @@ import { getEraIndex, scaleCost } from '../core/resourceUtils.js';
 export class WorkerManager {
 	constructor(gameState) {
 		this.gameState = gameState;
-		this.uiManager = null;
 		this.gameManager = null;
 		this.workerIntervals = new Map();
-		this.workerTimers = new Map();
 
 		// accumulate fractional production so small yields add up
 		this.productionRemainders = {};
@@ -31,24 +29,12 @@ export class WorkerManager {
 		this.lastFoodStatusByWorker = {};
 	}
 
-	setUIManager(uiManager) {
-		this.uiManager = uiManager;
-	}
-
 	setGameManager(gameManager) {
 		this.gameManager = gameManager;
 	}
 
 	notify(message, type = 'info', duration = 2000) {
-		if (this.gameManager) {
-			this.gameManager.showNotification(message, type, duration);
-		} else {
-			this.uiManager?.showNotification(message, type, duration);
-		}
-	}
-
-	update(deltaTime) {
-		// intervals handle production; no per-frame logic needed
+		this.gameManager?.showNotification(message, type, duration);
 	}
 
 	/**
@@ -373,7 +359,6 @@ export class WorkerManager {
 
 	resetRunState() {
 		this.stopAllWorkers();
-		this.workerTimers.clear();
 		this.productionRemainders = {};
 		this.workCycleCounts = {};
 		this.lastFoodStatusByWorker = {};

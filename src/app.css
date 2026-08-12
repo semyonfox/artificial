@@ -136,15 +136,4 @@
     @apply h-full bg-gradient-to-r from-accent to-warning rounded-full transition-all duration-300;
   }
 
-  .tooltip {
-    @apply absolute z-50 px-2 py-1 text-xs bg-surface-3 border border-ink/20 rounded shadow-lg
-           opacity-0 invisible group-hover:opacity-100 group-hover:visible
-           transition-all duration-150;
-  }
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
 }

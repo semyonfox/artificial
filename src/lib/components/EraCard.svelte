@@ -2,8 +2,8 @@
   import { gameStore } from '../stores/gameStore.js';
   import { formatAdvancementProgress, getEraProgressPercent } from '../utils/gameFormatting.js';
 
-  let eraData = $derived($gameStore.gameManager?.getCurrentEraData());
-  let canAdvance = $derived($gameStore.gameState?.canAdvanceEra() ?? false);
+  let eraData = $derived($gameStore.currentEraData);
+  let canAdvance = $derived($gameStore.canAdvance);
 
   let progressPercent = $derived.by(() => {
     return getEraProgressPercent(eraData?.advancementCost, $gameStore.resources);
@@ -14,24 +14,28 @@
   });
 
   function advanceEra() {
-    $gameStore.gameManager?.advanceEra();
+    gameStore.advanceEra();
   }
 
   function saveGame() {
-    $gameStore.gameManager?.saveGame();
+    gameStore.saveGame();
   }
 
   function exportSave() {
-    $gameStore.gameManager?.exportSave();
+    gameStore.exportSave();
   }
 
   function importSave() {
     const encoded = prompt('Paste your exported save data:');
-    if (encoded) $gameStore.gameManager?.importSave(encoded);
+    if (encoded) gameStore.importSave(encoded);
   }
 
   function resetGame() {
-    $gameStore.gameManager?.resetGame();
+    gameStore.resetGame();
+  }
+
+  function restoreImportBackup() {
+    gameStore.restoreImportBackup();
   }
 </script>
 
@@ -67,4 +71,9 @@
     <button class="btn btn-ghost btn-sm" onclick={importSave}>Import</button>
     <button class="btn btn-danger btn-sm" onclick={resetGame}>Reset</button>
   </div>
+  {#if $gameStore.hasImportBackup}
+    <button class="btn btn-secondary btn-sm w-full mt-2" onclick={restoreImportBackup}>
+      Restore pre-import save
+    </button>
+  {/if}
 </section>

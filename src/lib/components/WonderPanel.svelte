@@ -1,20 +1,16 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
-  import { config } from '../../../js/core/config.js';
   import { formatCost, getPurchaseButtonClasses, getResourceIcon } from '../utils/gameFormatting.js';
 
-  let wm = $derived($gameStore.gameManager?.systems?.wonderManager);
-  let availableWonders = $derived(wm?.getAvailableWonders() || []);
+  let availableWonders = $derived($gameStore.availableWonders);
   let builtWonders = $derived($gameStore.wonders?.built || []);
-  let currentEraIdx = $derived(config.eraOrder.indexOf($gameStore.currentEra));
-  let bronzeIdx = $derived(config.eraOrder.indexOf('bronze'));
-  let hasChosenCiv = $derived(Object.keys($gameStore.civSpecializations || {}).length > 0);
+  let builtWonderViews = $derived(availableWonders.filter((wonder) => builtWonders.includes(wonder.id)));
+  let isBronzeOrLater = $derived($gameStore.isBronzeOrLater);
+  let hasChosenCiv = $derived($gameStore.hasCivSpecialization);
 
   function buildWonder(wonderId) {
-    $gameStore.gameManager?.buildWonder(wonderId);
-    gameStore.refresh();
+    gameStore.buildWonder(wonderId);
   }
-
 </script>
 
 <div class="space-y-3">
@@ -27,10 +23,9 @@
     <div class="stat-box">
       <span class="section-label">Built Wonders ({builtWonders.length})</span>
       <div class="flex flex-wrap gap-2 mt-2">
-        {#each builtWonders as wonderId}
-          {@const wonderDef = config.wonders?.[wonderId]}
-          <span class="inline-flex items-center gap-1 bg-success/20 text-success text-xs px-2 py-1 rounded" title={wonderDef?.name || wonderId}>
-            {wonderDef?.icon || '🏛️'} {wonderDef?.name || wonderId}
+        {#each builtWonderViews as wonder (wonder.id)}
+          <span class="inline-flex items-center gap-1 bg-success/20 text-success text-xs px-2 py-1 rounded" title={wonder.name || wonder.id}>
+            {wonder.icon || '🏛️'} {wonder.name || wonder.id}
           </span>
         {/each}
       </div>
@@ -40,12 +35,11 @@
   {#if availableWonders.length > 0}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {#each availableWonders as wonder (wonder.id)}
-        {@const isBuilt = builtWonders.includes(wonder.id)}
-        {@const canAfford = $gameStore.gameState?.canAfford(wonder.cost) ?? false}
+        {@const isBuilt = wonder.isBuilt}
         <div
           class="item-card flex flex-col"
           class:purchased={isBuilt}
-          class:affordable={canAfford && !isBuilt}
+          class:affordable={wonder.canBuild && !isBuilt}
         >
           <div class="flex items-center gap-2 mb-1">
             <span class="text-xl">{wonder.icon || '🏛️'}</span>
@@ -75,8 +69,8 @@
 
           <div class="mt-auto">
             <button
-              class="btn btn-sm w-full {getPurchaseButtonClasses(isBuilt, canAfford)}"
-              disabled={isBuilt || !canAfford}
+              class="btn btn-sm w-full {getPurchaseButtonClasses(isBuilt, wonder.canBuild)}"
+              disabled={isBuilt || !wonder.canBuild}
               onclick={() => buildWonder(wonder.id)}
             >
               {isBuilt ? '✓ Built' : 'Build Wonder'}
@@ -88,7 +82,7 @@
   {:else if builtWonders.length === 0}
     <div class="stat-box text-center">
       <p class="text-xs text-ink-muted">
-        {#if currentEraIdx < bronzeIdx}
+        {#if !isBronzeOrLater}
           Advance to Bronze Age to unlock wonders.
         {:else if !hasChosenCiv}
           Choose a civilization path to reveal its wonders.

@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Artificial — Completed Code Quality Audit</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page: #10131a;
+        --surface: #181d27;
+        --surface-2: #202838;
+        --ink: #edf3ff;
+        --muted: #aab5c9;
+        --line: #34415a;
+        --accent: #91d5ff;
+        --good: #72e0a3;
+        --warn: #ffd67a;
+        --danger: #ff9b9b;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: radial-gradient(circle at top right, #203454 0, var(--page) 36rem);
+        color: var(--ink);
+        font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      main { max-width: 1050px; margin: 0 auto; padding: 48px 24px 72px; }
+      header { border-bottom: 1px solid var(--line); padding-bottom: 28px; }
+      h1, h2, h3 { line-height: 1.2; }
+      h1 { font-size: clamp(2rem, 5vw, 3.5rem); margin: 10px 0; letter-spacing: -.04em; }
+      h2 { font-size: 1.35rem; margin: 0 0 14px; }
+      h3 { font-size: 1rem; margin: 0; }
+      p { margin: 0 0 12px; }
+      section { margin-top: 34px; }
+      .eyebrow { color: var(--accent); font-size: .8rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+      .lede { max-width: 790px; color: var(--muted); font-size: 1.1rem; }
+      .meta, .note { color: var(--muted); font-size: .92rem; }
+      .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+      .card, .finding, .check, details { background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--line); border-radius: 12px; padding: 17px; }
+      .card p:last-child, .finding p:last-child, .check p:last-child { margin-bottom: 0; }
+      .architecture { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #d8e9ff; background: #0e1420; border: 1px solid #334968; border-radius: 12px; padding: 18px; overflow-x: auto; white-space: pre-wrap; }
+      .finding { border-left-width: 4px; }
+      .p0 { border-left-color: var(--danger); }
+      .p1 { border-left-color: var(--warn); }
+      .p2 { border-left-color: var(--accent); }
+      .finding + .finding { margin-top: 12px; }
+      .badge { display: inline-block; border-radius: 999px; font-size: .72rem; font-weight: 750; letter-spacing: .04em; padding: 3px 8px; text-transform: uppercase; }
+      .resolved { background: #163b2a; color: var(--good); }
+      .risk { background: #472c31; color: var(--danger); }
+      code { color: #cae7ff; font: .88em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      ul { padding-left: 1.25rem; margin: 8px 0 0; }
+      li + li { margin-top: 6px; }
+      table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+      th, td { border-bottom: 1px solid var(--line); padding: 11px 10px; text-align: left; vertical-align: top; }
+      th { color: var(--muted); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; }
+      .pass { color: var(--good); font-weight: 700; }
+      summary { cursor: pointer; font-weight: 700; }
+      footer { border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; margin-top: 42px; padding-top: 22px; }
+      @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Artificial · whole-app audit and follow-through</p>
+        <h1>One app, one source of truth, safer browser edges.</h1>
+        <p class="lede">A completed, behavior-preserving quality refactor across orchestration, Svelte presentation, saves, local workflows, configuration, tests, and retired legacy paths.</p>
+        <p class="meta">Completed 12 August 2026 · The balance redesign, a TypeScript migration, and dependency churn were deliberately excluded.</p>
+      </header>
+
+      <section>
+        <h2>Result at a glance</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>One supported application</h3>
+            <p>The stale Bootstrap/Rollup entry, renderer, styles, and duplicate simulator are retired. Vite/Svelte is the only runtime surface.</p>
+          </article>
+          <article class="card">
+            <h3>UI is a real boundary</h3>
+            <p>Components render store-owned snapshots and issue commands. The store reacts to domain events without polling or reaching through manager internals.</p>
+          </article>
+          <article class="card">
+            <h3>Saves fail safely</h3>
+            <p>Browser APIs live in a small adapter; import validates before confirmation, keeps a one-level recovery point, and restores it only after revalidation.</p>
+          </article>
+          <article class="card">
+            <h3>Live data is authoritative</h3>
+            <p><code>eraData</code> is the sole era definition. The prior player-facing names, descriptions, and timespans were retained exactly while duplicate data disappeared.</p>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <h2>Architecture after the refactor</h2>
+        <pre class="architecture">index.html → src/main.js → App.svelte
+                              ↓
+                         gameStore
+            display snapshots + commands + event subscription
+                              ↓
+                         GameManager
+              rules, lifecycle, orchestration, cooldowns
+                              ↓
+       GameState + resource / worker / prestige / route / wonder systems
+                              ↓
+       BrowserSaveAdapter + OfflineManager (storage, clipboard, confirmation)</pre>
+        <p class="note">The store is intentionally a thin presentation adapter—not a duplicate game engine. Provider-specific browser behavior stays at the edge; rules remain in the game layer.</p>
+      </section>
+
+      <section>
+        <h2>Findings ranked by impact</h2>
+
+        <article class="finding p0">
+          <p><span class="badge risk">P0</span> <span class="badge resolved">Resolved</span></p>
+          <h3>Manager-backed Svelte panels could freeze after progression</h3>
+          <p>Trade, wonder, and prestige values were derived through stable manager references, so nested mutations did not reliably invalidate Svelte computations. The store now emits fresh display snapshots from domain events. A regression test proves a civilization-gated route updates without a reload.</p>
+        </article>
+
+        <article class="finding p1">
+          <p><span class="badge risk">P1</span> <span class="badge resolved">Resolved</span></p>
+          <h3>Presentation duplicated rules and depended on polling</h3>
+          <p>Components computed affordability, costs, eligibility, and availability through core internals, then manually refreshed. The store now owns rendered action, worker, upgrade, prestige, route, wonder, and progression views. Synchronous passive events are coalesced to one snapshot while commands remain immediately current.</p>
+        </article>
+
+        <article class="finding p1">
+          <p><span class="badge risk">P1</span> <span class="badge resolved">Resolved</span></p>
+          <h3>Save, offline, and startup failure paths could lose state or feedback</h3>
+          <p>Export could serialize a stale persisted save; future schemas could be overwritten; malformed offline timestamps produced <code>NaN</code>; clipboard rejection was unhandled; unload listeners leaked; and startup failures left an indefinite spinner. The browser adapter, validation guard, named cleanup, recovery UI, and focused tests close those paths.</p>
+        </article>
+
+        <article class="finding p1">
+          <p><span class="badge risk">P1</span> <span class="badge resolved">Resolved</span></p>
+          <h3>Import overwrote a run with no undo path</h3>
+          <p>A valid import is now sanitized before a clear confirmation. The current in-memory run and offline timestamp become a one-level backup; restoring it also validates through <code>GameState</code>, reloads runtime timers, and consumes the backup. This adds recovery without introducing a save-history system.</p>
+        </article>
+
+        <article class="finding p1">
+          <p><span class="badge risk">P1</span> <span class="badge resolved">Resolved</span></p>
+          <h3>Two obsolete app paths and a parallel simulator created drift</h3>
+          <p>The deployed Vite entry never used the Bootstrap page, yet the 811-line renderer was still bundled. The old screen, Rollup setup, styles, stale plans, and simulator are removed. The simulator used incompatible prestige, population, and worker maths; the live configuration is now the only logical source of behavior.</p>
+        </article>
+
+        <article class="finding p2">
+          <p><span class="badge">P2</span> <span class="badge resolved">Resolved</span></p>
+          <h3>Era metadata had two conflicting authors</h3>
+          <p><code>config.eras</code> duplicated a subset of <code>config.eraData</code>, and their prose and timespans disagreed. All consumers now read the complete canonical record. A test guards every ordered era and confirms the duplicate map stays absent.</p>
+        </article>
+
+        <article class="finding p2">
+          <p><span class="badge">P2</span> <span class="badge resolved">Resolved</span></p>
+          <h3>Developer and deployment workflows had misleading paths</h3>
+          <p>The VS Code task referenced a nonexistent command; a canonical <code>pnpm check</code> replaces it. Jenkins now deploys the exact commit it verified rather than whatever reaches <code>origin/main</code> later in the run.</p>
+        </article>
+      </section>
+
+      <section>
+        <h2>Changes made and why</h2>
+        <ul>
+          <li>Kept orchestration small and authoritative: configured cooldown enforcement, missing state events, notification/log buffering until Svelte attaches, and no legacy renderer branch.</li>
+          <li>Made the Svelte store the only presentation contract: immutable-ish views in, named commands out, no UI-side manager traversal or ad hoc refresh calls.</li>
+          <li>Added <code>BrowserSaveAdapter</code> for storage, clipboard, and confirmation ownership. <code>GameState</code> keeps parsing, migration, and validation—the actual domain work.</li>
+          <li>Added explicit import confirmation and a visible “Restore pre-import save” action. Reset clears that backup; the next import replaces it.</li>
+          <li>Retired the unsupported Bootstrap/Rollup surface and the drifted balance simulator instead of maintaining parallel implementations. Removed only dependencies used exclusively by those paths.</li>
+          <li>Canonicalized era data with the live player-facing metadata preserved, then migrated every runtime consumer.</li>
+          <li>Removed confirmed-unused helpers, timers, adapters, store exports, CSS, and unreferenced historical plans. Improved accessible status/error feedback and reduced-motion behavior.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Files touched</h2>
+        <details open>
+          <summary>Core, orchestration, systems, and data</summary>
+          <p><code>js/GameManager.js</code>, <code>js/core/BrowserSaveAdapter.js</code> (new), <code>js/core/GameState.js</code>, <code>js/core/config.js</code>, <code>js/systems/OfflineManager.js</code>, <code>AchievementManager.js</code>, <code>EventManager.js</code>, <code>ResourceManager.js</code>, <code>TradeRouteManager.js</code>, <code>WonderManager.js</code>, and <code>WorkerManager.js</code>.</p>
+        </details>
+        <details>
+          <summary>Svelte, tests, and developer workflow</summary>
+          <p><code>src/App.svelte</code>, <code>src/lib/stores/gameStore.js</code>, <code>ActionButtons.svelte</code>, <code>EraCard.svelte</code>, <code>NotificationToast.svelte</code>, <code>tests/gameStore.test.js</code>, <code>tests/progressionLogic.test.js</code>, <code>tests/saveImport.test.js</code>, <code>README.md</code>, <code>package.json</code>, <code>pnpm-lock.yaml</code>, and <code>Jenkinsfile</code>.</p>
+        </details>
+        <details>
+          <summary>Retired obsolete paths</summary>
+          <p><code>index.bootstrap.html</code>, <code>game.js</code>, <code>styles.css</code>, <code>rollup.config.js</code>, <code>scripts/balance-sim.js</code>, <code>js/systems/UIManager.js</code>, and the three unreferenced superseded plans/specifications under <code>docs/superpowers/</code>.</p>
+        </details>
+      </section>
+
+      <section>
+        <h2>Verification</h2>
+        <table>
+          <thead>
+            <tr><th>Check</th><th>Result</th><th>What it proves</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>pnpm check</code></td><td class="pass">28/28 tests + production build passed</td><td>Formatting, progression, offline production, cleanup, import/export/recovery, cooldown rules, store reactivity, and Svelte compilation.</td></tr>
+            <tr><td><code>pnpm test -- tests/gameStore.test.js tests/saveImport.test.js tests/progressionLogic.test.js</code></td><td class="pass">22/22 passed</td><td>Focused coverage of the most consequential behavior changes.</td></tr>
+            <tr><td><code>pnpm install --frozen-lockfile --offline --ignore-scripts</code></td><td class="pass">Passed</td><td>The reduced lockfile resolves reproducibly without the retired direct dependencies.</td></tr>
+            <tr><td><code>node --check</code> on changed core modules and <code>git diff --check</code></td><td class="pass">Passed</td><td>Syntax and whitespace sanity for the changed boundary/orchestration code.</td></tr>
+          </tbody>
+        </table>
+        <p class="note">The collaborative browser preview was unavailable despite retries, so no visual-browser assertion is claimed. The production bundle contains one Svelte entry (221.42 kB / 65.31 kB gzip); no legacy renderer chunk remains. Jenkins/Groovy was reviewed but could not be executed locally because that runtime is not installed.</p>
+      </section>
+
+      <section>
+        <h2>Worthwhile follow-ups deliberately left out of scope</h2>
+        <ul>
+          <li><strong>Balance redesign and new simulation tooling.</strong> The old simulator was retired because it disagreed with production. Any future balancing tool should extract small, independently tested pure formulas from the live game rather than recreate the runtime.</li>
+          <li><strong>TypeScript migration.</strong> The project has JavaScript source and no <code>tsconfig</code>; adding a type migration would be churn rather than a proportionate refactor.</li>
+          <li><strong>Multi-version save history or cloud storage.</strong> One recovery point solves accidental import loss without creating retention, account, or sync policy.</li>
+          <li><strong>Browser end-to-end coverage and a Jenkins parser test.</strong> The focused Node suite and production build are green; adding a browser harness or Jenkins test environment is valuable future infrastructure work, not required for these changes.</li>
+        </ul>
+      </section>
+
+      <footer>
+        The refactor favors the smallest model that makes correct behavior unsurprising: one UI, one canonical game definition, a thin presentation boundary, pure-ish orchestration, and browser complexity isolated at the edge.
+      </footer>
+    </main>
+  </body>
+</html>

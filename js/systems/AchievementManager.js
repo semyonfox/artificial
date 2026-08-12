@@ -63,13 +63,8 @@ function eraIndex(era) {
 export class AchievementManager {
 	constructor(gameState) {
 		this.gameState = gameState;
-		this.uiManager = null;
 		this.gameManager = null;
 		this.checkAccum = 0;
-	}
-
-	setUIManager(uiManager) {
-		this.uiManager = uiManager;
 	}
 
 	setGameManager(gameManager) {

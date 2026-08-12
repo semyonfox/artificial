@@ -153,97 +153,6 @@ export const config = {
     'information', 'space', 'galactic', 'universal',
   ],
 
-  // Era definitions with historically-aligned periods
-  eras: {
-    paleolithic: {
-      name: "Paleolithic Era",
-      timespan: "2.6M - 10K BCE",
-      description:
-        "Old Stone Age: hunter-gatherers, stone tools, fire, clothing.",
-    },
-    neolithic: {
-      name: "Neolithic Era",
-      timespan: "10K - 3.3K BCE",
-      description:
-        "Agricultural Revolution: farming, pottery, weaving, permanent settlements.",
-    },
-    bronze: {
-      name: "Bronze Age",
-      timespan: "3300 - 1200 BCE",
-      description:
-        "Copper + tin alloying, writing, the wheel, early trade networks.",
-    },
-    iron: {
-      name: "Iron Age",
-      timespan: "1200 - 600 BCE",
-      description: "Iron smelting, coinage, roads, fortified cities.",
-    },
-    classical: {
-      name: "Classical Era",
-      timespan: "600 BCE - 500 CE",
-      description:
-        "Greece and Rome: philosophy, math, medicine, large-scale engineering.",
-    },
-    medieval: {
-      name: "Medieval Era",
-      timespan: "500 - 1500 CE",
-      description: "Feudalism, mills, guilds, manuscript culture, castles.",
-    },
-    renaissance: {
-      name: "Renaissance",
-      timespan: "1400 - 1600 CE",
-      description: "Printing press, banking, navigation, optics, gunpowder.",
-    },
-    enlightenment: {
-      name: "Age of Enlightenment",
-      timespan: "1600 - 1760 CE",
-      description:
-        "Reason and science triumph: academies, calculus, colonial expansion, clockwork mechanisms.",
-    },
-    industrial: {
-      name: "Industrial Age",
-      timespan: "1760 - 1870",
-      description:
-        "Steam power, coal, factories, railways transform production and society.",
-    },
-    electric: {
-      name: "Electric Age",
-      timespan: "1870 - 1914",
-      description:
-        "Electricity, telephones, automobiles, chemicals, and mass production reshape civilization.",
-    },
-    atomic: {
-      name: "Atomic Age",
-      timespan: "1914 - 1970",
-      description:
-        "World wars, nuclear power, aviation, plastics, and the dawn of computing.",
-    },
-    information: {
-      name: "Information Age",
-      timespan: "1970 - 2020",
-      description:
-        "Silicon, microprocessors, internet, software and satellites.",
-    },
-    space: {
-      name: "Space Age",
-      timespan: "1957 - 2100",
-      description:
-        "Rockets, solar power, robotics, fusion research, orbital stations.",
-    },
-    galactic: {
-      name: "Galactic Era",
-      timespan: "2100+",
-      description:
-        "Interstellar industry: Dyson swarms, FTL concepts, quantum computing.",
-    },
-    universal: {
-      name: "Universal Era",
-      timespan: "Far Future",
-      description:
-        "Reality manipulation, multiverse access, consciousness transfer.",
-    },
-  },
-
   // Historical events and disasters by era (trimmed and corrected placement)
   events: {
     paleolithic: [
@@ -590,75 +499,6 @@ export const config = {
     ],
   },
 
-  // Worker automation timers (ms) - kept for backward compat, actual intervals in eraData
-  workerTimers: {
-    gatherer: 4000,
-    hunter: 6000,
-    cook: 3000,
-    craftsman: 10000,
-    farmer: 8000,
-    miner: 12000,
-    scholar: 20000,
-    engineer: 25000,
-    potter: 6000,
-    herder: 10000,
-    metalworker: 12000,
-    scribe: 15000,
-    merchant: 10000,
-    blacksmith: 10000,
-    architect: 15000,
-    philosopher: 18000,
-    physician: 20000,
-    miller: 10000,
-    monk: 15000,
-    guildMaster: 12000,
-    printer: 8000,
-    explorer: 15000,
-    banker: 10000,
-    // Enlightenment
-    academic: 15000,
-    clockmaker: 12000,
-    colonist: 18000,
-    naturalist: 15000,
-    // Industrial
-    factoryWorker: 8000,
-    inventor: 12000,
-    railwayWorker: 10000,
-    // Electric Age
-    electrician: 8000,
-    chemist: 12000,
-    autoWorker: 10000,
-    steelworker: 10000,
-    // Atomic Age
-    nuclearPhysicist: 15000,
-    pilot: 10000,
-    radarOperator: 12000,
-    petrochemist: 12000,
-    // Information
-    programmer: 6000,
-    networkEngineer: 10000,
-    // Space
-    astronaut: 15000,
-    rocketEngineer: 12000,
-    fusionScientist: 18000,
-    // Galactic
-    dysonBuilder: 20000,
-    quantumResearcher: 18000,
-    antimatterEngineer: 15000,
-    // Universal
-    realityArchitect: 20000,
-    multiverseNavigator: 15000,
-    consciousnessEngineer: 18000,
-  },
-
-  // Base resource yields
-  yields: {
-    huntYield: 2,
-    forageYield: 1,
-    stickYield: 1,
-    stoneYield: 1,
-  },
-
   // Probability values for random events
   probabilities: {
     burnChance: 0.3,
@@ -678,27 +518,10 @@ export const config = {
     populationGrowth: 1,
   },
 
-  // UI configuration
-  ui: {
-    notificationDuration: 2000, // Reduced from 3000 to 2000
-    progressAnimationSpeed: 200,
-  },
-
   // Save/load settings
   storage: {
     saveKey: "evolutionClickerSave",
     autoSaveInterval: 30000,
-  },
-
-  // Worker bonuses and efficiency multipliers (kept small)
-  workerBonuses: {
-    gathering: 0.5,
-    hunting: 0.8,
-    cooking: 0.3,
-    farming: 1.0,
-    crafting: 0.7,
-    scholarly: 1.2,
-    engineering: 1.5,
   },
 
   // Resource efficiency multipliers by upgrade (keep tight)
@@ -1229,14 +1052,14 @@ export const config = {
     },
   },
 
-  // Complete era definitions with workers, upgrades, and progression requirements
+  // Canonical era definitions: metadata, gameplay content, and progression requirements.
   eraData: {
     paleolithic: {
       id: "paleolithic",
       name: "Paleolithic Era",
       timespan: "2.6M - 10K BCE",
       description:
-        "The Old Stone Age - humanity's longest period of hunter-gatherer societies and stone tool use.",
+        "Old Stone Age: hunter-gatherers, stone tools, fire, clothing.",
       advancementCost: { population: 8, sticks: 15, stones: 10, cookedMeat: 8, fur: 3 },
       actions: [
         { id: "forage", name: "Forage", icon: "🪵", description: "Gather sticks", produces: { sticks: 1 }, bonusChance: { stones: { amount: 1, probability: 0.35 } }, cooldown: 1000 },
@@ -1341,7 +1164,7 @@ export const config = {
       name: "Neolithic Era",
       timespan: "10K - 3.3K BCE",
       description:
-        "The New Stone Age - the Agricultural Revolution begins with farming and permanent settlements.",
+        "Agricultural Revolution: farming, pottery, weaving, permanent settlements.",
       advancementCost: { population: 40, grain: 40, pottery: 15, textiles: 10, tools: 10 },
       actions: [
         { id: "farm", name: "Farm", icon: "🌾", description: "Cultivate grain", produces: { grain: 2 }, cooldown: 1200 },
@@ -1429,7 +1252,7 @@ export const config = {
       name: "Bronze Age",
       timespan: "3300 - 1200 BCE",
       description:
-        "First metal working civilizations emerge with bronze tools revolutionizing society.",
+        "Copper + tin alloying, writing, the wheel, early trade networks.",
       advancementCost: { population: 150, bronze: 50, writing: 15, trade: 30 },
       actions: [
         { id: "mineCopper", name: "Mine Copper", icon: "⛏️", description: "Extract copper ore", produces: { copper: 2 }, bonusChance: { tin: { amount: 1, probability: 0.3 } }, cooldown: 1200 },
@@ -1523,7 +1346,7 @@ export const config = {
       name: "Iron Age",
       timespan: "1200 - 600 BCE",
       description:
-        "Iron working spreads, creating stronger tools and weapons, leading to great empires.",
+        "Iron smelting, coinage, roads, fortified cities.",
       advancementCost: { population: 500, iron: 30, coal: 20, steel: 50, coins: 25, roads: 20, knowledge: 15 },
       actions: [
         { id: "mineIron", name: "Mine", icon: "⛏️", description: "Extract iron and coal", produces: { iron: 2, coal: 1 }, cooldown: 1200 },
@@ -1614,7 +1437,7 @@ export const config = {
       name: "Classical Era",
       timespan: "600 BCE - 500 CE",
       description:
-        "Greece and Rome bring philosophy, mathematics, medicine, and large-scale engineering.",
+        "Greece and Rome: philosophy, math, medicine, large-scale engineering.",
       advancementCost: { population: 1500, engineering: 50, aqueducts: 30, knowledge: 40, medicine: 20, philosophy: 15 },
       actions: [
         { id: "study", name: "Study", icon: "📚", description: "Pursue knowledge", produces: { knowledge: 2 }, cooldown: 1000 },
@@ -1700,7 +1523,7 @@ export const config = {
       name: "Medieval Era",
       timespan: "500 - 1500 CE",
       description:
-        "Feudalism, mills, guilds, manuscript culture, and castles define a millennium.",
+        "Feudalism, mills, guilds, manuscript culture, castles.",
       advancementCost: { population: 5000, agriculture: 60, manuscripts: 40, guilds: 30, religion: 20 },
       actions: [
         { id: "plow", name: "Plow", icon: "🌾", description: "Work the fields", produces: { agriculture: 3 }, requiresUpgrade: "heavyPlow", cooldown: 1200 },
@@ -1783,9 +1606,9 @@ export const config = {
     renaissance: {
       id: "renaissance",
       name: "Renaissance",
-      timespan: "1300 - 1600 CE",
+      timespan: "1400 - 1600 CE",
       description:
-        "A rebirth of learning brings printing, banking, navigation, and scientific inquiry.",
+        "Printing press, banking, navigation, optics, gunpowder.",
       advancementCost: { population: 15000, printing: 80, banking: 50, exploration: 40, navigation: 25, trade: 30 },
       actions: [
         { id: "print", name: "Print", icon: "🖨️", description: "Run the press", produces: { printing: 2 }, requiresUpgrade: "printingPress", cooldown: 1000 },
@@ -1960,9 +1783,9 @@ export const config = {
     industrial: {
       id: "industrial",
       name: "Industrial Age",
-      timespan: "1760 - 1840",
+      timespan: "1760 - 1870",
       description:
-        "The Industrial Revolution transforms society with steam power and mass production.",
+        "Steam power, coal, factories, railways transform production and society.",
       advancementCost: { population: 50000, factories: 150, electricity: 60, steam: 80 },
       actions: [
         { id: "shovelCoal", name: "Shovel Coal", icon: "⛏️", description: "Dig coal and iron", produces: { coal: 3, iron: 1 }, cooldown: 1000 },
@@ -2233,9 +2056,9 @@ export const config = {
     information: {
       id: "information",
       name: "Information Age",
-      timespan: "1950 - 2020",
+      timespan: "1970 - 2020",
       description:
-        "The Digital Revolution brings computers, internet, and global connectivity.",
+        "Silicon, microprocessors, internet, software and satellites.",
       advancementCost: { population: 400000, computers: 200, data: 80, internet: 60, software: 40 },
       actions: [
         { id: "fabricate", name: "Fabricate", icon: "💎", description: "Process silicon", produces: { silicon: 3 }, cooldown: 1000 },
@@ -2310,7 +2133,7 @@ export const config = {
       name: "Space Age",
       timespan: "1957 - 2100",
       description:
-        "Humanity reaches beyond Earth with rockets, orbital stations, and fusion research.",
+        "Rockets, solar power, robotics, fusion research, orbital stations.",
       advancementCost: { population: 500000, rockets: 400, spaceStations: 150, fusion: 80, robotics: 100 },
       actions: [
         { id: "launch", name: "Launch", icon: "🚀", description: "Build rockets", produces: { rockets: 2, steel: 1 }, cooldown: 1500 },
@@ -2394,7 +2217,7 @@ export const config = {
       name: "Galactic Era",
       timespan: "2100+",
       description:
-        "Interstellar civilization with Dyson swarms, quantum computing, and antimatter power.",
+        "Interstellar industry: Dyson swarms, FTL concepts, quantum computing.",
       advancementCost: { population: 2000000, antimatter: 500, darkMatter: 300, dysonSpheres: 20, quantumComputers: 30, wormholes: 15 },
       actions: [
         { id: "harvest", name: "Harvest Star", icon: "☀️", description: "Collect solar energy", produces: { solarPanels: 2 }, cooldown: 1000 },
@@ -2477,7 +2300,7 @@ export const config = {
       name: "Universal Era",
       timespan: "Far Future",
       description:
-        "Reality manipulation, multiverse access, and consciousness transfer mark the ultimate era.",
+        "Reality manipulation, multiverse access, consciousness transfer.",
       advancementCost: null,
       actions: [
         { id: "engineer", name: "Engineer", icon: "🌀", description: "Shape reality", produces: { realityEngines: 1 }, requiresUpgrade: "realityEngineering", cooldown: 1500 },

@@ -17,10 +17,6 @@ export class TradeRouteManager {
     this.gameManager = gm;
   }
 
-  setUIManager(uiManager) {
-    this.uiManager = uiManager;
-  }
-
   /**
    * Initialize trade routes from saved state
    */
@@ -54,7 +50,7 @@ export class TradeRouteManager {
     if (!isEraUnlocked(currentEra, route.unlockEra)) {
       return {
         canUnlock: false,
-        reason: `Requires ${config.eras[route.unlockEra]?.name || route.unlockEra}`,
+        reason: `Requires ${config.eraData[route.unlockEra]?.name || route.unlockEra}`,
       };
     }
 

@@ -26,9 +26,10 @@ pnpm dev
 ## Validate
 
 ```bash
-pnpm test
-pnpm build
+pnpm check
 ```
+
+Run `pnpm test` or `pnpm build` individually when iterating on a focused change.
 
 ## Repository map
 
@@ -37,6 +38,5 @@ pnpm build
 | `src/` | Svelte UI, components and reactive store |
 | `js/` | game state, resources, workers, progression and feature systems |
 | `tests/` | Node-based tests |
-| `scripts/` | balance simulation tooling |
 
 This is a game project, deliberately kept separate from the backend/platform work elsewhere on this profile.

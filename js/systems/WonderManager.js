@@ -17,10 +17,6 @@ export class WonderManager {
     this.gameManager = gm;
   }
 
-  setUIManager(uiManager) {
-    this.uiManager = uiManager;
-  }
-
   /**
    * Initialize wonders from saved state
    */
@@ -57,7 +53,7 @@ export class WonderManager {
     if (!isEraUnlocked(currentEra, wonder.era)) {
       return {
         canBuild: false,
-        reason: `Requires ${config.eras[wonder.era]?.name || wonder.era}`,
+        reason: `Requires ${config.eraData[wonder.era]?.name || wonder.era}`,
       };
     }
 

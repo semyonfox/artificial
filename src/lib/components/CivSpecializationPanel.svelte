@@ -1,25 +1,14 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
-  import { config } from '../../../js/core/config.js';
   import { getChoiceButtonClasses, getResourceIcon } from '../utils/gameFormatting.js';
 
-  let currentEra = $derived($gameStore.currentEra);
-  let civSpecs = $derived(config.civSpecializations?.[currentEra] || []);
-  let chosenCiv = $derived($gameStore.civSpecializations?.[currentEra]);
-  let currentEraIdx = $derived(config.eraOrder.indexOf(currentEra));
-
-  let nextCivEra = $derived.by(() => {
-    return config.eraOrder.find((eraKey) => {
-      const eraIdx = config.eraOrder.indexOf(eraKey);
-      return eraIdx > currentEraIdx && (config.civSpecializations?.[eraKey] || []).length > 0;
-    });
-  });
+  let civSpecs = $derived($gameStore.civSpecializationChoices);
+  let chosenCiv = $derived($gameStore.currentCivSpecialization);
+  let nextCivSpecialization = $derived($gameStore.nextCivSpecialization);
 
   function chooseCiv(civId) {
-    $gameStore.gameManager?.chooseCivSpecialization(currentEra, civId);
-    gameStore.refresh();
+    gameStore.chooseCivSpecialization(civId);
   }
-
 </script>
 
 <div class="space-y-3">
@@ -72,8 +61,8 @@
   {:else}
     <div class="stat-box text-center">
       <p class="text-xs text-ink-muted">
-        {#if nextCivEra}
-          Civilization choices unlock in {config.eras[nextCivEra]?.name || nextCivEra}.
+        {#if nextCivSpecialization}
+          Civilization choices unlock in {nextCivSpecialization.name}.
         {:else}
           No civilization choice is available in this era.
         {/if}

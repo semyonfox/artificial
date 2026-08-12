@@ -1,15 +1,13 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
-  import { config } from '../../../js/core/config.js';
   import { getChoiceButtonClasses, getPurchaseButtonClasses } from '../utils/gameFormatting.js';
 
-  let pm = $derived($gameStore.gameManager?.systems?.prestigeManager);
-  let prestige = $derived(pm?.getPrestigeData() || { evolutionPoints: 0, totalResets: 0 });
-  let canPrestige = $derived(pm?.canPrestige() ?? false);
-  let epGain = $derived(pm?.calculateEPGain() ?? 0);
-  let multiplier = $derived(pm?.getMultiplier() ?? 1);
-
-  let tree = $derived(pm?.getTalentTree?.() || []);
+  let prestige = $derived($gameStore.prestige || { evolutionPoints: 0, totalResets: 0 });
+  let prestigeView = $derived($gameStore.prestigeView);
+  let canPrestige = $derived(prestigeView.canPrestige);
+  let epGain = $derived(prestigeView.epGain);
+  let multiplier = $derived(prestigeView.multiplier);
+  let tree = $derived(prestigeView.talentTree);
 
   let tiers = $derived.by(() => {
     const grouped = {};
@@ -30,26 +28,19 @@
   };
 
   function doPrestige() {
-    $gameStore.gameManager?.performPrestige();
-    gameStore.refresh();
+    gameStore.performPrestige();
   }
 
   function buyPerk(perkId) {
-    if (pm?.purchasePerk(perkId)) {
-      gameStore.showNotification('Perk purchased!', 'success');
-      gameStore.refresh();
-    }
+    gameStore.buyPerk(perkId);
   }
 
-  let currentEra = $derived($gameStore.currentEra);
-  let specs = $derived(config.eraSpecializations?.[currentEra] || []);
-  let chosenSpec = $derived($gameStore.eraSpecializations?.[currentEra]);
+  let specs = $derived($gameStore.eraSpecializationChoices);
+  let chosenSpec = $derived($gameStore.currentEraSpecialization);
 
   function chooseSpec(specId) {
-    $gameStore.gameManager?.chooseSpecialization(currentEra, specId);
-    gameStore.refresh();
+    gameStore.chooseSpecialization(specId);
   }
-
 </script>
 
 <div class="space-y-4">
@@ -90,7 +81,7 @@
     <div class="space-y-4 pt-2">
       {#each tiers as [tier, perks] (tier)}
         <div>
-          <h6 class="section-label mb-2">Tier {tier}: {tierNames[tier] || ''}</h6>
+          <h3 class="section-label mb-2">Tier {tier}: {tierNames[tier] || ''}</h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {#each perks as perk (perk.id)}
               <div
@@ -122,7 +113,7 @@
 
   {#if specs.length > 0}
     <div class="pt-2">
-      <h6 class="section-label mb-2">Era Specialization (choose one)</h6>
+      <h3 class="section-label mb-2">Era Specialization (choose one)</h3>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
         {#each specs as spec (spec.id)}
           {@const isChosen = chosenSpec === spec.id}

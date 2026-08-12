@@ -12,15 +12,7 @@ export class ResourceManager {
 	 */
 	constructor(gameState) {
 		this.gameState = gameState;
-		this.uiManager = null;
 		this.gameManager = null;
-	}
-
-	/**
-	 * Set UI Manager reference
-	 */
-	setUIManager(uiManager) {
-		this.uiManager = uiManager;
 	}
 
 	/**
@@ -130,72 +122,4 @@ export class ResourceManager {
 		this.gameManager.showNotification(`${action}: +${resultText}`, 'success', 2000);
 	}
 
-	/**
-	 * Show worker production result
-	 */
-	showWorkerResult(workerType, count, production) {
-		if (!this.gameManager) return;
-
-		// Throttle worker notifications - only show every 5 productions
-		if (!this.workerNotificationCount) this.workerNotificationCount = {};
-		if (!this.workerNotificationCount[workerType]) this.workerNotificationCount[workerType] = 0;
-		this.workerNotificationCount[workerType]++;
-
-		if (this.workerNotificationCount[workerType] < 5) return;
-		this.workerNotificationCount[workerType] = 0;
-
-		const productionText = formatResourceList(
-			production,
-			(resource) => resource,
-			(amount) => Math.floor(amount * 10) / 10,
-		);
-
-		this.gameManager.showNotification(
-			`${count} ${workerType}(s) produced: ${productionText}`,
-			'success',
-			2000
-		);
-	}
-
-	/**
-	 * Calculate total resource value for progression tracking
-	 */
-	calculateTotalResourceValue() {
-		const state = this.gameState.getState();
-		let totalValue = 0;
-		
-		Object.entries(state.resources).forEach(([resource, amount]) => {
-			const weight = this.getResourceWeight(resource);
-			totalValue += amount * weight;
-		});
-		
-		return totalValue;
-	}
-
-	/**
-	 * Get resource weight for progression calculation
-	 */
-	getResourceWeight(resource) {
-		const weights = {
-			// Basic resources
-			sticks: 1,
-			stones: 2,
-			meat: 3,
-			cookedMeat: 5,
-			bones: 4,
-			fur: 6,
-			population: 20,
-			
-			// Advanced resources have higher weights
-			grain: 10,
-			pottery: 15,
-			bronze: 25,
-			writing: 30,
-			steel: 40,
-			electricity: 60,
-			computers: 100,
-		};
-		
-		return weights[resource] || 10; // Default weight
-	}
 }

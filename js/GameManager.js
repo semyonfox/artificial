@@ -4,8 +4,8 @@
  */
 
 import { GameState } from "./core/GameState.js";
+import { BrowserSaveAdapter } from "./core/BrowserSaveAdapter.js";
 import { ResourceManager } from "./systems/ResourceManager.js";
-import { UIManager } from "./systems/UIManager.js";
 import { WorkerManager } from "./systems/WorkerManager.js";
 import { EventManager } from "./systems/EventManager.js";
 import { OfflineManager } from "./systems/OfflineManager.js";
@@ -17,8 +17,27 @@ import { WonderManager } from "./systems/WonderManager.js";
 import { config } from "./core/config.js";
 import { formatResourceList, getEraIndex, scaleCost } from "./core/resourceUtils.js";
 
+const POPULATION_SUPPORT_RESOURCES = {
+  paleolithic: ["cookedMeat", "meat"],
+  neolithic: ["grain", "livestock", "cookedMeat"],
+  bronze: ["grain", "livestock", "trade"],
+  iron: ["grain", "livestock", "cities", "trade"],
+  classical: ["grain", "cities", "medicine"],
+  medieval: ["agriculture", "grain", "mills"],
+  renaissance: ["agriculture", "trade", "banking"],
+  enlightenment: ["agriculture", "academies", "reason"],
+  industrial: ["factories", "steam", "electricity"],
+  electric: ["electricity", "automobile", "chemicals"],
+  atomic: ["electricity", "plastics", "television"],
+  information: ["electricity", "data", "internet"],
+  space: ["fusion", "spaceStations", "robotics"],
+  galactic: ["dysonSpheres", "antimatter", "quantumComputers"],
+  universal: ["realityEngines", "existentialEnergy", "universalConstants"],
+};
+
 export class GameManager {
-  constructor() {
+  constructor(persistence = new BrowserSaveAdapter()) {
+    this.persistence = persistence;
     this.initialized = false;
     this.systems = {};
     this.gameLoopId = null;
@@ -26,7 +45,6 @@ export class GameManager {
     this.gameState = null;
 
     // periodic task accumulators (ms)
-    this.uiUpdateAccum = 0;
     this.eraCheckAccum = 0;
     this.validateAccum = 0;
 
@@ -35,6 +53,13 @@ export class GameManager {
 
     // store reference for notifications (set by gameStore.initialize)
     this.store = null;
+    this.pendingNotifications = [];
+    this.pendingLogEntries = [];
+
+    // Cooldowns are game rules, not a presentation concern. Keeping them here
+    // makes click actions behave the same through every UI surface.
+    this.actionCooldowns = new Map();
+    this.actionCooldownTimers = new Map();
 
     this.initPromise = this.initialize();
   }
@@ -52,7 +77,7 @@ export class GameManager {
       }
 
       // Create game state first
-      this.gameState = new GameState();
+      this.gameState = new GameState(this.persistence);
 
       // Try to load saved game
       this.gameState.load();
@@ -71,9 +96,6 @@ export class GameManager {
 
       // Start performance monitoring
       this.startPerformanceMonitoring();
-
-      // Initial UI update
-      this.updateUI();
 
       // Apply offline production
       const offlineResult =
@@ -108,33 +130,19 @@ export class GameManager {
     this.systems.workerManager = new WorkerManager(this.gameState);
     this.systems.eventManager = new EventManager(this.gameState);
 
-    this.systems.offlineManager = new OfflineManager(this.gameState);
+    this.systems.offlineManager = new OfflineManager(this.gameState, this.persistence);
     this.systems.achievementManager = new AchievementManager(this.gameState);
     this.systems.prestigeManager = new PrestigeManager(this.gameState);
 
     // Trade routes and wonders
     this.systems.tradeRouteManager = new TradeRouteManager(this.gameState);
     this.systems.wonderManager = new WonderManager(this.gameState);
-
-    // UIManager is now optional (Svelte takes over UI duties)
-    // Only initialize if running in legacy mode (index.bootstrap.html)
-    if (document.getElementById('action-buttons-container')) {
-      this.systems.uiManager = new UIManager(this.gameState, this);
-    }
   }
 
   /**
    * Connect systems that need references to each other
    */
   connectSystems() {
-    // Connect UI manager to other systems (if available)
-    if (this.systems.uiManager) {
-      this.systems.resourceManager.setUIManager(this.systems.uiManager);
-      this.systems.workerManager.setUIManager(this.systems.uiManager);
-      this.systems.eventManager.setUIManager(this.systems.uiManager);
-      this.systems.achievementManager.setUIManager(this.systems.uiManager);
-    }
-
     // Connect managers to game manager for era data / prestige / notifications
     this.systems.workerManager.setGameManager(this);
     this.systems.resourceManager.setGameManager(this);
@@ -153,16 +161,35 @@ export class GameManager {
    */
   setStore(store) {
     this.store = store;
+    this.flushPendingPresentation();
+  }
+
+  flushPendingPresentation() {
+    if (!this.store) return;
+
+    const notifications = this.pendingNotifications.splice(0);
+    notifications.forEach(({ message, type, duration }) => {
+      this.store.showNotification(message, type, duration);
+    });
+
+    const logEntries = this.pendingLogEntries.splice(0);
+    logEntries.forEach(({ event, isDisaster }) => {
+      if (isDisaster) {
+        this.store.logDisaster(event);
+      } else {
+        this.store.logEvent(event);
+      }
+    });
   }
 
   /**
-   * Show notification via store or UIManager
+   * Show a notification through the active presentation adapter.
    */
   showNotification(message, type = 'success', duration = 2000) {
     if (this.store) {
       this.store.showNotification(message, type, duration);
-    } else if (this.systems.uiManager) {
-      this.systems.uiManager.showNotification(message, type, duration);
+    } else {
+      this.pendingNotifications.push({ message, type, duration });
     }
   }
 
@@ -172,8 +199,20 @@ export class GameManager {
   logGameEvent(event) {
     if (this.store) {
       this.store.logEvent(event);
-    } else if (this.systems.uiManager) {
-      this.systems.uiManager.logEvent(event);
+    } else {
+      this.pendingLogEntries.push({ event, isDisaster: false });
+    }
+  }
+
+  /**
+   * Add a disaster to the active presentation surface, or keep it until one
+   * attaches during boot.
+   */
+  logGameDisaster(event) {
+    if (this.store) {
+      this.store.logDisaster(event);
+    } else {
+      this.pendingLogEntries.push({ event, isDisaster: true });
     }
   }
 
@@ -181,29 +220,12 @@ export class GameManager {
    * Set up event listeners for cross-system communication
    */
   setupEventListeners() {
-    // Listen for resource changes to update UI
-    this.gameState.addListener("resourceChange", (data) => {
-      if (this.systems.uiManager) {
-        this.systems.uiManager.updateResources();
-      }
-    });
-
-    // Listen for worker changes
-    this.gameState.addListener("workerChange", (data) => {
-      if (this.systems.uiManager) {
-        this.systems.uiManager.updateWorkers();
-      }
-    });
-
     // Listen for upgrade unlocks
     this.gameState.addListener("upgradeUnlocked", (data) => {
       this.showNotification(
         `Unlocked: ${data.upgradeId}`,
         "success",
       );
-      if (this.systems.uiManager) {
-        this.systems.uiManager.updateUpgrades();
-      }
     });
 
     this.gameState.addListener("progressionChange", () => {
@@ -253,19 +275,8 @@ export class GameManager {
       this.systems.eventManager.update(this.lastUpdateTime);
     }
 
-    if (this.systems.workerManager) {
-      this.systems.workerManager.update(deltaTime);
-    }
-
     if (this.systems.achievementManager) {
       this.systems.achievementManager.update(deltaTime);
-    }
-
-    // Update UI periodically (every 1 second)
-    this.uiUpdateAccum += deltaTime;
-    if (this.uiUpdateAccum >= 1000) {
-      this.uiUpdateAccum -= 1000;
-      this.updateUI();
     }
 
     // Check for era advancement (every 10 seconds)
@@ -287,50 +298,86 @@ export class GameManager {
   }
 
   /**
-   * Perform a game action with button feedback
-   */
-  performAction(button, action, cooldownMs = 1000) {
-    if (button.disabled) return;
-
-    // Disable button temporarily
-    button.disabled = true;
-    button.style.opacity = "0.6";
-
-    try {
-      // Execute the action
-      action();
-
-      // Update UI
-      this.updateUI();
-
-      // Re-enable button after cooldown
-      setTimeout(() => {
-        button.disabled = false;
-        button.style.opacity = "1";
-      }, cooldownMs);
-    } catch (error) {
-      console.error("Action failed:", error);
-      button.disabled = false;
-      button.style.opacity = "1";
-    }
-  }
-
-  /**
    * Perform a config-driven click action
    */
   doClickAction(action) {
+    if (!action || this.isActionOnCooldown(action.id)) return null;
+
     const result = this.systems.resourceManager.performClickAction(action);
-    if (result && !result.failed) {
-      this.recordManualAction(1);
+    if (result) {
+      if (!result.failed) {
+        this.recordManualAction(1);
+      }
+      this.startActionCooldown(action);
     }
     return result;
+  }
+
+  getCurrentActionViews() {
+    const actions = this.getCurrentEraData()?.actions || [];
+    return actions
+      .filter((action) => !action.requiresUpgrade || this.gameState.hasUpgrade(action.requiresUpgrade))
+      .map((action) => {
+        const cooldownRemaining = this.getActionCooldownRemaining(action.id);
+        return {
+          ...action,
+          canAfford: !action.consumes || this.gameState.canAfford(action.consumes),
+          cooldownMs: action.cooldown || 1000,
+          cooldownRemaining,
+          isOnCooldown: cooldownRemaining > 0,
+        };
+      });
+  }
+
+  getActionCooldownRemaining(actionId) {
+    const expiresAt = this.actionCooldowns.get(actionId);
+    if (!expiresAt) return 0;
+
+    const remaining = Math.max(0, expiresAt - Date.now());
+    if (remaining === 0) {
+      this.actionCooldowns.delete(actionId);
+      this.clearActionCooldownTimer(actionId);
+    }
+    return remaining;
+  }
+
+  isActionOnCooldown(actionId) {
+    return this.getActionCooldownRemaining(actionId) > 0;
+  }
+
+  startActionCooldown(action) {
+    const cooldownMs = action.cooldown || 1000;
+    if (!action.id || cooldownMs <= 0) return;
+
+    const expiresAt = Date.now() + cooldownMs;
+    this.actionCooldowns.set(action.id, expiresAt);
+    this.clearActionCooldownTimer(action.id);
+    this.actionCooldownTimers.set(action.id, setTimeout(() => {
+      if (this.actionCooldowns.get(action.id) !== expiresAt) return;
+      this.actionCooldowns.delete(action.id);
+      this.actionCooldownTimers.delete(action.id);
+      this.gameState?.notifyListeners("actionCooldownChange", { actionId: action.id });
+    }, cooldownMs));
+    this.gameState?.notifyListeners("actionCooldownChange", { actionId: action.id });
+  }
+
+  clearActionCooldownTimer(actionId) {
+    const timer = this.actionCooldownTimers.get(actionId);
+    if (timer) clearTimeout(timer);
+    this.actionCooldownTimers.delete(actionId);
+  }
+
+  clearActionCooldowns() {
+    this.actionCooldownTimers.forEach((timer) => clearTimeout(timer));
+    this.actionCooldownTimers.clear();
+    this.actionCooldowns.clear();
   }
 
   /**
    * Hire a worker
    */
   hireWorker(workerType) {
-    this.systems.workerManager.hireWorker(workerType);
+    return this.systems.workerManager.hireWorker(workerType);
   }
 
   /**
@@ -381,7 +428,6 @@ export class GameManager {
         `Purchased ${upgrade.name}!`,
         "success",
       );
-      this.updateUI();
       return true;
     }
 
@@ -418,7 +464,7 @@ export class GameManager {
       'success',
       5000,
     );
-    this.updateUI();
+    this.gameState.notifyListeners("eraSpecializationChosen", { era: eraKey, specId });
     return true;
   }
 
@@ -452,7 +498,6 @@ export class GameManager {
       5000,
     );
     this.gameState.notifyListeners('civSpecializationChosen', { era: eraKey, civId });
-    this.updateUI();
     return true;
   }
 
@@ -461,43 +506,7 @@ export class GameManager {
    * Returns a combined multiplier from all active era and civ specializations
    */
   getSpecializationMultiplier(resource) {
-    let mult = 1.0;
-
-    // era specializations
-    const eraSpecs = this.gameState.data.eraSpecializations;
-    if (eraSpecs) {
-      for (const [eraKey, specId] of Object.entries(eraSpecs)) {
-        const specs = config.eraSpecializations[eraKey];
-        if (!specs) continue;
-        const spec = specs.find(s => s.id === specId);
-        if (!spec) continue;
-
-        if (spec.bonuses && spec.bonuses[resource]) {
-          mult *= spec.bonuses[resource];
-        }
-        if (spec.penalties && spec.penalties[resource]) {
-          mult *= spec.penalties[resource];
-        }
-      }
-    }
-
-    // civilization specializations
-    const civSpecs = this.gameState.data.civSpecializations;
-    if (civSpecs) {
-      for (const [eraKey, civId] of Object.entries(civSpecs)) {
-        const specs = config.civSpecializations[eraKey];
-        if (!specs) continue;
-        const spec = specs.find(s => s.id === civId);
-        if (!spec) continue;
-
-        if (spec.bonuses && spec.bonuses[resource]) {
-          mult *= spec.bonuses[resource];
-        }
-        if (spec.penalties && spec.penalties[resource]) {
-          mult *= spec.penalties[resource];
-        }
-      }
-    }
+    let mult = this.getConfiguredSpecializationMultiplier(resource);
 
     // trade route bonuses
     if (this.systems.tradeRouteManager) {
@@ -521,38 +530,25 @@ export class GameManager {
    * worker's total production so those config entries match their descriptions.
    */
   getWorkerSpecializationMultiplier(workerType) {
+    return this.getConfiguredSpecializationMultiplier(workerType);
+  }
+
+  getConfiguredSpecializationMultiplier(target) {
     let mult = 1.0;
 
-    const eraSpecs = this.gameState.data.eraSpecializations;
-    if (eraSpecs) {
-      for (const [eraKey, specId] of Object.entries(eraSpecs)) {
-        const specs = config.eraSpecializations[eraKey];
-        if (!specs) continue;
-        const spec = specs.find(s => s.id === specId);
-        if (!spec) continue;
+    for (const [choices, definitions] of [
+      [this.gameState.data.eraSpecializations, config.eraSpecializations],
+      [this.gameState.data.civSpecializations, config.civSpecializations],
+    ]) {
+      for (const [eraKey, specializationId] of Object.entries(choices || {})) {
+        const specialization = definitions[eraKey]?.find(({ id }) => id === specializationId);
+        if (!specialization) continue;
 
-        if (spec.bonuses && spec.bonuses[workerType]) {
-          mult *= spec.bonuses[workerType];
-        }
-        if (spec.penalties && spec.penalties[workerType]) {
-          mult *= spec.penalties[workerType];
-        }
-      }
-    }
-
-    const civSpecs = this.gameState.data.civSpecializations;
-    if (civSpecs) {
-      for (const [eraKey, civId] of Object.entries(civSpecs)) {
-        const specs = config.civSpecializations[eraKey];
-        if (!specs) continue;
-        const spec = specs.find(s => s.id === civId);
-        if (!spec) continue;
-
-        if (spec.bonuses && spec.bonuses[workerType]) {
-          mult *= spec.bonuses[workerType];
-        }
-        if (spec.penalties && spec.penalties[workerType]) {
-          mult *= spec.penalties[workerType];
+        for (const factors of [specialization.bonuses, specialization.penalties]) {
+          const factor = factors?.[target];
+          if (factor) {
+            mult *= factor;
+          }
         }
       }
     }
@@ -657,24 +653,7 @@ export class GameManager {
 
   getPopulationSupportResources(eraIdx) {
     const eraKey = config.eraOrder[eraIdx] || this.gameState.data.currentEra;
-    const supportByEra = {
-      paleolithic: ['cookedMeat', 'meat'],
-      neolithic: ['grain', 'livestock', 'cookedMeat'],
-      bronze: ['grain', 'livestock', 'trade'],
-      iron: ['grain', 'livestock', 'cities', 'trade'],
-      classical: ['grain', 'cities', 'medicine'],
-      medieval: ['agriculture', 'grain', 'mills'],
-      renaissance: ['agriculture', 'trade', 'banking'],
-      enlightenment: ['agriculture', 'academies', 'reason'],
-      industrial: ['factories', 'steam', 'electricity'],
-      electric: ['electricity', 'automobile', 'chemicals'],
-      atomic: ['electricity', 'plastics', 'television'],
-      information: ['electricity', 'data', 'internet'],
-      space: ['fusion', 'spaceStations', 'robotics'],
-      galactic: ['dysonSpheres', 'antimatter', 'quantumComputers'],
-      universal: ['realityEngines', 'existentialEnergy', 'universalConstants'],
-    };
-    return supportByEra[eraKey] || ['grain', 'agriculture', 'cities'];
+    return POPULATION_SUPPORT_RESOURCES[eraKey] || ["grain", "agriculture", "cities"];
   }
 
   getPopulationFoodFactor(currentPop, eraIdx) {
@@ -774,15 +753,6 @@ export class GameManager {
   }
 
   /**
-   * Update the UI display
-   */
-  updateUI() {
-    if (this.systems.uiManager) {
-      this.systems.uiManager.updateUI();
-    }
-  }
-
-  /**
    * Save the game
    */
   saveGame() {
@@ -814,11 +784,11 @@ export class GameManager {
     try {
       const success = this.gameState.load();
       if (success) {
+        this.clearActionCooldowns();
         this.showNotification(
           "Game loaded successfully!",
           "success",
         );
-        this.updateUI();
         // Restart worker automation for loaded workers
         this.restartWorkerAutomation();
       } else {
@@ -840,25 +810,24 @@ export class GameManager {
    */
   resetGame() {
     if (
-      confirm("Reset this run and clear the local save, achievements, wonders, and offline timer? This cannot be undone.")
+      this.persistence.confirm("Reset this run and clear the local save, achievements, wonders, and offline timer? This cannot be undone.")
     ) {
       try {
         // Stop run-specific timers without stopping the main game loop.
         this.systems.workerManager?.resetRunState();
         this.systems.tradeRouteManager?.reset();
+        this.clearActionCooldowns();
 
         // Reset all progress. Prestige uses the preserving reset path separately.
         this.gameState.reset({ preserveWonders: false });
 
         // Clear browser persistence. There is no server-side save for this app.
-        localStorage.removeItem(config.storage.saveKey);
-        localStorage.removeItem("lastActive");
+        this.persistence.removeSave();
+        this.persistence.removeLastActive();
+        this.persistence.removeImportBackup();
 
         // Restart worker automation
         this.restartWorkerAutomation();
-
-        // Update UI
-        this.updateUI();
 
         this.showNotification(
           "Game reset successfully!",
@@ -892,7 +861,7 @@ export class GameManager {
 
     const epGain = pm.calculateEPGain();
     if (
-      !confirm(
+      !this.persistence.confirm(
         `Prestige for ${epGain} Evolution Points? All resources, workers, and upgrades will be reset.`,
       )
     ) {
@@ -908,6 +877,7 @@ export class GameManager {
     }
 
     const earned = pm.prestige();
+    this.clearActionCooldowns();
 
     // every run starts at Paleolithic now — era-skip perks are gone.
 
@@ -957,15 +927,22 @@ export class GameManager {
     });
 
     this.restartWorkerAutomation();
-    this.updateUI();
+  }
+
+  purchasePrestigePerk(perkId) {
+    const purchased = this.systems.prestigeManager?.purchasePerk(perkId) || false;
+    if (purchased) {
+      this.showNotification("Perk purchased!", "success");
+    }
+    return purchased;
   }
 
   /**
    * Export save as base64 string to clipboard
    */
-  exportSave() {
+  async exportSave() {
     try {
-      const saveData = localStorage.getItem(config.storage.saveKey);
+      const saveData = this.gameState?.getSaveData();
       if (!saveData) {
         this.showNotification(
           "No save data to export",
@@ -973,13 +950,13 @@ export class GameManager {
         );
         return;
       }
-      const encoded = btoa(saveData);
-      navigator.clipboard.writeText(encoded).then(() => {
-        this.showNotification(
-          "Save exported to clipboard!",
-          "success",
-        );
-      });
+
+      const encoded = btoa(JSON.stringify(saveData));
+      await this.persistence.copyText(encoded);
+      this.showNotification(
+        "Save exported to clipboard!",
+        "success",
+      );
     } catch (error) {
       console.error("Export failed:", error);
       this.showNotification("Export failed", "error");
@@ -1017,19 +994,75 @@ export class GameManager {
         throw new Error(`Unsupported save schema version: ${parsed.schemaVersion}`);
       }
 
-      const importedState = new GameState();
+      const importedState = new GameState(this.persistence);
       importedState.loadParsedSave(parsed);
-      const saveData = {
-        ...importedState.data,
-        lastSave: Date.now(),
-      };
+      const saveData = importedState.getSaveData();
 
-      localStorage.setItem(config.storage.saveKey, JSON.stringify(saveData));
-      this.loadGame();
-      this.showNotification("Save imported!", "success");
+      if (!this.persistence.confirm(
+        "Import this save? Your current run will be backed up and can be restored until the next import or reset.",
+      )) {
+        return false;
+      }
+
+      this.persistence.writeImportBackup(this.gameState.getSaveData());
+      this.persistence.writeSave(saveData);
+      if (!this.loadGame()) {
+        throw new Error("Imported save could not be loaded");
+      }
+      this.gameState.notifyListeners("importBackupChange", { available: true });
+      this.showNotification("Save imported. Your previous run can be restored.", "success");
+      return true;
     } catch (error) {
       console.error("Import failed:", error);
       this.showNotification("Invalid save data", "error");
+      return false;
+    }
+  }
+
+  hasImportBackup() {
+    return Boolean(this.persistence.readImportBackup()?.saveData);
+  }
+
+  /**
+   * Restore the one-level backup captured immediately before the latest import.
+   */
+  restoreImportBackup() {
+    try {
+      const backup = this.persistence.readImportBackup();
+      if (!backup?.saveData) {
+        this.showNotification("No pre-import save is available", "warning");
+        return false;
+      }
+
+      if (!this.persistence.confirm(
+        "Restore the save from before your latest import? The currently imported run will be replaced.",
+      )) {
+        return false;
+      }
+
+      const restoredState = new GameState(this.persistence);
+      restoredState.loadParsedSave(backup.saveData);
+      this.persistence.writeSave(restoredState.getSaveData());
+
+      const lastActive = Number(backup.lastActive);
+      if (Number.isFinite(lastActive) && lastActive > 0) {
+        this.persistence.writeLastActive(lastActive);
+      } else {
+        this.persistence.removeLastActive();
+      }
+
+      if (!this.loadGame()) {
+        throw new Error("Pre-import save could not be loaded");
+      }
+
+      this.persistence.removeImportBackup();
+      this.gameState.notifyListeners("importBackupChange", { available: false });
+      this.showNotification("Pre-import save restored", "success");
+      return true;
+    } catch (error) {
+      console.error("Import recovery failed:", error);
+      this.showNotification("Could not restore the pre-import save", "error");
+      return false;
     }
   }
 
@@ -1046,6 +1079,9 @@ export class GameManager {
     if (this.systems.tradeRouteManager) {
       this.systems.tradeRouteManager.destroy();
     }
+
+    this.systems.offlineManager?.destroy();
+    this.clearActionCooldowns();
 
     // Stop game loop
     if (this.gameLoopId) {
@@ -1091,7 +1127,7 @@ export class GameManager {
       if (nextEra) {
         this.showNotification(
           `🌟 Ready to advance to ${
-            config.eras[nextEra]?.name || nextEra
+            config.eraData[nextEra]?.name || nextEra
           }!`,
           "info",
           5000,
@@ -1150,15 +1186,16 @@ export class GameManager {
 
     // Advance the era (sets era, resets progress, notifies listeners)
     this.gameState.setEra(nextEra);
+    this.clearActionCooldowns();
 
     // Reset the advancement notification flag for the new era
     this.eraAdvanceNotified = false;
 
     // Grant starter resources for the new era
-    this.onEraTransition(currentEra, nextEra);
+    this.onEraTransition(nextEra);
 
     // Show advancement notification
-    const eraInfo = config.eras[nextEra];
+    const eraInfo = config.eraData[nextEra];
     this.showNotification(
       `Entered the ${eraInfo?.name || nextEra}! ${eraInfo?.description || ""}`,
       "success",
@@ -1169,9 +1206,6 @@ export class GameManager {
       description: eraInfo?.description || "Civilization advanced to a new era.",
     });
 
-    // Update UI
-    this.updateUI();
-
     // Restart worker automation for new era
     this.restartWorkerAutomation();
 
@@ -1181,7 +1215,7 @@ export class GameManager {
   /**
    * Handle era transition effects
    */
-  onEraTransition(fromEra, toEra) {
+  onEraTransition(toEra) {
     const starterPacks = {
       neolithic: { grain: 80, clay: 50, tools: 25, pottery: 10, livestock: 12 },
       bronze: { copper: 40, tin: 20, tools: 15 },
@@ -1309,6 +1343,9 @@ export class GameManager {
       // Reset references
       this.gameState = null;
       this.systems = {};
+      this.store = null;
+      this.pendingNotifications = [];
+      this.pendingLogEntries = [];
       this.initialized = false;
     } catch (error) {
       console.error("Error destroying GameManager:", error);

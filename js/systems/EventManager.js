@@ -8,17 +8,9 @@ import { config } from "../core/config.js";
 export class EventManager {
   constructor(gameState) {
     this.gameState = gameState;
-    this.uiManager = null;
     this.gameManager = null;
     this.lastEventTime = 0;
     this.eventCooldown = 60000; // 1 minute between possible events
-  }
-
-  /**
-   * Set UI manager reference
-   */
-  setUIManager(uiManager) {
-    this.uiManager = uiManager;
   }
 
   /**
@@ -169,20 +161,10 @@ export class EventManager {
    * Log event to game history and UI
    */
   logEvent(event) {
-    // try store first, then UIManager
-    const store = this.gameManager?.store;
-    if (store) {
-      if (event.type === "disaster") {
-        store.logDisaster(event);
-      } else {
-        store.logEvent(event);
-      }
-    } else if (this.uiManager) {
-      if (event.type === "disaster") {
-        this.uiManager.logDisaster(event);
-      } else {
-        this.uiManager.logEvent(event);
-      }
+    if (event.type === "disaster") {
+      this.gameManager?.logGameDisaster(event);
+    } else {
+      this.gameManager?.logGameEvent(event);
     }
   }
 
@@ -206,7 +188,7 @@ export class EventManager {
    * Get historical information about the current era
    */
   getEraInfo(era) {
-    return config.eras[era] || null;
+    return config.eraData[era] || null;
   }
 
   /**
