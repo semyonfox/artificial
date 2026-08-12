@@ -19,6 +19,7 @@ const GAME_STATE_EVENTS = [
   'actionCooldownChange',
   'gameLoaded',
   'gameReset',
+  'importBackupChange',
 ];
 
 function createInitialState() {
@@ -72,6 +73,7 @@ function createInitialState() {
     availableWonders: [],
     hasCivSpecialization: false,
     isBronzeOrLater: false,
+    hasImportBackup: false,
     notifications: [],
     eventLog: [],
     disasterLog: [],
@@ -97,7 +99,7 @@ function getEraTimeline(currentEra, highestEra) {
   );
 
   return config.eraOrder.slice(0, revealThrough + 1).map((key, index) => {
-    const era = config.eras?.[key] || config.eraData?.[key] || {};
+    const era = config.eraData?.[key] || {};
     const unlocked = index <= highestIndex;
     const name = era.name || key;
     return {
@@ -123,7 +125,7 @@ function getNextCivSpecialization(currentEra) {
   });
 
   if (!key) return null;
-  return { key, name: config.eras?.[key]?.name || key };
+  return { key, name: config.eraData?.[key]?.name || key };
 }
 
 function getNextTradeRoute(currentEra) {
@@ -137,7 +139,7 @@ function getNextTradeRoute(currentEra) {
   if (!route) return null;
   return {
     era: route.unlockEra,
-    eraName: config.eras?.[route.unlockEra]?.name || route.unlockEra,
+    eraName: config.eraData?.[route.unlockEra]?.name || route.unlockEra,
   };
 }
 
@@ -203,7 +205,7 @@ function getSnapshot(gameManager) {
     eraNumber: currentEraIndex + 1,
     eraCount: config.eraOrder.length,
     nextEra: nextEraKey
-      ? config.eras?.[nextEraKey] || config.eraData?.[nextEraKey] || { name: nextEraKey }
+      ? config.eraData?.[nextEraKey] || { name: nextEraKey }
       : null,
     eraTimeline,
     timelineMinWidth: `${Math.max(320, eraTimeline.length * 88)}px`,
@@ -245,6 +247,7 @@ function getSnapshot(gameManager) {
     availableWonders: gameManager.getAvailableWonders(),
     hasCivSpecialization: Object.keys(data.civSpecializations || {}).length > 0,
     isBronzeOrLater: currentEraIndex >= config.eraOrder.indexOf('bronze'),
+    hasImportBackup: gameManager.hasImportBackup?.() ?? false,
   };
 }
 
@@ -258,16 +261,35 @@ export function createGameStore() {
   let gameManager = null;
   let gameState = null;
   let notificationId = 0;
+  let syncQueued = false;
+  let syncVersion = 0;
   const stateListeners = [];
   const notificationTimers = new Set();
 
   const synchronize = () => {
     if (!gameManager?.gameState) return;
+    // An explicit command has already produced a current snapshot, so any
+    // pending passive update is redundant.
+    syncVersion += 1;
+    syncQueued = false;
     update((state) => ({
       ...state,
       initialized: true,
       ...getSnapshot(gameManager),
     }));
+  };
+
+  // A single game operation can emit several domain events. Coalesce passive
+  // updates while command handlers still synchronize before they return.
+  const scheduleSynchronize = () => {
+    if (syncQueued) return;
+    syncQueued = true;
+    const scheduledVersion = syncVersion;
+    queueMicrotask(() => {
+      if (scheduledVersion !== syncVersion) return;
+      syncQueued = false;
+      synchronize();
+    });
   };
 
   const removeStateListeners = () => {
@@ -295,7 +317,7 @@ export function createGameStore() {
       });
 
       GAME_STATE_EVENTS.forEach((event) => {
-        const listener = synchronize;
+        const listener = scheduleSynchronize;
         gameState.addListener(event, listener);
         stateListeners.push({ event, listener });
       });
@@ -313,6 +335,8 @@ export function createGameStore() {
 
       removeStateListeners();
       clearNotificationTimers();
+      syncVersion += 1;
+      syncQueued = false;
       if (gameManager?.store) gameManager.setStore(null);
       gameManager = null;
       gameState = null;
@@ -371,6 +395,12 @@ export function createGameStore() {
 
     resetGame() {
       const result = gameManager?.resetGame() || false;
+      synchronize();
+      return result;
+    },
+
+    restoreImportBackup() {
+      const result = gameManager?.restoreImportBackup() || false;
       synchronize();
       return result;
     },

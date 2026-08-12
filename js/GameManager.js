@@ -4,6 +4,7 @@
  */
 
 import { GameState } from "./core/GameState.js";
+import { BrowserSaveAdapter } from "./core/BrowserSaveAdapter.js";
 import { ResourceManager } from "./systems/ResourceManager.js";
 import { WorkerManager } from "./systems/WorkerManager.js";
 import { EventManager } from "./systems/EventManager.js";
@@ -35,7 +36,8 @@ const POPULATION_SUPPORT_RESOURCES = {
 };
 
 export class GameManager {
-  constructor() {
+  constructor(persistence = new BrowserSaveAdapter()) {
+    this.persistence = persistence;
     this.initialized = false;
     this.systems = {};
     this.gameLoopId = null;
@@ -43,7 +45,6 @@ export class GameManager {
     this.gameState = null;
 
     // periodic task accumulators (ms)
-    this.uiUpdateAccum = 0;
     this.eraCheckAccum = 0;
     this.validateAccum = 0;
 
@@ -76,13 +77,13 @@ export class GameManager {
       }
 
       // Create game state first
-      this.gameState = new GameState();
+      this.gameState = new GameState(this.persistence);
 
       // Try to load saved game
       this.gameState.load();
 
       // Initialize systems in dependency order
-      await this.initializeSystems();
+      this.initializeSystems();
 
       // Connect system dependencies
       this.connectSystems();
@@ -95,9 +96,6 @@ export class GameManager {
 
       // Start performance monitoring
       this.startPerformanceMonitoring();
-
-      // Initial UI update
-      this.updateUI();
 
       // Apply offline production
       const offlineResult =
@@ -126,41 +124,25 @@ export class GameManager {
   /**
    * Initialize all game systems
    */
-  async initializeSystems() {
+  initializeSystems() {
     // Initialize systems that don't depend on others first
     this.systems.resourceManager = new ResourceManager(this.gameState);
     this.systems.workerManager = new WorkerManager(this.gameState);
     this.systems.eventManager = new EventManager(this.gameState);
 
-    this.systems.offlineManager = new OfflineManager(this.gameState);
+    this.systems.offlineManager = new OfflineManager(this.gameState, this.persistence);
     this.systems.achievementManager = new AchievementManager(this.gameState);
     this.systems.prestigeManager = new PrestigeManager(this.gameState);
 
     // Trade routes and wonders
     this.systems.tradeRouteManager = new TradeRouteManager(this.gameState);
     this.systems.wonderManager = new WonderManager(this.gameState);
-
-    // The Bootstrap screen remains available for direct legacy use, but it is
-    // not part of the Vite app. Load its DOM renderer only on that surface so
-    // Svelte users do not download two UIs.
-    if (typeof document !== "undefined" && document.getElementById("action-buttons-container")) {
-      const { UIManager } = await import("./systems/UIManager.js");
-      this.systems.uiManager = new UIManager(this.gameState, this);
-    }
   }
 
   /**
    * Connect systems that need references to each other
    */
   connectSystems() {
-    // Connect UI manager to other systems (if available)
-    if (this.systems.uiManager) {
-      this.systems.resourceManager.setUIManager(this.systems.uiManager);
-      this.systems.workerManager.setUIManager(this.systems.uiManager);
-      this.systems.eventManager.setUIManager(this.systems.uiManager);
-      this.systems.achievementManager.setUIManager(this.systems.uiManager);
-    }
-
     // Connect managers to game manager for era data / prestige / notifications
     this.systems.workerManager.setGameManager(this);
     this.systems.resourceManager.setGameManager(this);
@@ -201,13 +183,11 @@ export class GameManager {
   }
 
   /**
-   * Show notification via store or UIManager
+   * Show a notification through the active presentation adapter.
    */
   showNotification(message, type = 'success', duration = 2000) {
     if (this.store) {
       this.store.showNotification(message, type, duration);
-    } else if (this.systems.uiManager) {
-      this.systems.uiManager.showNotification(message, type, duration);
     } else {
       this.pendingNotifications.push({ message, type, duration });
     }
@@ -219,8 +199,6 @@ export class GameManager {
   logGameEvent(event) {
     if (this.store) {
       this.store.logEvent(event);
-    } else if (this.systems.uiManager) {
-      this.systems.uiManager.logEvent(event);
     } else {
       this.pendingLogEntries.push({ event, isDisaster: false });
     }
@@ -233,8 +211,6 @@ export class GameManager {
   logGameDisaster(event) {
     if (this.store) {
       this.store.logDisaster(event);
-    } else if (this.systems.uiManager) {
-      this.systems.uiManager.logDisaster(event);
     } else {
       this.pendingLogEntries.push({ event, isDisaster: true });
     }
@@ -244,29 +220,12 @@ export class GameManager {
    * Set up event listeners for cross-system communication
    */
   setupEventListeners() {
-    // Listen for resource changes to update UI
-    this.gameState.addListener("resourceChange", (data) => {
-      if (this.systems.uiManager) {
-        this.systems.uiManager.updateResources();
-      }
-    });
-
-    // Listen for worker changes
-    this.gameState.addListener("workerChange", (data) => {
-      if (this.systems.uiManager) {
-        this.systems.uiManager.updateWorkers();
-      }
-    });
-
     // Listen for upgrade unlocks
     this.gameState.addListener("upgradeUnlocked", (data) => {
       this.showNotification(
         `Unlocked: ${data.upgradeId}`,
         "success",
       );
-      if (this.systems.uiManager) {
-        this.systems.uiManager.updateUpgrades();
-      }
     });
 
     this.gameState.addListener("progressionChange", () => {
@@ -320,13 +279,6 @@ export class GameManager {
       this.systems.achievementManager.update(deltaTime);
     }
 
-    // Update UI periodically (every 1 second)
-    this.uiUpdateAccum += deltaTime;
-    if (this.uiUpdateAccum >= 1000) {
-      this.uiUpdateAccum -= 1000;
-      this.updateUI();
-    }
-
     // Check for era advancement (every 10 seconds)
     this.eraCheckAccum += deltaTime;
     if (this.eraCheckAccum >= 10000) {
@@ -343,35 +295,6 @@ export class GameManager {
 
     // Update population growth
     this.updatePopulationGrowth(deltaTime);
-  }
-
-  /**
-   * Perform a game action with button feedback
-   */
-  performAction(button, action, cooldownMs = 1000) {
-    if (button.disabled) return;
-
-    // Disable button temporarily
-    button.disabled = true;
-    button.style.opacity = "0.6";
-
-    try {
-      // Execute the action
-      action();
-
-      // Update UI
-      this.updateUI();
-
-      // Re-enable button after cooldown
-      setTimeout(() => {
-        button.disabled = false;
-        button.style.opacity = "1";
-      }, cooldownMs);
-    } catch (error) {
-      console.error("Action failed:", error);
-      button.disabled = false;
-      button.style.opacity = "1";
-    }
   }
 
   /**
@@ -505,7 +428,6 @@ export class GameManager {
         `Purchased ${upgrade.name}!`,
         "success",
       );
-      this.updateUI();
       return true;
     }
 
@@ -543,7 +465,6 @@ export class GameManager {
       5000,
     );
     this.gameState.notifyListeners("eraSpecializationChosen", { era: eraKey, specId });
-    this.updateUI();
     return true;
   }
 
@@ -577,7 +498,6 @@ export class GameManager {
       5000,
     );
     this.gameState.notifyListeners('civSpecializationChosen', { era: eraKey, civId });
-    this.updateUI();
     return true;
   }
 
@@ -833,15 +753,6 @@ export class GameManager {
   }
 
   /**
-   * Update the UI display
-   */
-  updateUI() {
-    if (this.systems.uiManager) {
-      this.systems.uiManager.updateUI();
-    }
-  }
-
-  /**
    * Save the game
    */
   saveGame() {
@@ -878,7 +789,6 @@ export class GameManager {
           "Game loaded successfully!",
           "success",
         );
-        this.updateUI();
         // Restart worker automation for loaded workers
         this.restartWorkerAutomation();
       } else {
@@ -900,7 +810,7 @@ export class GameManager {
    */
   resetGame() {
     if (
-      confirm("Reset this run and clear the local save, achievements, wonders, and offline timer? This cannot be undone.")
+      this.persistence.confirm("Reset this run and clear the local save, achievements, wonders, and offline timer? This cannot be undone.")
     ) {
       try {
         // Stop run-specific timers without stopping the main game loop.
@@ -912,14 +822,12 @@ export class GameManager {
         this.gameState.reset({ preserveWonders: false });
 
         // Clear browser persistence. There is no server-side save for this app.
-        localStorage.removeItem(config.storage.saveKey);
-        localStorage.removeItem("lastActive");
+        this.persistence.removeSave();
+        this.persistence.removeLastActive();
+        this.persistence.removeImportBackup();
 
         // Restart worker automation
         this.restartWorkerAutomation();
-
-        // Update UI
-        this.updateUI();
 
         this.showNotification(
           "Game reset successfully!",
@@ -953,7 +861,7 @@ export class GameManager {
 
     const epGain = pm.calculateEPGain();
     if (
-      !confirm(
+      !this.persistence.confirm(
         `Prestige for ${epGain} Evolution Points? All resources, workers, and upgrades will be reset.`,
       )
     ) {
@@ -1019,7 +927,6 @@ export class GameManager {
     });
 
     this.restartWorkerAutomation();
-    this.updateUI();
   }
 
   purchasePrestigePerk(perkId) {
@@ -1033,7 +940,7 @@ export class GameManager {
   /**
    * Export save as base64 string to clipboard
    */
-  exportSave() {
+  async exportSave() {
     try {
       const saveData = this.gameState?.getSaveData();
       if (!saveData) {
@@ -1045,15 +952,11 @@ export class GameManager {
       }
 
       const encoded = btoa(JSON.stringify(saveData));
-      navigator.clipboard.writeText(encoded).then(() => {
-        this.showNotification(
-          "Save exported to clipboard!",
-          "success",
-        );
-      }).catch((error) => {
-        console.error("Export failed:", error);
-        this.showNotification("Export failed", "error");
-      });
+      await this.persistence.copyText(encoded);
+      this.showNotification(
+        "Save exported to clipboard!",
+        "success",
+      );
     } catch (error) {
       console.error("Export failed:", error);
       this.showNotification("Export failed", "error");
@@ -1091,19 +994,75 @@ export class GameManager {
         throw new Error(`Unsupported save schema version: ${parsed.schemaVersion}`);
       }
 
-      const importedState = new GameState();
+      const importedState = new GameState(this.persistence);
       importedState.loadParsedSave(parsed);
-      const saveData = {
-        ...importedState.data,
-        lastSave: Date.now(),
-      };
+      const saveData = importedState.getSaveData();
 
-      localStorage.setItem(config.storage.saveKey, JSON.stringify(saveData));
-      this.loadGame();
-      this.showNotification("Save imported!", "success");
+      if (!this.persistence.confirm(
+        "Import this save? Your current run will be backed up and can be restored until the next import or reset.",
+      )) {
+        return false;
+      }
+
+      this.persistence.writeImportBackup(this.gameState.getSaveData());
+      this.persistence.writeSave(saveData);
+      if (!this.loadGame()) {
+        throw new Error("Imported save could not be loaded");
+      }
+      this.gameState.notifyListeners("importBackupChange", { available: true });
+      this.showNotification("Save imported. Your previous run can be restored.", "success");
+      return true;
     } catch (error) {
       console.error("Import failed:", error);
       this.showNotification("Invalid save data", "error");
+      return false;
+    }
+  }
+
+  hasImportBackup() {
+    return Boolean(this.persistence.readImportBackup()?.saveData);
+  }
+
+  /**
+   * Restore the one-level backup captured immediately before the latest import.
+   */
+  restoreImportBackup() {
+    try {
+      const backup = this.persistence.readImportBackup();
+      if (!backup?.saveData) {
+        this.showNotification("No pre-import save is available", "warning");
+        return false;
+      }
+
+      if (!this.persistence.confirm(
+        "Restore the save from before your latest import? The currently imported run will be replaced.",
+      )) {
+        return false;
+      }
+
+      const restoredState = new GameState(this.persistence);
+      restoredState.loadParsedSave(backup.saveData);
+      this.persistence.writeSave(restoredState.getSaveData());
+
+      const lastActive = Number(backup.lastActive);
+      if (Number.isFinite(lastActive) && lastActive > 0) {
+        this.persistence.writeLastActive(lastActive);
+      } else {
+        this.persistence.removeLastActive();
+      }
+
+      if (!this.loadGame()) {
+        throw new Error("Pre-import save could not be loaded");
+      }
+
+      this.persistence.removeImportBackup();
+      this.gameState.notifyListeners("importBackupChange", { available: false });
+      this.showNotification("Pre-import save restored", "success");
+      return true;
+    } catch (error) {
+      console.error("Import recovery failed:", error);
+      this.showNotification("Could not restore the pre-import save", "error");
+      return false;
     }
   }
 
@@ -1168,7 +1127,7 @@ export class GameManager {
       if (nextEra) {
         this.showNotification(
           `🌟 Ready to advance to ${
-            config.eras[nextEra]?.name || nextEra
+            config.eraData[nextEra]?.name || nextEra
           }!`,
           "info",
           5000,
@@ -1236,7 +1195,7 @@ export class GameManager {
     this.onEraTransition(nextEra);
 
     // Show advancement notification
-    const eraInfo = config.eras[nextEra];
+    const eraInfo = config.eraData[nextEra];
     this.showNotification(
       `Entered the ${eraInfo?.name || nextEra}! ${eraInfo?.description || ""}`,
       "success",
@@ -1246,9 +1205,6 @@ export class GameManager {
       name: `Entered ${eraInfo?.name || nextEra}`,
       description: eraInfo?.description || "Civilization advanced to a new era.",
     });
-
-    // Update UI
-    this.updateUI();
 
     // Restart worker automation for new era
     this.restartWorkerAutomation();

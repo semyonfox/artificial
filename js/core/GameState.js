@@ -4,12 +4,14 @@
  */
 
 import { config } from "./config.js";
+import { BrowserSaveAdapter } from "./BrowserSaveAdapter.js";
 
 const MAX_SAFE_STATE_VALUE = 1_000_000_000_000;
 const MAX_SAFE_PLAY_TIME_MS = 1000 * 60 * 60 * 24 * 365 * 25;
 
 export class GameState {
-  constructor() {
+  constructor(persistence = new BrowserSaveAdapter()) {
+    this.persistence = persistence;
     this.data = this.createInitialState();
     this.listeners = new Map();
     this.lastSave = Date.now();
@@ -771,13 +773,13 @@ export class GameState {
   }
 
   /**
-   * Save game state to localStorage
+   * Save game state through the browser persistence boundary.
    */
   save() {
     try {
       const saveData = this.getSaveData();
 
-      localStorage.setItem(config.storage.saveKey, JSON.stringify(saveData));
+      this.persistence.writeSave(saveData);
       this.lastSave = Date.now();
       return true;
     } catch (error) {
@@ -787,11 +789,11 @@ export class GameState {
   }
 
   /**
-   * Load game state from localStorage
+   * Load game state through the browser persistence boundary.
    */
   load() {
     try {
-      const saveData = localStorage.getItem(config.storage.saveKey);
+      const saveData = this.persistence.readSave();
       if (!saveData) return false;
 
       const parsedData = JSON.parse(saveData);

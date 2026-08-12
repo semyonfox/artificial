@@ -3,16 +3,13 @@
 	"version": "1.0.0",
 	"packageManager": "pnpm@11.18.0",
 	"description": "Evolution Clicker - A civilization progression game",
-	"main": "game.js",
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
 		"build": "vite build",
 		"test": "node --test",
 		"check": "pnpm test && pnpm build",
-		"sim:balance": "node scripts/balance-sim.js",
-		"preview": "vite preview",
-		"dev:old": "python -m http.server 8000"
+		"preview": "vite preview"
 	},
 	"keywords": [
 		"game",
@@ -22,11 +19,6 @@
 	],
 	"author": "",
 	"license": "ISC",
-	"devDependencies": {
-		"@rollup/plugin-terser": "^1.0.0",
-		"@tsconfig/svelte": "^5.0.8",
-		"rollup": "^4.62.2"
-	},
 	"dependencies": {
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
 		"@tailwindcss/vite": "^4.3.0",

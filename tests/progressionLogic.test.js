@@ -48,6 +48,17 @@ test('resource tiers match the first era where each displayed resource appears',
   }
 });
 
+test('each playable era has one canonical definition', () => {
+  assert.equal('eras' in config, false);
+
+  for (const era of config.eraOrder) {
+    const definition = config.eraData[era];
+    assert.equal(definition?.id, era);
+    assert.ok(definition?.name);
+    assert.ok(definition?.description);
+  }
+});
+
 test('population requirements are thresholds and are not spent', () => {
   const state = new GameState();
   state.data.resources = { population: 8, sticks: 15, stones: 10 };
@@ -197,13 +208,21 @@ test('offline timestamps are sanitized and unload listeners are cleaned up', () 
     const offline = new OfflineManager(new GameState());
     assert.equal(listeners.get('beforeunload')?.size, 1);
 
+    const beforeInvalidTimestamp = Date.now();
     storage.set('lastActive', 'not-a-date');
     assert.equal(offline.applyOfflineProduction({}), null);
-    assert.equal(Number.isFinite(Number(storage.get('lastActive'))), true);
+    const sanitizedInvalidTimestamp = Number(storage.get('lastActive'));
+    assert.equal(Number.isFinite(sanitizedInvalidTimestamp), true);
+    assert.ok(sanitizedInvalidTimestamp >= beforeInvalidTimestamp);
+    assert.ok(sanitizedInvalidTimestamp <= Date.now());
 
+    const beforeFutureTimestamp = Date.now();
     storage.set('lastActive', String(Date.now() + 60_000));
     assert.equal(offline.applyOfflineProduction({}), null);
-    assert.equal(Number.isFinite(Number(storage.get('lastActive'))), true);
+    const sanitizedFutureTimestamp = Number(storage.get('lastActive'));
+    assert.equal(Number.isFinite(sanitizedFutureTimestamp), true);
+    assert.ok(sanitizedFutureTimestamp >= beforeFutureTimestamp);
+    assert.ok(sanitizedFutureTimestamp <= Date.now());
 
     offline.destroy();
     assert.equal(listeners.get('beforeunload')?.size, 0);

@@ -19,20 +19,34 @@
   import WonderPanel from './lib/components/WonderPanel.svelte';
 
   let loading = $state(true);
+  let startupFailed = $state(false);
+
+  function retryStartup() {
+    window.location.reload();
+  }
 
   onMount(() => {
     const gm = new GameManager();
     let destroyed = false;
 
-    gm.initPromise.then(() => {
-      if (destroyed) {
-        gm.destroy();
-        return;
-      }
+    gm.initPromise
+      .then(() => {
+        if (destroyed) {
+          gm.destroy();
+          return;
+        }
 
-      gameStore.initialize(gm);
-      loading = false;
-    });
+        gameStore.initialize(gm);
+        loading = false;
+      })
+      .catch((error) => {
+        if (destroyed) return;
+
+        console.error('Game startup failed:', error);
+        gm.destroy();
+        startupFailed = true;
+        loading = false;
+      });
 
     if (import.meta.env.DEV) {
       window.game = gm;
@@ -49,11 +63,19 @@
   });
 </script>
 
-{#if loading}
-  <div class="flex items-center justify-center h-screen">
+{#if loading || startupFailed}
+  <div class="flex items-center justify-center min-h-screen p-4">
     <div class="flex flex-col items-center gap-4">
-      <div class="w-12 h-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin"></div>
-      <p class="text-ink-muted text-lg">Loading game...</p>
+      {#if startupFailed}
+        <main class="card max-w-md p-6 text-center" role="alert" aria-labelledby="startup-error-title">
+          <h1 id="startup-error-title" class="text-xl font-bold text-paper">Game could not start</h1>
+          <p class="mt-2 text-ink-muted">Reload the game to try again.</p>
+          <button type="button" class="btn btn-primary mt-5" onclick={retryStartup}>Try again</button>
+        </main>
+      {:else}
+        <div class="w-12 h-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin" aria-hidden="true"></div>
+        <p class="text-ink-muted text-lg" role="status">Loading game...</p>
+      {/if}
     </div>
   </div>
 {:else}

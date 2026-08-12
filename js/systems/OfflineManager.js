@@ -14,15 +14,16 @@ import { config } from '../core/config.js';
 const ERA_ORDER = config.eraOrder;
 
 export class OfflineManager {
-	constructor(gameState) {
+	constructor(gameState, persistence = gameState.persistence) {
 		this.gameState = gameState;
+		this.persistence = persistence;
 		this.browserWindow = typeof window === 'undefined' ? null : window;
 		this.beforeUnloadHandler = () => this.recordLastActive();
 		this.browserWindow?.addEventListener('beforeunload', this.beforeUnloadHandler);
 	}
 
 	recordLastActive() {
-		localStorage.setItem('lastActive', Date.now().toString());
+		this.persistence.writeLastActive(Date.now());
 	}
 
 	/**
@@ -45,20 +46,20 @@ export class OfflineManager {
 	 */
 	applyOfflineProduction(gameManager) {
 		const now = Date.now();
-		const savedLastActive = localStorage.getItem('lastActive');
+		const savedLastActive = this.persistence.readLastActive();
 		if (!savedLastActive) {
-			localStorage.setItem('lastActive', now.toString());
+			this.persistence.writeLastActive(now);
 			return null;
 		}
 
 		const lastActive = Number(savedLastActive);
 		if (!Number.isFinite(lastActive) || lastActive <= 0 || lastActive > now) {
-			localStorage.setItem('lastActive', now.toString());
+			this.persistence.writeLastActive(now);
 			return null;
 		}
 
 		const offlineMs = now - lastActive;
-		localStorage.setItem('lastActive', now.toString());
+		this.persistence.writeLastActive(now);
 		if (offlineMs < 60000) return null; // ignore <1 minute
 
 		const pm = gameManager.systems?.prestigeManager;

@@ -8,17 +8,9 @@ import { config } from "../core/config.js";
 export class EventManager {
   constructor(gameState) {
     this.gameState = gameState;
-    this.uiManager = null;
     this.gameManager = null;
     this.lastEventTime = 0;
     this.eventCooldown = 60000; // 1 minute between possible events
-  }
-
-  /**
-   * Set UI manager reference
-   */
-  setUIManager(uiManager) {
-    this.uiManager = uiManager;
   }
 
   /**
@@ -196,7 +188,7 @@ export class EventManager {
    * Get historical information about the current era
    */
   getEraInfo(era) {
-    return config.eras[era] || null;
+    return config.eraData[era] || null;
   }
 
   /**

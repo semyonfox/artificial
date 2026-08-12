@@ -79,7 +79,7 @@ async function withGameBrowser(run) {
   }
 }
 
-test('the game store refreshes manager-backed feature views from domain events', () => {
+test('the game store refreshes manager-backed feature views from domain events', async () => {
   const route = {
     current: {
       id: 'silkRoad',
@@ -100,8 +100,31 @@ test('the game store refreshes manager-backed feature views from domain events',
     reason: null,
   };
   manager.gameState.notifyListeners('civSpecializationChosen', { civId: 'han' });
+  await Promise.resolve();
 
   assert.equal(get(store).availableRoutes[0].canUnlock, true);
+  store.dispose(manager);
+});
+
+test('the game store coalesces synchronous passive domain updates', async () => {
+  const route = { current: null };
+  const manager = createGameManager(route);
+  let snapshotCount = 0;
+  manager.getCurrentActionViews = () => {
+    snapshotCount += 1;
+    return [];
+  };
+  const store = createGameStore();
+
+  store.initialize(manager);
+  const initialSnapshotCount = snapshotCount;
+
+  manager.gameState.notifyListeners('resourceChange', {});
+  manager.gameState.notifyListeners('workerChange', {});
+  assert.equal(snapshotCount, initialSnapshotCount);
+
+  await Promise.resolve();
+  assert.equal(snapshotCount, initialSnapshotCount + 1);
   store.dispose(manager);
 });
 

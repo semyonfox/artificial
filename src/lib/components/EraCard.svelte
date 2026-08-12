@@ -33,6 +33,10 @@
   function resetGame() {
     gameStore.resetGame();
   }
+
+  function restoreImportBackup() {
+    gameStore.restoreImportBackup();
+  }
 </script>
 
 <section class="p-4 bg-surface-2 border border-ink/15 rounded-lg">
@@ -67,4 +71,9 @@
     <button class="btn btn-ghost btn-sm" onclick={importSave}>Import</button>
     <button class="btn btn-danger btn-sm" onclick={resetGame}>Reset</button>
   </div>
+  {#if $gameStore.hasImportBackup}
+    <button class="btn btn-secondary btn-sm w-full mt-2" onclick={restoreImportBackup}>
+      Restore pre-import save
+    </button>
+  {/if}
 </section>

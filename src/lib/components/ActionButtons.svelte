@@ -24,7 +24,7 @@
       {#if action.isOnCooldown}
         <div
           class="absolute inset-0 bg-accent/20 origin-left animate-cooldown"
-          style="--cooldown-duration: {action.cooldownMs}ms"
+          style={`--cooldown-duration: ${action.cooldownRemaining}ms; --cooldown-progress: ${action.cooldownRemaining / action.cooldownMs}`}
         ></div>
       {/if}
 
@@ -56,7 +56,7 @@
 <style>
   @keyframes cooldown-sweep {
     from {
-      transform: scaleX(1);
+      transform: scaleX(var(--cooldown-progress));
     }
     to {
       transform: scaleX(0);
@@ -64,6 +64,7 @@
   }
 
   .animate-cooldown {
+    transform: scaleX(var(--cooldown-progress));
     animation: cooldown-sweep var(--cooldown-duration) linear forwards;
   }
 
