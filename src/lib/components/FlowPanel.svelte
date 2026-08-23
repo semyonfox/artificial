@@ -1,5 +1,6 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
+  import { config } from '../../../js/core/config.js';
   import {
     formatNumber,
     formatResourceName,
@@ -19,6 +20,44 @@
   });
 
   let requirements = $derived($gameStore.advancementRequirements);
+
+  // furthest-behind incomplete requirement gets visual focus
+  let bottleneckResource = $derived.by(() => {
+    const incomplete = requirements.filter(req => !req.complete);
+    if (incomplete.length === 0) return null;
+    return [...incomplete].sort(
+      (a, b) => (a.current / a.required) - (b.current / b.required),
+    )[0].resource;
+  });
+
+  let populationView = $derived($gameStore.populationView);
+  let populationRequirement = $derived(requirements.find(req => req.resource === 'population'));
+
+  // first matching stall rule explains why population growth is slow
+  let populationDiagnosis = $derived.by(() => {
+    if (!populationRequirement || populationRequirement.complete) return null;
+    const growthCfg = config.balance?.populationGrowth || {};
+    const { pop, cap, loadRatio, supportAvailable, foodResource } = populationView;
+
+    if (pop >= cap) {
+      return { blocked: true, message: 'Population is at the era cap — advance to raise it' };
+    }
+    const loadCap = growthCfg.workerLoadSoftCap || 0.65;
+    if (loadRatio > loadCap) {
+      return {
+        blocked: true,
+        message: `Over ${Math.round(loadCap * 100)}% of your people are workers — growth slows`,
+      };
+    }
+    const foodBuffer = growthCfg.foodBufferPerCapita || 0.6;
+    if (supportAvailable < pop * foodBuffer) {
+      return {
+        blocked: true,
+        message: `Food buffer low — produce more ${formatResourceName(foodResource)}`,
+      };
+    }
+    return { blocked: false, message: 'Growing steadily' };
+  });
 
   function advanceEra() {
     gameStore.advanceEra();
@@ -58,7 +97,14 @@
   </div>
 
   <div>
-    <div class="progress-bar">
+    <div
+      class="progress-bar"
+      role="progressbar"
+      aria-label="Era advancement progress"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow={Math.round(progressPercent)}
+    >
       <div class="progress-fill" style="width: {progressPercent.toFixed(1)}%"></div>
     </div>
   </div>
@@ -66,25 +112,45 @@
   {#if requirements.length > 0}
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
       {#each requirements as req (req.resource)}
+        {@const isBottleneck = req.resource === bottleneckResource}
         <div
-          class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border {req.complete ? 'bg-success/5 border-success/30' : 'bg-surface-2/70 border-ink/10'}"
+          class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border transition-colors
+            {req.complete
+              ? 'bg-success/5 border-success/30'
+              : isBottleneck
+                ? 'bg-surface-2 border-accent/50 ring-1 ring-accent/30 sm:col-span-2'
+                : 'bg-surface-2/70 border-ink/10'}"
         >
           <div class="flex items-center gap-2 min-w-0">
-            <span class="w-7 h-7 flex items-center justify-center rounded-md bg-ink/5 border border-ink/10 text-sm">
+            <span class="w-7 h-7 flex items-center justify-center rounded-md bg-ink/5 border border-ink/10 text-sm shrink-0">
               {getResourceIcon(req.resource, '?')}
             </span>
-            <span class="text-sm text-ink-soft truncate">{formatResourceName(req.resource)}</span>
+            {#if isBottleneck}
+              <span class="text-[0.7rem] font-bold uppercase tracking-wide text-accent shrink-0">Focus</span>
+            {/if}
+            <span class="text-sm text-ink-soft truncate" title={formatResourceName(req.resource)}>{formatResourceName(req.resource)}</span>
           </div>
           <span
-            class="text-sm font-semibold tabular-nums"
+            class="text-sm font-semibold tabular-nums whitespace-nowrap shrink-0"
             class:text-success={req.complete}
-            class:text-ink-muted={!req.complete}
+            class:text-paper={isBottleneck}
+            class:text-ink-muted={!req.complete && !isBottleneck}
           >
             {formatNumber(req.current)} / {formatNumber(req.required)}
           </span>
         </div>
       {/each}
     </div>
+  {/if}
+
+  {#if populationDiagnosis}
+    <p
+      class="text-xs leading-tight {populationDiagnosis.blocked ? 'text-warning' : 'text-success'}"
+      aria-live="polite"
+    >
+      {populationDiagnosis.blocked ? '⚠' : '✓'}
+      Population: {populationDiagnosis.message}
+    </p>
   {/if}
 
   <div class="flex justify-end">

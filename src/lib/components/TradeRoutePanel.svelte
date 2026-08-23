@@ -1,11 +1,17 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
-  import { formatCost, getPurchaseButtonClasses, getResourceIcon } from '../utils/gameFormatting.js';
+  import { formatCost, formatEraName, getPurchaseButtonClasses, getResourceIcon } from '../utils/gameFormatting.js';
 
   let availableRoutes = $derived($gameStore.availableRoutes);
   let activeRoutes = $derived($gameStore.tradeRoutes?.activeRoutes || []);
   let nextTradeRoute = $derived($gameStore.nextTradeRoute);
   let activeRouteViews = $derived(availableRoutes.filter((route) => activeRoutes.includes(route.id)));
+  let hasContent = $derived(availableRoutes.length > 0 || activeRoutes.length > 0);
+  let lockedLine = $derived(
+    nextTradeRoute
+      ? `unlock in ${nextTradeRoute.eraName}`
+      : 'none available for your civilization choices',
+  );
 
   function establishRoute(routeId) {
     gameStore.establishTradeRoute(routeId);
@@ -13,12 +19,17 @@
 </script>
 
 <div class="space-y-3">
-  <div>
-    <h3 class="panel-title">Trade Routes</h3>
-    <p class="text-xs text-ink-muted">Establish trade routes to boost resource production. Routes reset on prestige.</p>
-  </div>
+  {#if !hasContent}
+    <p class="text-xs text-ink-muted py-2 leading-tight">
+      🔒 Trade Routes: {lockedLine}
+    </p>
+  {:else}
+    <div>
+      <h3 class="panel-title">Trade Routes</h3>
+      <p class="text-xs text-ink-muted mt-1 mb-3 leading-tight">Establish trade routes to boost resource production. Routes reset on prestige.</p>
+    </div>
 
-  {#if availableRoutes.length > 0 || activeRoutes.length > 0}
+  {#if availableRoutes.length > 0}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {#each availableRoutes as route (route.id)}
         {@const isActive = route.isActive}
@@ -33,8 +44,9 @@
           </div>
           <p class="text-xs text-ink-muted mb-2">{route.description}</p>
 
-          <div class="space-y-1 text-[0.65rem] text-ink-muted mb-3">
-            <p><span class="font-semibold">Era:</span> {route.unlockEra}</p>
+          <p class="text-xs text-ink-muted mb-2"><span class="font-semibold">Era:</span> {formatEraName(route.unlockEra)}</p>
+
+          <div class="space-y-1 text-xs text-ink-muted mb-3 leading-tight">
             <p><span class="font-semibold">Cost:</span> {formatCost(route.cost)}</p>
             <div>
               <span class="font-semibold">Bonuses:</span>
@@ -51,7 +63,7 @@
           {/if}
 
           {#if !isActive && !route.canUnlock && route.reason}
-            <p class="text-[0.65rem] text-warning mb-2">{route.reason}</p>
+            <p class="text-xs text-warning leading-tight mb-2">{route.reason}</p>
           {/if}
 
           <div class="mt-auto">
@@ -79,15 +91,6 @@
         </div>
       </div>
     {/if}
-  {:else}
-    <div class="stat-box text-center">
-      <p class="text-xs text-ink-muted">
-        {#if nextTradeRoute}
-          Trade routes unlock in {nextTradeRoute.eraName}.
-        {:else}
-          No trade routes are available for the current civilization choices.
-        {/if}
-      </p>
-    </div>
+  {/if}
   {/if}
 </div>

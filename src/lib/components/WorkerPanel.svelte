@@ -1,8 +1,16 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
-  import { formatCost, formatResourceName } from '../utils/gameFormatting.js';
+  import {
+    formatCost,
+    formatId,
+    formatResourceName,
+    getResourceIcon,
+  } from '../utils/gameFormatting.js';
+  import { getWorkerFoodResource } from '../utils/populationSupport.js';
 
   let workerDefs = $derived($gameStore.workerViews);
+  let eraFood = $derived(getWorkerFoodResource($gameStore.currentEra));
+  let eraFoodLabel = $derived(`${getResourceIcon(eraFood, '')} ${formatResourceName(eraFood)}`.trim());
 
   function hireWorker(workerId) {
     gameStore.hireWorker(workerId);
@@ -30,25 +38,44 @@
       {@const hasRequiredUpgrade = worker.requirementMet}
       {@const hasPopulation = worker.hasAvailablePopulation}
       {@const canHire = worker.canHire}
+      {@const isStarving = workerCount > 0 && worker.foodStatus === 'starving'}
+      {@const isHungry = workerCount > 0 && worker.foodStatus === 'hungry'}
 
-      <div class="item-card" class:locked={!hasRequiredUpgrade}>
+      <div
+        class="item-card"
+        class:locked={!hasRequiredUpgrade}
+        class:border-danger-muted={worker.inputStarved || isStarving}
+      >
         <div class="flex justify-between gap-3">
           <div class="flex-1 min-w-0">
-            <h4 class="text-sm font-bold text-paper mb-1">{worker.name}</h4>
-            <p class="text-xs text-ink-muted line-clamp-2 mb-2">{worker.description}</p>
+            <h4 class="text-sm font-bold text-paper mb-1 flex items-center gap-2 flex-wrap">
+              {worker.name}
+              {#if worker.inputStarved}
+                <span class="text-[0.7rem] font-semibold px-1.5 py-0.5 rounded bg-danger/15 border border-danger-muted text-danger">
+                  Idle
+                </span>
+              {:else if isStarving}
+                <span class="text-[0.7rem] font-semibold px-1.5 py-0.5 rounded bg-danger/15 border border-danger-muted text-danger">
+                  Starving — feed {eraFoodLabel}
+                </span>
+              {:else if isHungry}
+                <span class="text-[0.7rem] font-semibold px-1.5 py-0.5 rounded bg-warning/15 border border-warning/30 text-warning">
+                  Hungry
+                </span>
+              {/if}
+            </h4>
+            <p class="text-xs text-ink-muted line-clamp-2 mb-2 leading-tight">{worker.description}</p>
 
-            <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
+            <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted leading-tight">
               <span>Cost: {formatCost(actualCost)}</span>
               <span class="flex items-center gap-1">
                 Owned: {workerCount}
-                {#if workerCount > 0}
+                {#if workerCount > 0 && !worker.inputStarved && !isStarving}
                   {@const eff = worker.efficiencyPct || 100}
-                  {@const foodStatus = worker.foodStatus || 'wellFed'}
                   <span
                     class="font-medium"
-                    class:text-success={foodStatus === 'wellFed'}
-                    class:text-warning={foodStatus === 'hungry'}
-                    class:text-danger={foodStatus === 'starving'}
+                    class:text-success={!isHungry}
+                    class:text-warning={isHungry}
                   >
                     {eff}%
                   </span>
@@ -58,12 +85,17 @@
           </div>
 
           <div class="flex flex-col items-end justify-between shrink-0">
-            {#if !hasRequiredUpgrade}
-              <span class="text-[0.65rem] text-warning">Requires: {worker.requiresUpgrade}</span>
+            {#if worker.inputStarved}
+              <span class="text-xs text-danger font-semibold text-right leading-tight">
+                Idle — out of {getResourceIcon(worker.starvedInput, '')}
+                {formatResourceName(worker.starvedInput)}
+              </span>
+            {:else if !hasRequiredUpgrade}
+              <span class="text-xs text-warning">Requires: {formatId(worker.requiresUpgrade)}</span>
             {:else if !hasPopulation}
-              <span class="text-[0.65rem] text-warning">Need population</span>
+              <span class="text-xs text-warning leading-tight text-right">Need population</span>
             {:else if !canAfford}
-              <span class="text-[0.65rem] text-ink-muted">Need resources</span>
+              <span class="text-xs text-ink-muted">Need resources</span>
             {:else}
               <span></span>
             {/if}

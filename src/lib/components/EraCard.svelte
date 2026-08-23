@@ -1,6 +1,11 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
-  import { formatAdvancementProgress, getEraProgressPercent } from '../utils/gameFormatting.js';
+  import {
+    formatNumber,
+    formatResourceName,
+    getEraProgressPercent,
+    getResourceIcon,
+  } from '../utils/gameFormatting.js';
 
   let eraData = $derived($gameStore.currentEraData);
   let canAdvance = $derived($gameStore.canAdvance);
@@ -9,9 +14,7 @@
     return getEraProgressPercent(eraData?.advancementCost, $gameStore.resources);
   });
 
-  let progressText = $derived.by(() => {
-    return formatAdvancementProgress(eraData?.advancementCost, $gameStore.resources);
-  });
+  let requirements = $derived($gameStore.advancementRequirements);
 
   function advanceEra() {
     gameStore.advanceEra();
@@ -49,10 +52,37 @@
   </h3>
 
   <div class="mb-3">
-    <div class="progress-bar mb-2">
+    <div
+      class="progress-bar mb-2"
+      role="progressbar"
+      aria-label="Current era advancement progress"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow={Math.round(progressPercent)}
+    >
       <div class="progress-fill" style="width: {progressPercent.toFixed(1)}%"></div>
     </div>
-    <p class="text-xs text-ink-muted text-center tabular-nums">{progressText}</p>
+    {#if requirements.length > 0}
+      <div class="grid grid-cols-2 gap-x-2 gap-y-1 mt-2">
+        {#each requirements as req (req.resource)}
+          <div class="flex items-center justify-between gap-1.5 min-w-0">
+            <span class="flex items-center gap-1 min-w-0 text-xs {req.complete ? 'text-success' : 'text-ink-muted'}">
+              <span class="shrink-0">{getResourceIcon(req.resource, '')}</span>
+              <span class="truncate">{formatResourceName(req.resource)}</span>
+            </span>
+            <span
+              class="text-xs tabular-nums shrink-0"
+              class:text-success={req.complete}
+              class:text-paper={!req.complete}
+            >
+              {formatNumber(req.current)}/{formatNumber(req.required)}
+            </span>
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <p class="text-xs text-ink-muted text-center">Final era reached</p>
+    {/if}
   </div>
 
   <button
