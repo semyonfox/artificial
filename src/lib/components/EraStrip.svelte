@@ -25,7 +25,14 @@
     </div>
 
     <div class="flex-1 min-w-[96px]">
-      <div class="progress-bar">
+      <div
+        class="progress-bar"
+        role="progressbar"
+        aria-label="Current era progress"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow={Math.round(progressPercent)}
+      >
         <div class="progress-fill" style="width: {progressPercent.toFixed(1)}%"></div>
       </div>
     </div>

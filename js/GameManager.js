@@ -15,24 +15,110 @@ import { ProgressionValidator } from "./systems/ProgressionValidator.js";
 import { TradeRouteManager } from "./systems/TradeRouteManager.js";
 import { WonderManager } from "./systems/WonderManager.js";
 import { config } from "./core/config.js";
-import { formatResourceList, getEraIndex, scaleCost } from "./core/resourceUtils.js";
+import {
+  POPULATION_SUPPORT_RESOURCES,
+  formatResourceList,
+  getEraIndex,
+  scaleCost,
+} from "./core/resourceUtils.js";
 
-const POPULATION_SUPPORT_RESOURCES = {
-  paleolithic: ["cookedMeat", "meat"],
-  neolithic: ["grain", "livestock", "cookedMeat"],
-  bronze: ["grain", "livestock", "trade"],
-  iron: ["grain", "livestock", "cities", "trade"],
-  classical: ["grain", "cities", "medicine"],
-  medieval: ["agriculture", "grain", "mills"],
-  renaissance: ["agriculture", "trade", "banking"],
-  enlightenment: ["agriculture", "academies", "reason"],
-  industrial: ["factories", "steam", "electricity"],
-  electric: ["electricity", "automobile", "chemicals"],
-  atomic: ["electricity", "plastics", "television"],
-  information: ["electricity", "data", "internet"],
-  space: ["fusion", "spaceStations", "robotics"],
-  galactic: ["dysonSpheres", "antimatter", "quantumComputers"],
-  universal: ["realityEngines", "existentialEnergy", "universalConstants"],
+// one-time resource grants when first entering an era. exported so tests and
+// balance tooling can verify every era's pack keeps its content reachable.
+// universal consciousnessTransfer: 16 so floor(16 × 0.55) = 8 covers the
+// consciousnessTransfer cost of late-era upgrades after ×1.2 scaling.
+export const ERA_STARTER_PACKS = {
+  neolithic: { grain: 80, clay: 50, tools: 25, pottery: 10, livestock: 12 },
+  bronze: { copper: 40, tin: 20, tools: 15 },
+  iron: { iron: 80, coal: 20, bronze: 60, stones: 30, knowledge: 30 },
+  classical: {
+    cities: 15,
+    knowledge: 30,
+    coins: 12,
+    writing: 12,
+    iron: 20,
+  },
+  medieval: {
+    agriculture: 25,
+    mills: 8,
+    manuscripts: 15,
+    religion: 8,
+    guilds: 10,
+    coins: 20,
+    trade: 15,
+  },
+  renaissance: {
+    printing: 20,
+    manuscripts: 15,
+    banking: 12,
+    navigation: 12,
+    coins: 25,
+    trade: 20,
+    optics: 15,
+  },
+  enlightenment: {
+    reason: 40,
+    knowledge: 30,
+    printing: 25,
+    clockwork: 15,
+    academies: 10,
+    ships: 20,
+  },
+  industrial: {
+    coal: 120,
+    iron: 30,
+    copper: 20,
+    steam: 30,
+    factories: 20,
+    reason: 20,
+  },
+  electric: {
+    dynamo: 60,
+    electricity: 50,
+    steel: 50,
+    telephone: 20,
+    chemicals: 30,
+    oil: 40,
+  },
+  atomic: {
+    uranium: 30,
+    aircraft: 50,
+    plastics: 30,
+    radar: 20,
+    electricity: 80,
+    chemicals: 40,
+  },
+  information: {
+    silicon: 200,
+    computers: 60,
+    internet: 20,
+    steel: 20,
+    electricity: 50,
+    data: 20,
+  },
+  space: {
+    rockets: 80,
+    satellites: 20,
+    computers: 80,
+    steel: 80,
+    electricity: 60,
+    fusion: 20,
+  },
+  galactic: {
+    robotics: 60,
+    solarPanels: 80,
+    computers: 100,
+    satellites: 40,
+    fusion: 50,
+    quantumComputers: 20,
+  },
+  universal: {
+    quantumComputers: 80,
+    antimatter: 40,
+    wormholes: 20,
+    realityEngines: 8,
+    existentialEnergy: 20,
+    consciousnessTransfer: 16,
+  },
 };
 
 export class GameManager {
@@ -73,7 +159,7 @@ export class GameManager {
       try {
         new ProgressionValidator().runAndReport();
       } catch (e) {
-        console.warn('progression validator threw:', e);
+        console.warn("progression validator threw:", e);
       }
 
       // Create game state first
@@ -130,7 +216,10 @@ export class GameManager {
     this.systems.workerManager = new WorkerManager(this.gameState);
     this.systems.eventManager = new EventManager(this.gameState);
 
-    this.systems.offlineManager = new OfflineManager(this.gameState, this.persistence);
+    this.systems.offlineManager = new OfflineManager(
+      this.gameState,
+      this.persistence,
+    );
     this.systems.achievementManager = new AchievementManager(this.gameState);
     this.systems.prestigeManager = new PrestigeManager(this.gameState);
 
@@ -185,7 +274,7 @@ export class GameManager {
   /**
    * Show a notification through the active presentation adapter.
    */
-  showNotification(message, type = 'success', duration = 2000) {
+  showNotification(message, type = "success", duration = 2000) {
     if (this.store) {
       this.store.showNotification(message, type, duration);
     } else {
@@ -222,10 +311,7 @@ export class GameManager {
   setupEventListeners() {
     // Listen for upgrade unlocks
     this.gameState.addListener("upgradeUnlocked", (data) => {
-      this.showNotification(
-        `Unlocked: ${data.upgradeId}`,
-        "success",
-      );
+      this.showNotification(`Unlocked: ${data.upgradeId}`, "success");
     });
 
     this.gameState.addListener("progressionChange", () => {
@@ -316,12 +402,17 @@ export class GameManager {
   getCurrentActionViews() {
     const actions = this.getCurrentEraData()?.actions || [];
     return actions
-      .filter((action) => !action.requiresUpgrade || this.gameState.hasUpgrade(action.requiresUpgrade))
+      .filter(
+        (action) =>
+          !action.requiresUpgrade ||
+          this.gameState.hasUpgrade(action.requiresUpgrade),
+      )
       .map((action) => {
         const cooldownRemaining = this.getActionCooldownRemaining(action.id);
         return {
           ...action,
-          canAfford: !action.consumes || this.gameState.canAfford(action.consumes),
+          canAfford:
+            !action.consumes || this.gameState.canAfford(action.consumes),
           cooldownMs: action.cooldown || 1000,
           cooldownRemaining,
           isOnCooldown: cooldownRemaining > 0,
@@ -352,13 +443,20 @@ export class GameManager {
     const expiresAt = Date.now() + cooldownMs;
     this.actionCooldowns.set(action.id, expiresAt);
     this.clearActionCooldownTimer(action.id);
-    this.actionCooldownTimers.set(action.id, setTimeout(() => {
-      if (this.actionCooldowns.get(action.id) !== expiresAt) return;
-      this.actionCooldowns.delete(action.id);
-      this.actionCooldownTimers.delete(action.id);
-      this.gameState?.notifyListeners("actionCooldownChange", { actionId: action.id });
-    }, cooldownMs));
-    this.gameState?.notifyListeners("actionCooldownChange", { actionId: action.id });
+    this.actionCooldownTimers.set(
+      action.id,
+      setTimeout(() => {
+        if (this.actionCooldowns.get(action.id) !== expiresAt) return;
+        this.actionCooldowns.delete(action.id);
+        this.actionCooldownTimers.delete(action.id);
+        this.gameState?.notifyListeners("actionCooldownChange", {
+          actionId: action.id,
+        });
+      }, cooldownMs),
+    );
+    this.gameState?.notifyListeners("actionCooldownChange", {
+      actionId: action.id,
+    });
   }
 
   clearActionCooldownTimer(actionId) {
@@ -393,10 +491,7 @@ export class GameManager {
     }
 
     if (this.gameState.hasUpgrade(upgradeId)) {
-      this.showNotification(
-        "Upgrade already purchased",
-        "info",
-      );
+      this.showNotification("Upgrade already purchased", "info");
       return false;
     }
 
@@ -412,8 +507,9 @@ export class GameManager {
     }
 
     // Apply prestige cost discount
-    const costMult = (this.systems.prestigeManager?.getUpgradeCostMultiplier() || 1)
-      * (config.balance?.upgradeCostMultiplier || 1);
+    const costMult =
+      (this.systems.prestigeManager?.getUpgradeCostMultiplier() || 1) *
+      (config.balance?.upgradeCostMultiplier || 1);
     const adjustedCost = scaleCost(upgrade.cost, costMult);
 
     if (!this.gameState.canAfford(adjustedCost)) {
@@ -424,10 +520,7 @@ export class GameManager {
     if (this.gameState.spendResources(adjustedCost)) {
       this.gameState.unlockUpgrade(upgradeId);
       this.applyUpgradeEffect(upgrade);
-      this.showNotification(
-        `Purchased ${upgrade.name}!`,
-        "success",
-      );
+      this.showNotification(`Purchased ${upgrade.name}!`, "success");
       return true;
     }
 
@@ -441,7 +534,7 @@ export class GameManager {
     const specs = config.eraSpecializations[eraKey];
     if (!specs) return false;
 
-    const spec = specs.find(s => s.id === specId);
+    const spec = specs.find((s) => s.id === specId);
     if (!spec) return false;
 
     // initialize specialization tracking
@@ -452,19 +545,18 @@ export class GameManager {
     // can only choose once per era per run
     if (this.gameState.data.eraSpecializations[eraKey]) {
       this.showNotification(
-        'Already chose a specialization for this era',
-        'warning',
+        "Already chose a specialization for this era",
+        "warning",
       );
       return false;
     }
 
     this.gameState.data.eraSpecializations[eraKey] = specId;
-    this.showNotification(
-      `Chose ${spec.name}!`,
-      'success',
-      5000,
-    );
-    this.gameState.notifyListeners("eraSpecializationChosen", { era: eraKey, specId });
+    this.showNotification(`Chose ${spec.name}!`, "success", 5000);
+    this.gameState.notifyListeners("eraSpecializationChosen", {
+      era: eraKey,
+      specId,
+    });
     return true;
   }
 
@@ -475,7 +567,7 @@ export class GameManager {
     const civSpecs = config.civSpecializations[eraKey];
     if (!civSpecs) return false;
 
-    const spec = civSpecs.find(s => s.id === civId);
+    const spec = civSpecs.find((s) => s.id === civId);
     if (!spec) return false;
 
     if (!this.gameState.data.civSpecializations) {
@@ -485,8 +577,8 @@ export class GameManager {
     // can only choose once per era per run
     if (this.gameState.data.civSpecializations[eraKey]) {
       this.showNotification(
-        'Already chose a civilization for this era',
-        'warning',
+        "Already chose a civilization for this era",
+        "warning",
       );
       return false;
     }
@@ -494,10 +586,13 @@ export class GameManager {
     this.gameState.data.civSpecializations[eraKey] = civId;
     this.showNotification(
       `Chose ${spec.name}! ${spec.description}`,
-      'success',
+      "success",
       5000,
     );
-    this.gameState.notifyListeners('civSpecializationChosen', { era: eraKey, civId });
+    this.gameState.notifyListeners("civSpecializationChosen", {
+      era: eraKey,
+      civId,
+    });
     return true;
   }
 
@@ -541,10 +636,15 @@ export class GameManager {
       [this.gameState.data.civSpecializations, config.civSpecializations],
     ]) {
       for (const [eraKey, specializationId] of Object.entries(choices || {})) {
-        const specialization = definitions[eraKey]?.find(({ id }) => id === specializationId);
+        const specialization = definitions[eraKey]?.find(
+          ({ id }) => id === specializationId,
+        );
         if (!specialization) continue;
 
-        for (const factors of [specialization.bonuses, specialization.penalties]) {
+        for (const factors of [
+          specialization.bonuses,
+          specialization.penalties,
+        ]) {
           const factor = factors?.[target];
           if (factor) {
             mult *= factor;
@@ -646,14 +746,18 @@ export class GameManager {
   }
 
   getPopulationCapacity(currentEra) {
-    return this.gameState.getPopulationCapacity?.(currentEra)
-      || config.balance?.maxPopulationPerEra?.[currentEra]
-      || 50;
+    return (
+      this.gameState.getPopulationCapacity?.(currentEra) ||
+      config.balance?.maxPopulationPerEra?.[currentEra] ||
+      50
+    );
   }
 
   getPopulationSupportResources(eraIdx) {
     const eraKey = config.eraOrder[eraIdx] || this.gameState.data.currentEra;
-    return POPULATION_SUPPORT_RESOURCES[eraKey] || ["grain", "agriculture", "cities"];
+    return (
+      POPULATION_SUPPORT_RESOURCES[eraKey] || ["grain", "agriculture", "cities"]
+    );
   }
 
   getPopulationFoodFactor(currentPop, eraIdx) {
@@ -663,12 +767,12 @@ export class GameManager {
       (total, resource) => total + this.gameState.getResource(resource),
       0,
     );
-    const targetBuffer = Math.max(1, currentPop * (growthCfg.foodBufferPerCapita || 0.6));
-    const foodRatio = availableFood / targetBuffer;
-    return Math.max(
-      growthCfg.minFoodFactor || 0.2,
-      Math.min(1, foodRatio),
+    const targetBuffer = Math.max(
+      1,
+      currentPop * (growthCfg.foodBufferPerCapita || 0.6),
     );
+    const foodRatio = availableFood / targetBuffer;
+    return Math.max(growthCfg.minFoodFactor || 0.2, Math.min(1, foodRatio));
   }
 
   getPopulationWorkerLoadFactor(currentPop) {
@@ -738,12 +842,13 @@ export class GameManager {
 
     const foodFactor = this.getPopulationFoodFactor(currentPop, eraIdx);
     const workerLoadFactor = this.getPopulationWorkerLoadFactor(currentPop);
-    const growth = baseGrowthPerSecond
-      * capacityPressure
-      * foodFactor
-      * workerLoadFactor
-      * growthMultiplier
-      * (deltaTime / 1000);
+    const growth =
+      baseGrowthPerSecond *
+      capacityPressure *
+      foodFactor *
+      workerLoadFactor *
+      growthMultiplier *
+      (deltaTime / 1000);
     const newPop = Math.min(currentPop + growth, maxPop);
     const actualGrowth = newPop - currentPop;
 
@@ -759,15 +864,9 @@ export class GameManager {
     try {
       const success = this.gameState.save();
       if (success) {
-        this.showNotification(
-          "Game saved successfully!",
-          "success",
-        );
+        this.showNotification("Game saved successfully!", "success");
       } else {
-        this.showNotification(
-          "Failed to save game",
-          "error",
-        );
+        this.showNotification("Failed to save game", "error");
       }
       return success;
     } catch (error) {
@@ -785,17 +884,11 @@ export class GameManager {
       const success = this.gameState.load();
       if (success) {
         this.clearActionCooldowns();
-        this.showNotification(
-          "Game loaded successfully!",
-          "success",
-        );
+        this.showNotification("Game loaded successfully!", "success");
         // Restart worker automation for loaded workers
         this.restartWorkerAutomation();
       } else {
-        this.showNotification(
-          "No saved game found",
-          "warning",
-        );
+        this.showNotification("No saved game found", "warning");
       }
       return success;
     } catch (error) {
@@ -810,7 +903,9 @@ export class GameManager {
    */
   resetGame() {
     if (
-      this.persistence.confirm("Reset this run and clear the local save, achievements, wonders, and offline timer? This cannot be undone.")
+      this.persistence.confirm(
+        "Reset this run and clear the local save, achievements, wonders, and offline timer? This cannot be undone.",
+      )
     ) {
       try {
         // Stop run-specific timers without stopping the main game loop.
@@ -829,17 +924,11 @@ export class GameManager {
         // Restart worker automation
         this.restartWorkerAutomation();
 
-        this.showNotification(
-          "Game reset successfully!",
-          "info",
-        );
+        this.showNotification("Game reset successfully!", "info");
         return true;
       } catch (error) {
         console.error("Reset game error:", error);
-        this.showNotification(
-          "Error resetting game",
-          "error",
-        );
+        this.showNotification("Error resetting game", "error");
         return false;
       }
     }
@@ -882,24 +971,29 @@ export class GameManager {
     // every run starts at Paleolithic now — era-skip perks are gone.
 
     // Apply First Workers perk: hire 2 gatherers + 1 cook
-    if (pm.hasPerk('firstWorkers')) {
+    if (pm.hasPerk("firstWorkers")) {
       const eraData = this.getCurrentEraData();
       if (eraData?.workers) {
-        const gathererData = eraData.workers.find(w => w.id === 'gatherer');
-        const cookData = eraData.workers.find(w => w.id === 'cook');
+        const gathererData = eraData.workers.find((w) => w.id === "gatherer");
+        const cookData = eraData.workers.find((w) => w.id === "cook");
         if (gathererData) {
-          this.gameState.addWorker('gatherer', 2, { allowPopulationGrant: true });
-          this.systems.workerManager.startWorkerAutomation('gatherer', gathererData);
+          this.gameState.addWorker("gatherer", 2, {
+            allowPopulationGrant: true,
+          });
+          this.systems.workerManager.startWorkerAutomation(
+            "gatherer",
+            gathererData,
+          );
         }
         if (cookData) {
-          this.gameState.addWorker('cook', 1, { allowPopulationGrant: true });
-          this.systems.workerManager.startWorkerAutomation('cook', cookData);
+          this.gameState.addWorker("cook", 1, { allowPopulationGrant: true });
+          this.systems.workerManager.startWorkerAutomation("cook", cookData);
         }
       }
     }
 
     // Cultural Memory: auto-unlock first upgrade of completed eras
-    if (pm.hasPerk('culturalMemory')) {
+    if (pm.hasPerk("culturalMemory")) {
       const eraOrder = config.eraOrder;
       const highestIdx = getEraIndex(pm.getPrestigeData().highestEra);
       for (let i = 0; i < highestIdx; i++) {
@@ -907,9 +1001,9 @@ export class GameManager {
         const eraConfig = config.eraData[eraKey];
         if (eraConfig?.upgrades?.length > 0) {
           // unlock the first upgrade (lowest priority)
-          const firstUpgrade = eraConfig.upgrades.reduce((a, b) =>
-            a.priority < b.priority ? a : b,
-            eraConfig.upgrades[0]
+          const firstUpgrade = eraConfig.upgrades.reduce(
+            (a, b) => (a.priority < b.priority ? a : b),
+            eraConfig.upgrades[0],
           );
           this.gameState.unlockUpgrade(firstUpgrade.id);
         }
@@ -930,7 +1024,8 @@ export class GameManager {
   }
 
   purchasePrestigePerk(perkId) {
-    const purchased = this.systems.prestigeManager?.purchasePerk(perkId) || false;
+    const purchased =
+      this.systems.prestigeManager?.purchasePerk(perkId) || false;
     if (purchased) {
       this.showNotification("Perk purchased!", "success");
     }
@@ -944,19 +1039,13 @@ export class GameManager {
     try {
       const saveData = this.gameState?.getSaveData();
       if (!saveData) {
-        this.showNotification(
-          "No save data to export",
-          "warning",
-        );
+        this.showNotification("No save data to export", "warning");
         return;
       }
 
       const encoded = btoa(JSON.stringify(saveData));
       await this.persistence.copyText(encoded);
-      this.showNotification(
-        "Save exported to clipboard!",
-        "success",
-      );
+      this.showNotification("Save exported to clipboard!", "success");
     } catch (error) {
       console.error("Export failed:", error);
       this.showNotification("Export failed", "error");
@@ -989,18 +1078,23 @@ export class GameManager {
         throw new Error("Save import must be a JSON object");
       }
 
-      const currentSchemaVersion = this.gameState.createInitialState().schemaVersion;
+      const currentSchemaVersion =
+        this.gameState.createInitialState().schemaVersion;
       if (parsed.schemaVersion && parsed.schemaVersion > currentSchemaVersion) {
-        throw new Error(`Unsupported save schema version: ${parsed.schemaVersion}`);
+        throw new Error(
+          `Unsupported save schema version: ${parsed.schemaVersion}`,
+        );
       }
 
       const importedState = new GameState(this.persistence);
       importedState.loadParsedSave(parsed);
       const saveData = importedState.getSaveData();
 
-      if (!this.persistence.confirm(
-        "Import this save? Your current run will be backed up and can be restored until the next import or reset.",
-      )) {
+      if (
+        !this.persistence.confirm(
+          "Import this save? Your current run will be backed up and can be restored until the next import or reset.",
+        )
+      ) {
         return false;
       }
 
@@ -1010,7 +1104,10 @@ export class GameManager {
         throw new Error("Imported save could not be loaded");
       }
       this.gameState.notifyListeners("importBackupChange", { available: true });
-      this.showNotification("Save imported. Your previous run can be restored.", "success");
+      this.showNotification(
+        "Save imported. Your previous run can be restored.",
+        "success",
+      );
       return true;
     } catch (error) {
       console.error("Import failed:", error);
@@ -1034,9 +1131,11 @@ export class GameManager {
         return false;
       }
 
-      if (!this.persistence.confirm(
-        "Restore the save from before your latest import? The currently imported run will be replaced.",
-      )) {
+      if (
+        !this.persistence.confirm(
+          "Restore the save from before your latest import? The currently imported run will be replaced.",
+        )
+      ) {
         return false;
       }
 
@@ -1056,7 +1155,9 @@ export class GameManager {
       }
 
       this.persistence.removeImportBackup();
-      this.gameState.notifyListeners("importBackupChange", { available: false });
+      this.gameState.notifyListeners("importBackupChange", {
+        available: false,
+      });
       this.showNotification("Pre-import save restored", "success");
       return true;
     } catch (error) {
@@ -1126,9 +1227,7 @@ export class GameManager {
 
       if (nextEra) {
         this.showNotification(
-          `🌟 Ready to advance to ${
-            config.eraData[nextEra]?.name || nextEra
-          }!`,
+          `🌟 Ready to advance to ${config.eraData[nextEra]?.name || nextEra}!`,
           "info",
           5000,
         );
@@ -1162,10 +1261,7 @@ export class GameManager {
     const nextEra = this.getNextEra(currentEra);
 
     if (!nextEra) {
-      this.showNotification(
-        "You are already in the final era!",
-        "warning",
-      );
+      this.showNotification("You are already in the final era!", "warning");
       return false;
     }
 
@@ -1203,7 +1299,8 @@ export class GameManager {
     );
     this.logGameEvent({
       name: `Entered ${eraInfo?.name || nextEra}`,
-      description: eraInfo?.description || "Civilization advanced to a new era.",
+      description:
+        eraInfo?.description || "Civilization advanced to a new era.",
     });
 
     // Restart worker automation for new era
@@ -1216,107 +1313,15 @@ export class GameManager {
    * Handle era transition effects
    */
   onEraTransition(toEra) {
-    const starterPacks = {
-      neolithic: { grain: 80, clay: 50, tools: 25, pottery: 10, livestock: 12 },
-      bronze: { copper: 40, tin: 20, tools: 15 },
-      iron: { iron: 80, coal: 20, bronze: 20, stones: 30, knowledge: 30 },
-      classical: {
-        cities: 15,
-        knowledge: 30,
-        coins: 12,
-        writing: 12,
-        iron: 20,
-      },
-      medieval: {
-        agriculture: 25,
-        mills: 8,
-        manuscripts: 15,
-        religion: 8,
-        guilds: 10,
-        coins: 20,
-        trade: 15,
-      },
-      renaissance: {
-        printing: 20,
-        manuscripts: 15,
-        banking: 12,
-        navigation: 12,
-        coins: 25,
-        trade: 20,
-        optics: 15,
-      },
-      enlightenment: {
-        reason: 40,
-        knowledge: 30,
-        printing: 25,
-        clockwork: 15,
-        academies: 10,
-        ships: 20,
-      },
-      industrial: {
-        coal: 120,
-        iron: 30,
-        copper: 20,
-        steam: 30,
-        factories: 20,
-        reason: 20,
-      },
-      electric: {
-        dynamo: 60,
-        electricity: 50,
-        steel: 50,
-        telephone: 20,
-        chemicals: 30,
-        oil: 40,
-      },
-      atomic: {
-        uranium: 30,
-        aircraft: 50,
-        plastics: 30,
-        radar: 20,
-        electricity: 80,
-        chemicals: 40,
-      },
-      information: {
-        silicon: 200,
-        computers: 60,
-        internet: 20,
-        steel: 20,
-        electricity: 50,
-        data: 20,
-      },
-      space: {
-        rockets: 80,
-        satellites: 20,
-        computers: 80,
-        steel: 80,
-        electricity: 60,
-        fusion: 20,
-      },
-      galactic: {
-        robotics: 60,
-        solarPanels: 80,
-        computers: 100,
-        satellites: 40,
-        fusion: 50,
-        quantumComputers: 20,
-      },
-      universal: {
-        quantumComputers: 80,
-        antimatter: 40,
-        wormholes: 20,
-        realityEngines: 8,
-        existentialEnergy: 20,
-        consciousnessTransfer: 8,
-      },
-    };
-
-    const starterPack = starterPacks[toEra];
+    const starterPack = ERA_STARTER_PACKS[toEra];
     if (!starterPack) return;
 
     const starterPackMult = config.balance?.eraStarterPackMultiplier ?? 1;
     Object.entries(starterPack).forEach(([resource, amount]) => {
-      this.gameState.addResource(resource, Math.max(1, Math.floor(amount * starterPackMult)));
+      this.gameState.addResource(
+        resource,
+        Math.max(1, Math.floor(amount * starterPackMult)),
+      );
     });
   }
 

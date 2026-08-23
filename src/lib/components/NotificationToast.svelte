@@ -1,6 +1,9 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
 
+  // cap the stack so a burst of events never floods the corner
+  let visibleNotifications = $derived($gameStore.notifications.slice(0, 4));
+
   function getNotificationClasses(type) {
     switch (type) {
       case 'success':
@@ -22,13 +25,18 @@
   aria-live="polite"
   aria-atomic="false"
 >
-  {#each $gameStore.notifications as notif (notif.id)}
-    <div
-      class="px-4 py-3 rounded-lg shadow-xl shadow-black/30 border backdrop-blur-sm
-             animate-slide-in pointer-events-auto {getNotificationClasses(notif.type)}"
+  {#each visibleNotifications as notif (notif.id)}
+    <button
+      type="button"
+      class="relative px-4 py-3 rounded-lg shadow-xl shadow-black/30 border backdrop-blur-sm
+             animate-slide-in pointer-events-auto cursor-pointer text-left
+             transition-transform hover:scale-[1.02] {getNotificationClasses(notif.type)}"
+      title="Dismiss"
+      onclick={() => gameStore.dismissNotification(notif.id)}
     >
-      <p class="text-sm font-medium">{notif.message}</p>
-    </div>
+      <p class="text-sm font-medium pr-4">{notif.message}</p>
+      <span class="absolute top-1.5 right-2 text-xs opacity-60" aria-hidden="true">✕</span>
+    </button>
   {/each}
 </div>
 

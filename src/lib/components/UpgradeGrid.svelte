@@ -1,8 +1,25 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
-  import { formatCost, getPurchaseButtonClasses } from '../utils/gameFormatting.js';
+  import { formatCost, formatId, getPurchaseButtonClasses } from '../utils/gameFormatting.js';
 
   let upgradeDefs = $derived($gameStore.upgradeViews);
+
+  // scannable order: affordable first, then locked, purchased sink to bottom
+  let sortedUpgrades = $derived.by(() => {
+    const rank = (upgrade) => {
+      if (upgrade.isUnlocked) return 3;
+      if (upgrade.canBuy) return 0;
+      if (!upgrade.hasRequiredUpgrade) return 2;
+      return 1;
+    };
+    return upgradeDefs
+      .map((upgrade, index) => ({ upgrade, index }))
+      .sort((a, b) => {
+        const diff = rank(a.upgrade) - rank(b.upgrade);
+        return diff !== 0 ? diff : a.index - b.index;
+      })
+      .map(({ upgrade }) => upgrade);
+  });
 
   function buyUpgrade(upgradeId) {
     gameStore.buyUpgrade(upgradeId);
@@ -10,7 +27,7 @@
 </script>
 
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-  {#each upgradeDefs as upgrade (upgrade.id)}
+  {#each sortedUpgrades as upgrade (upgrade.id)}
     {@const isUnlocked = upgrade.isUnlocked}
     {@const adjustedCost = upgrade.adjustedCost}
     {@const hasDiscount = upgrade.hasPrestigeDiscount}
@@ -36,7 +53,7 @@
       </div>
 
       {#if !hasRequiredUpgrade}
-        <p class="text-[0.65rem] text-warning mb-2">Requires: {upgrade.requiresUpgrade}</p>
+        <p class="text-xs text-warning leading-tight mb-2">Requires: {formatId(upgrade.requiresUpgrade)}</p>
       {/if}
 
       {#if upgrade.historical}

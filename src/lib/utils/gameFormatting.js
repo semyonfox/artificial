@@ -1,4 +1,4 @@
-import { config } from '../../../js/core/config.js';
+import { config } from "../../../js/core/config.js";
 
 export function formatNumber(value = 0) {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
@@ -7,17 +7,43 @@ export function formatNumber(value = 0) {
 }
 
 export function formatResourceName(key) {
-  return key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+  return key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase());
+}
+
+export function formatId(id) {
+  return formatResourceName(id);
+}
+
+export function formatEraName(key) {
+  return config.eraData?.[key]?.name || formatResourceName(key);
+}
+
+let civNameLookup = null;
+export function formatCivName(id) {
+  if (!civNameLookup) {
+    civNameLookup = new Map();
+    for (const civs of Object.values(config.civSpecializations || {})) {
+      civs.forEach((civ) => civNameLookup.set(civ.id, civ.name));
+    }
+  }
+  return civNameLookup.get(id) || formatResourceName(id);
 }
 
 export function getResourceIcon(resource, fallback = resource) {
   return config.resourceIcons[resource] || fallback;
 }
 
+export function formatAmount(amount) {
+  return Math.abs(amount) >= 1_000 ? formatNumber(amount) : `${amount}`;
+}
+
 export function formatCost(cost = {}) {
   return Object.entries(cost)
-    .map(([resource, amount]) => `${amount} ${getResourceIcon(resource)}`)
-    .join(', ');
+    .map(
+      ([resource, amount]) =>
+        `${formatAmount(amount)} ${getResourceIcon(resource)}`,
+    )
+    .join(", ");
 }
 
 export function getRelevantResources(currentEra) {
@@ -47,21 +73,24 @@ export function getEraProgressPercent(advancementCost, resources = {}) {
 
 export function formatAdvancementProgress(advancementCost, resources = {}) {
   const entries = Object.entries(advancementCost || {});
-  if (entries.length === 0) return 'Final era reached';
+  if (entries.length === 0) return "Final era reached";
 
   return entries
-    .map(([resource, amount]) => `${Math.floor(resources[resource] || 0)}/${amount} ${resource}`)
-    .join(', ');
+    .map(
+      ([resource, amount]) =>
+        `${Math.floor(resources[resource] || 0)}/${amount} ${resource}`,
+    )
+    .join(", ");
 }
 
 export function getPurchaseButtonClasses(isPurchased, isAvailable) {
-  if (isPurchased) return 'bg-success/20 text-success border-success/30';
-  if (isAvailable) return 'btn-primary';
-  return 'btn-secondary';
+  if (isPurchased) return "bg-success/20 text-success border-success/30";
+  if (isAvailable) return "btn-primary";
+  return "btn-secondary";
 }
 
 export function getChoiceButtonClasses(isChosen, isLocked) {
-  if (isChosen) return 'bg-success/20 text-success border-success/30';
-  if (isLocked) return 'btn-secondary';
-  return 'btn-primary';
+  if (isChosen) return "bg-success/20 text-success border-success/30";
+  if (isLocked) return "btn-secondary";
+  return "btn-primary";
 }
