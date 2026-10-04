@@ -27,6 +27,7 @@
     <h2 class="panel-title">Logs</h2>
     <button
       class="btn btn-ghost btn-sm"
+      aria-label={visible ? "Hide logs" : "Show logs"}
       aria-expanded={visible}
       aria-controls="game-log-content"
       onclick={toggle}
@@ -41,14 +42,14 @@
         <div>
           <h3 class="section-label mb-2">Events</h3>
           <div class="max-h-48 overflow-y-auto rounded-lg bg-surface-2 border border-ink/10 p-3 space-y-3">
-            {#each $gameStore.eventLog as event (event.timestamp)}
+            {#each $gameStore.eventLog as event (event.id)}
               <div class="pb-2 border-b border-ink/10 last:border-0 last:pb-0">
                 <h4 class="text-sm font-semibold text-paper">{event.name}</h4>
                 <p class="text-xs text-ink-muted mt-0.5">{event.description}</p>
                 {#if event.effect}
                   <p class="text-[0.65rem] text-ink-soft mt-1">Effect: {formatEffect(event.effect)}</p>
                 {/if}
-                <span class="text-[0.6rem] text-ink-muted">{formatTime(event.timestamp)}</span>
+                <span class="text-xs text-ink-muted">{formatTime(event.timestamp)}</span>
               </div>
             {/each}
           </div>
@@ -59,14 +60,14 @@
         <div>
           <h3 class="section-label mb-2">Disasters</h3>
           <div class="max-h-48 overflow-y-auto rounded-lg bg-surface-2 border border-ink/10 p-3 space-y-3">
-            {#each $gameStore.disasterLog as disaster (disaster.timestamp)}
+            {#each $gameStore.disasterLog as disaster (disaster.id)}
               <div class="pb-2 border-b border-ink/10 last:border-0 last:pb-0">
                 <h4 class="text-sm font-semibold text-danger">{disaster.name}</h4>
                 <p class="text-xs text-ink-muted mt-0.5">{disaster.description}</p>
                 {#if disaster.effect}
                   <p class="text-[0.65rem] text-ink-soft mt-1">Effect: {formatEffect(disaster.effect)}</p>
                 {/if}
-                <span class="text-[0.6rem] text-ink-muted">{formatTime(disaster.timestamp)}</span>
+                <span class="text-xs text-ink-muted">{formatTime(disaster.timestamp)}</span>
               </div>
             {/each}
           </div>

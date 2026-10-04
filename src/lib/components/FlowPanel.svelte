@@ -33,34 +33,30 @@
   let populationView = $derived($gameStore.populationView);
   let populationRequirement = $derived(requirements.find(req => req.resource === 'population'));
 
-  // first matching stall rule explains why population growth is slow
+  let nextStep = $derived.by(() => {
+    if (canAdvance && nextEra) return `Ready to advance. Use Advance to ${nextEra.name} below; materials are spent and population stays.`;
+    if ($gameStore.currentEra !== 'paleolithic') return null;
+    if (!$gameStore.upgrades.stoneKnapping) return 'Forage for sticks and occasional stones. Buy Stone Knapping in Upgrades to unlock Hunt.';
+    if (!$gameStore.upgrades.fireControl) return 'Hunt for Meat to support population. Buy Fire Control in Upgrades to unlock Cook.';
+    return 'Hunt for Meat, then Cook for Cooked Meat. Both support your population; keep the stocks listed below to advance.';
+  });
+
   let populationDiagnosis = $derived.by(() => {
     if (!populationRequirement || populationRequirement.complete) return null;
     const growthCfg = config.balance?.populationGrowth || {};
-    const { pop, cap, loadRatio, supportAvailable, foodResource } = populationView;
-
-    if (pop >= cap) {
-      return { blocked: true, message: 'Population is at the era cap — advance to raise it' };
-    }
+    const { pop, cap, loadRatio, supportAvailable, supportResources } = populationView;
+    if (pop >= cap) return { blocked: true, message: 'At the era population cap. Advance to raise it.' };
+    const messages = [];
     const loadCap = growthCfg.workerLoadSoftCap || 0.65;
-    if (loadRatio > loadCap) {
-      return {
-        blocked: true,
-        message: `Over ${Math.round(loadCap * 100)}% of your people are workers — growth slows`,
-      };
+    if (loadRatio > loadCap) messages.push('Most people are assigned to work, slowing growth. Wait for more people before hiring again.');
+    if (supportAvailable < Math.max(1, pop * (growthCfg.foodBufferPerCapita || 0.6))) {
+      messages.push(`Low support reserves slow growth. Build a reserve of ${supportResources.map(formatResourceName).join(' or ')}.`);
     }
-    const foodBuffer = growthCfg.foodBufferPerCapita || 0.6;
-    if (supportAvailable < pop * foodBuffer) {
-      return {
-        blocked: true,
-        message: `Food buffer low — produce more ${formatResourceName(foodResource)}`,
-      };
-    }
-    return { blocked: false, message: 'Growing steadily' };
+    return { blocked: messages.length > 0, message: messages.join(' ') || 'Growing steadily.' };
   });
 
   function advanceEra() {
-    gameStore.advanceEra();
+    if (gameStore.advanceEra()) document.getElementById("objective-title")?.focus();
   }
 </script>
 
@@ -68,7 +64,7 @@
   <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
     <div class="min-w-0">
       <p class="section-label mb-1">Current Objective</p>
-      <h2 class="text-xl font-bold text-paper">
+      <h2 id="objective-title" tabindex="-1" class="text-xl font-bold text-paper">
         {#if nextEra}
           Reach {nextEra.name}
         {:else}
@@ -109,12 +105,17 @@
     </div>
   </div>
 
+  {#if nextStep}
+    <p class="rounded-lg bg-accent/10 border border-accent/30 p-3 text-sm text-ink-soft leading-relaxed"><strong class="text-paper">Next step:</strong> {nextStep}</p>
+  {/if}
+  <p class="text-sm text-ink-muted leading-relaxed">Population grows over time; support reserves speed it up. Hiring assigns an existing person. You have {$gameStore.availablePopulation} available people and {populationView.totalWorkers} assigned workers.</p>
   {#if requirements.length > 0}
+    <p class="text-sm text-ink-muted">Requirements use current stocks, so spending can lower this progress. Advancing spends the listed materials; population stays.</p>
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
       {#each requirements as req (req.resource)}
         {@const isBottleneck = req.resource === bottleneckResource}
         <div
-          class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border transition-colors
+          class="flex flex-wrap items-center justify-between gap-3 px-3 py-2 rounded-lg border transition-colors
             {req.complete
               ? 'bg-success/5 border-success/30'
               : isBottleneck
@@ -126,9 +127,9 @@
               {getResourceIcon(req.resource, '?')}
             </span>
             {#if isBottleneck}
-              <span class="text-[0.7rem] font-bold uppercase tracking-wide text-accent shrink-0">Focus</span>
+              <span class="text-xs font-bold uppercase tracking-wide text-accent shrink-0">Focus</span>
             {/if}
-            <span class="text-sm text-ink-soft truncate" title={formatResourceName(req.resource)}>{formatResourceName(req.resource)}</span>
+            <span class="text-sm text-ink-soft min-w-0 break-words" title={formatResourceName(req.resource)}>{formatResourceName(req.resource)}</span>
           </div>
           <span
             class="text-sm font-semibold tabular-nums whitespace-nowrap shrink-0"
@@ -136,7 +137,7 @@
             class:text-paper={isBottleneck}
             class:text-ink-muted={!req.complete && !isBottleneck}
           >
-            {formatNumber(req.current)} / {formatNumber(req.required)}
+            {req.complete ? "✓ " : ""}{formatNumber(req.current)} / {formatNumber(req.required)}
           </span>
         </div>
       {/each}
@@ -145,8 +146,8 @@
 
   {#if populationDiagnosis}
     <p
-      class="text-xs leading-tight {populationDiagnosis.blocked ? 'text-warning' : 'text-success'}"
-      aria-live="polite"
+      class="text-sm leading-relaxed {populationDiagnosis.blocked ? 'text-warning' : 'text-success'}"
+
     >
       {populationDiagnosis.blocked ? '⚠' : '✓'}
       Population: {populationDiagnosis.message}

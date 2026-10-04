@@ -1,4 +1,5 @@
 <script>
+  import { tick } from "svelte";
   import { gameStore } from '../stores/gameStore.js';
   import { formatNumber, getPurchaseButtonClasses } from '../utils/gameFormatting.js';
 
@@ -28,24 +29,25 @@
     6: 'Deep Production',
   };
 
-  function doPrestige() {
-    gameStore.performPrestige();
+  async function doPrestige() {
+    const result = gameStore.performPrestige();
+    if (typeof result === "number") { await tick(); document.getElementById("prestige-title")?.focus(); }
   }
 
-  function buyPerk(perkId) {
-    gameStore.buyPerk(perkId);
+  async function buyPerk(perkId) {
+    if (gameStore.buyPerk(perkId)) { await tick(); document.getElementById(`perk-${perkId}`)?.focus(); }
   }
 </script>
 
 <div class="space-y-4">
-  <h2 class="panel-title">Prestige</h2>
+  <h2 id="prestige-title" tabindex="-1" class="panel-title">Prestige</h2>
 
   {#if !hasPrestigeContent}
     <p class="text-xs text-ink-muted py-1">
       ✨ Prestige — resets this run for permanent bonuses. Unlocks when you reach Neolithic.
     </p>
   {:else}
-    <p class="text-xs text-ink-muted">Production multiplier follows 1 + √EP × 0.3 (diminishing). Perks are permanent.</p>
+    <p class="text-xs text-ink-muted">Production multiplier grows with lifetime Evolution Points earned and your perks. Spending EP does not lower it. Perks are permanent.</p>
 
     <div class="grid grid-cols-2 gap-2">
       <div class="stat-box">
@@ -66,6 +68,7 @@
       </div>
     </div>
 
+    <p class="text-sm text-ink-muted leading-relaxed">Prestige returns to Paleolithic and clears resources, population, workers, upgrades, paths and trade routes. Prestige points and perks, achievements and wonders stay. Export first if you want a copy of this run.</p>
     <button
       class="btn w-full"
       class:btn-primary={canPrestige}
@@ -84,21 +87,22 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {#each perks as perk (perk.id)}
                 <div
-                  class="item-card flex items-center justify-between gap-2"
+                  class="item-card flex flex-col items-start justify-between gap-2"
                   class:purchased={perk.purchased}
                   class:affordable={perk.available && !perk.purchased}
                   class:locked={!perk.available && !perk.purchased}
                 >
                   <div class="min-w-0">
-                    <span class="block text-xs font-semibold text-ink">{perk.name}</span>
-                    <span class="block text-[0.7rem] text-ink-muted leading-tight">{perk.description}</span>
+                    <h4 id={`perk-${perk.id}`} tabindex="-1" class="text-sm font-semibold text-ink">{perk.name}</h4>
+                    <span class="block text-xs text-ink-muted leading-tight">{perk.description}</span>
                   </div>
                   <button
                     class="btn btn-sm shrink-0 {getPurchaseButtonClasses(perk.purchased, perk.available)}"
                     disabled={perk.purchased || !perk.available}
+                    aria-label={perk.purchased ? `${perk.name}, purchased` : `Buy ${perk.name} for ${perk.cost} EP`}
                     onclick={() => buyPerk(perk.id)}
                   >
-                    {perk.purchased ? '✓' : `${perk.cost} EP`}
+                    {perk.purchased ? '✓ Purchased' : `${perk.cost} EP`}
                   </button>
                 </div>
               {/each}

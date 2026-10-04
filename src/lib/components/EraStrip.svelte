@@ -1,4 +1,5 @@
 <script>
+  import { tick } from 'svelte';
   import { gameStore } from '../stores/gameStore.js';
   import { getEraProgressPercent } from '../utils/gameFormatting.js';
 
@@ -12,16 +13,16 @@
   let timeline = $derived($gameStore.eraTimeline);
   let timelineMinWidth = $derived($gameStore.timelineMinWidth);
 
-  function advanceEra() {
-    gameStore.advanceEra();
+  async function advanceEra() {
+    if (gameStore.advanceEra()) { await tick(); document.getElementById("objective-title")?.focus(); }
   }
 </script>
 
 <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
-  <div class="flex items-center gap-4 min-w-0 lg:w-64">
-    <div class="flex flex-col min-w-0">
-      <span class="text-[0.6rem] font-bold uppercase tracking-widest text-ink-muted">Era</span>
-      <strong class="text-sm font-semibold text-ink truncate">{eraData?.name || 'Paleolithic Era'}</strong>
+  <div class="flex flex-wrap items-center gap-4 min-w-0 lg:w-64">
+    <div class="era-summary-name flex flex-col">
+      <span class="text-xs font-bold uppercase tracking-widest text-ink-muted">Era</span>
+      <strong class="text-sm font-semibold text-ink">{eraData?.name || 'Paleolithic Era'}</strong>
     </div>
 
     <div class="flex-1 min-w-[96px]">
@@ -41,14 +42,14 @@
   <div class="relative min-w-0 overflow-x-auto pb-1 lg:flex-1">
     <div
       class="relative grid items-start px-1 pt-1"
-      style={`grid-template-columns: repeat(${timeline.length}, minmax(72px, 1fr)); min-width: ${timelineMinWidth};`}
+      style={`grid-template-columns: repeat(${timeline.length}, minmax(6em, 1fr)); min-width: ${timelineMinWidth};`}
     >
       <div class="absolute left-5 right-5 top-4 h-px bg-ink/15"></div>
 
       {#each timeline as era (era.key)}
         <div class="relative z-10 flex min-w-0 flex-col items-center gap-1">
           <div
-            class={`relative flex h-7 w-7 items-center justify-center rounded-full border text-[0.65rem] font-bold transition-colors ${
+            class={`relative flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold transition-colors ${
               era.current
                 ? 'bg-success text-surface-0 border-success'
                 : era.unlocked
@@ -64,7 +65,7 @@
           </div>
 
           <span
-            class={`max-w-20 truncate text-center text-[0.65rem] font-semibold leading-tight ${
+            class={`w-full min-w-0 truncate text-center text-xs font-semibold leading-tight ${
               era.current ? 'text-paper' : era.unlocked ? 'text-ink-soft' : 'text-ink-muted'
             }`}
             title={era.name}
@@ -77,7 +78,7 @@
   </div>
 
   {#if canAdvance}
-    <button class="btn btn-primary btn-sm whitespace-nowrap" onclick={advanceEra}>
+    <button class="btn btn-primary btn-sm " onclick={advanceEra}>
       Advance Era
     </button>
   {/if}

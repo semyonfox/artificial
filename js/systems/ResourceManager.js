@@ -92,7 +92,7 @@ export class ResourceManager {
 			}
 		}
 
-		this.showGatheringResult(action.name, results);
+
 		return results;
 	}
 

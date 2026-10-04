@@ -46,6 +46,18 @@ export function formatCost(cost = {}) {
     .join(", ");
 }
 
+export function formatNamedCost(cost = {}) {
+  return Object.entries(cost)
+    .map(([resource, amount]) => `${formatAmount(amount)} ${formatResourceName(resource)}`)
+    .join(', ');
+}
+
+export function getMissingCost(cost = {}, resources = {}) {
+  return formatNamedCost(Object.fromEntries(Object.entries(cost)
+    .filter(([resource, amount]) => (resources[resource] || 0) < amount)
+    .map(([resource, amount]) => [resource, Math.ceil(amount - (resources[resource] || 0))])));
+}
+
 export function getRelevantResources(currentEra) {
   const currentIdx = config.eraOrder.indexOf(currentEra);
   if (currentIdx < 0) return new Set();

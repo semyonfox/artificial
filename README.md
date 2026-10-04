@@ -40,3 +40,10 @@ Run `pnpm test` or `pnpm build` individually when iterating on a focused change.
 | `tests/` | Node-based tests |
 
 This is a game project, deliberately kept separate from the backend/platform work elsewhere on this profile.
+
+
+### Anonymous reporting
+
+Reporting is off by default. No service endpoint is included. To make the optional privacy switch available, an owner build must explicitly set `VITE_ANONYMOUS_TELEMETRY_ENABLED=true` and `VITE_ANONYMOUS_TELEMETRY_ENDPOINT` to an HTTPS endpoint ending in `/v1/events`, or an equivalent relative same-origin proxy. The player must then enable the switch in Privacy; Do Not Track and Global Privacy Control still prevent sending.
+
+Only fixed screen counts and error categories are sent. Save contents, resource totals, input text, URLs and visitor identifiers are excluded. Requests omit credentials and referrers, time out after two seconds, and have no retries. Collection requires a separately configured self-hosted service; this application does not deploy or enable one.

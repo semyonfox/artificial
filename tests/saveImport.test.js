@@ -140,7 +140,7 @@ test('importSave rejects oversized, corrupt, non-object, and future-version save
 
     assert.equal(storage.getItem(config.storage.saveKey), null);
     assert.equal(manager.loadGameCalls, 0);
-    assert.equal(notifications.at(-1).message, 'Invalid save data');
+    assert.equal(notifications.at(-1).message, 'Invalid save data. Your current run is unchanged.');
     assert.equal(notifications.at(-1).type, 'error');
   }
   }));
@@ -285,7 +285,7 @@ test('exportSave serializes the current in-memory state', async () => {
     const exportedSave = JSON.parse(Buffer.from(exported, 'base64').toString('utf8'));
     assert.equal(exportedSave.resources.sticks, 999);
     assert.deepEqual(notifications.at(-1), {
-      message: 'Save exported to clipboard!',
+      message: 'Save copied. A selectable copy is also available in Export.',
       type: 'success',
     });
   } finally {
@@ -294,7 +294,7 @@ test('exportSave serializes the current in-memory state', async () => {
   }
 });
 
-test('exportSave reports rejected clipboard writes', async () => {
+test('exportSave returns a usable export when clipboard writes are rejected', async () => {
   const manager = Object.create(GameManager.prototype);
   manager.gameState = new GameState();
   manager.persistence = manager.gameState.persistence;
@@ -306,8 +306,9 @@ test('exportSave reports rejected clipboard writes', async () => {
   });
   await withMutedConsole(async () => {
     try {
-      await manager.exportSave();
-      assert.deepEqual(notifications.at(-1), { message: 'Export failed', type: 'error' });
+      const fallback = await manager.exportSave();
+      assert.deepEqual(JSON.parse(atob(fallback)).resources, manager.gameState.data.resources);
+      assert.deepEqual(notifications.at(-1), { message: 'Clipboard unavailable. Select and copy the export below, or download it.', type: 'warning' });
     } finally {
       restoreNavigator();
     }
@@ -333,4 +334,47 @@ test('click action cooldowns are enforced outside the UI', () => {
   assert.equal(manualActions, 1);
 
   manager.clearActionCooldowns();
+});
+
+
+test('startup preserves corrupt and future-version saves before starting any timers', async () => {
+  await withMutedConsole(async () => {
+    for (const raw of ['{invalid', '', JSON.stringify({ schemaVersion: 9999, privateFixture: 'never transmit' })]) {
+      const storage = makeStorage();
+      storage.setItem(config.storage.saveKey, raw);
+      const manager = new GameManager(new BrowserSaveAdapter({ storage }));
+      await assert.rejects(manager.initPromise, /Stored save could not be loaded/);
+      assert.equal(manager.startupIssue, 'save');
+      assert.equal(manager.rejectedSave, raw);
+      assert.equal(storage.getItem(config.storage.saveKey), raw);
+      assert.equal(manager.initialized, false);
+      assert.deepEqual(manager.systems, {});
+      assert.equal(manager.autoSaveInterval, undefined);
+      assert.equal(manager.gameLoopId, null);
+      manager.destroy();
+    }
+  });
+});
+
+test('unreadable storage stops startup without writes or game timers', async () => {
+  await withMutedConsole(async () => {
+    let writes = 0;
+    const storage = { getItem() { throw new Error('blocked'); }, setItem() { writes++; } };
+    const manager = new GameManager(new BrowserSaveAdapter({ storage }));
+    await assert.rejects(manager.initPromise, /Save storage is unavailable/);
+    assert.equal(manager.startupIssue, 'storage');
+    assert.equal(writes, 0);
+    assert.deepEqual(manager.systems, {});
+    manager.destroy();
+  });
+});
+
+test('import result distinguishes repeated validation failure from cancellation', () => {
+  const { manager } = makeImportHarness({ confirmAction: () => false });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    assert.equal(manager.importSave('invalid fixture'), false);
+    assert.equal(manager.importFeedback, 'Invalid save data. Your current run is unchanged.');
+  }
+  assert.equal(manager.importSave(encodeSave(new GameState().getSaveData())), false);
+  assert.equal(manager.importFeedback, 'Import cancelled. Your run is unchanged.');
 });

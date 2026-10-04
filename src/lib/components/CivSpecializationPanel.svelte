@@ -40,7 +40,7 @@
     </div>
   {:else}
     <div>
-      <h3 class="panel-title">Paths &amp; Specializations</h3>
+      <h2 class="panel-title">Paths &amp; Specializations</h2>
 
       {#if civSpecs.length > 0}
         <p class="text-xs text-ink-muted mt-1 mb-3 leading-tight">
@@ -57,7 +57,7 @@
             >
               <div class="flex items-center gap-2 mb-1">
                 <span class="text-lg">{civ.icon || '🏛️'}</span>
-                <h4 class="text-sm font-bold text-paper">{civ.name}</h4>
+                <h3 class="text-sm font-bold text-paper">{civ.name}</h3>
               </div>
               <p class="text-xs text-ink-muted mb-2 leading-tight">{civ.description}</p>
 
@@ -71,7 +71,7 @@
               </div>
 
               {#if civ.historical}
-                <p class="text-[0.7rem] text-ink-muted italic mb-2 line-clamp-2 leading-tight">{civ.historical}</p>
+                <p class="text-xs text-ink-muted italic mb-2 leading-relaxed leading-tight">{civ.historical}</p>
               {/if}
 
               <div class="mt-auto">
@@ -80,7 +80,7 @@
                   disabled={isChosen || isLocked}
                   onclick={() => chooseCiv(civ.id)}
                 >
-                  {isChosen ? '✓ Active' : isLocked ? 'Locked' : 'Choose Path'}
+                  {isChosen ? '✓ Active' : isLocked ? 'Locked' : `Choose ${civ.name}`}
                 </button>
               </div>
             </div>
@@ -103,13 +103,13 @@
                 class:locked={isLocked}
               >
                 <span class="block text-xs font-semibold text-ink mb-1">{spec.name}</span>
-                <span class="block text-[0.7rem] text-ink-muted mb-2 leading-tight">{spec.description}</span>
+                <span class="block text-xs text-ink-muted mb-2 leading-tight">{spec.description}</span>
                 <button
                   class="btn btn-sm w-full {getChoiceButtonClasses(isChosen, isLocked)}"
                   disabled={isChosen || isLocked}
                   onclick={() => chooseSpec(spec.id)}
                 >
-                  {isChosen ? '✓ Active' : isLocked ? 'Locked' : 'Choose'}
+                  {isChosen ? '✓ Active' : isLocked ? 'Locked' : `Choose ${spec.name}`}
                 </button>
               </div>
             {/each}

@@ -1,12 +1,10 @@
+import { telemetry } from "../utils/telemetry.js";
 import { writable } from "svelte/store";
 
 import { config } from "../../../js/core/config.js";
 import { scaleCost } from "../../../js/core/resourceUtils.js";
 import { formatResourceName } from "../utils/gameFormatting.js";
-import {
-  getPopulationSupportResources,
-  getWorkerFoodResource,
-} from "../utils/populationSupport.js";
+import { getPopulationSupportResources } from "../utils/populationSupport.js";
 
 const GAME_STATE_EVENTS = [
   "resourceChange",
@@ -53,7 +51,6 @@ function createInitialState() {
       loadRatio: 0,
       supportAvailable: 0,
       supportResources: [],
-      foodResource: "cookedMeat",
     },
     upgrades: {},
     upgradeViews: [],
@@ -214,6 +211,7 @@ function getSnapshot(gameManager) {
       canHire: canAfford && requirementMet && hasAvailablePopulation,
       inputStarved,
       starvedInput,
+      effectiveInterval: workerManager?.getEffectiveInterval?.(worker) || worker.interval,
     };
   });
 
@@ -226,51 +224,6 @@ function getSnapshot(gameManager) {
     multiplier: prestigeManager?.getMultiplier() ?? 1,
     talentTree: prestigeManager?.getTalentTree() || [],
   };
-
-  const foodResource = getWorkerFoodResource(currentEra);
-  const foodCycleInterval = config.gameVariables?.workerFoodCycleInterval || 3;
-  const resourceFlows = {};
-  const addFlow = (resource, kind, amount) => {
-    if (!amount) return;
-    const flow = resourceFlows[resource] || {
-      producePerSec: 0,
-      consumePerSec: 0,
-    };
-    flow[kind] += amount;
-    resourceFlows[resource] = flow;
-  };
-
-  for (const view of workerViews) {
-    const count = view.count || 0;
-    if (count <= 0) continue;
-
-    // starved workers do no work: no production and no input consumption
-    const intervalSec = Math.max(500, view.interval || 10000) / 1000;
-    const efficiency = (view.efficiencyPct ?? 100) / 100;
-    const cycleRate = view.inputStarved ? 0 : count / intervalSec;
-
-    for (const [resource, perWorker] of Object.entries(view.produces || {})) {
-      const capMult = workerManager?.getSoftCapMultiplier?.(resource) ?? 1;
-      addFlow(
-        resource,
-        "producePerSec",
-        perWorker *
-          cycleRate *
-          efficiency *
-          prestigeViewData.multiplier *
-          capMult,
-      );
-    }
-    for (const [resource, perWorker] of Object.entries(view.consumes || {})) {
-      addFlow(resource, "consumePerSec", perWorker * cycleRate);
-    }
-    // workers eat every N work cycles
-    addFlow(
-      foodResource,
-      "consumePerSec",
-      count / (intervalSec * foodCycleInterval),
-    );
-  }
 
   const supportResources = getPopulationSupportResources(currentEra);
   const pop = resources.population || 0;
@@ -285,7 +238,6 @@ function getSnapshot(gameManager) {
       0,
     ),
     supportResources,
-    foodResource,
   };
 
   const upgradeViews = (currentEraData?.upgrades || []).map((upgrade) => {
@@ -322,6 +274,7 @@ function getSnapshot(gameManager) {
 
   return {
     currentEra,
+    importFeedback: gameManager.importFeedback || "",
     currentEraData,
     canAdvance: gameState.canAdvanceEra(),
     eraNumber: currentEraIndex + 1,
@@ -343,7 +296,7 @@ function getSnapshot(gameManager) {
     workers: { ...data.workers },
     availablePopulation: gameState.getAvailablePopulation(),
     workerViews,
-    resourceFlows,
+    resourceFlows: {},
     populationView,
     upgrades: { ...data.upgrades },
     upgradeViews,
@@ -384,6 +337,7 @@ export function createGameStore() {
   let gameManager = null;
   let gameState = null;
   let notificationId = 0;
+  let logEntryId = 0;
   let syncQueued = false;
   let syncVersion = 0;
   const stateListeners = [];
@@ -536,7 +490,12 @@ export function createGameStore() {
         notifications: [{ id, message, type }, ...state.notifications],
       }));
 
+      if (type === "error") return;
       const timer = setTimeout(() => {
+        if (globalThis.document?.activeElement?.closest?.(`[data-notification-id="${id}"]`)) {
+          notificationTimers.delete(timer);
+          return;
+        }
         notificationTimers.delete(timer);
         update((state) => ({
           ...state,
@@ -561,7 +520,7 @@ export function createGameStore() {
       update((state) => ({
         ...state,
         eventLog: [
-          { ...event, timestamp: Date.now() },
+          { ...event, id: ++logEntryId, timestamp: Date.now() },
           ...state.eventLog,
         ].slice(0, 50),
       }));
@@ -571,7 +530,7 @@ export function createGameStore() {
       update((state) => ({
         ...state,
         disasterLog: [
-          { ...disaster, timestamp: Date.now() },
+          { ...disaster, id: ++logEntryId, timestamp: Date.now() },
           ...state.disasterLog,
         ].slice(0, 50),
       }));
@@ -584,16 +543,19 @@ export function createGameStore() {
     },
 
     saveGame() {
-      return gameManager?.saveGame() || false;
+      const saved = gameManager?.saveGame() || false;
+      if (!saved) void telemetry.send("error", "storage_failed", "game");
+      return saved;
     },
 
     exportSave() {
-      gameManager?.exportSave();
+      return gameManager?.exportSave();
     },
 
     importSave(encoded) {
-      gameManager?.importSave(encoded);
+      const result = gameManager?.importSave(encoded) || false;
       synchronize();
+      return result;
     },
 
     resetGame() {
