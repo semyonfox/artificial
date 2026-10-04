@@ -165,8 +165,24 @@ export class GameManager {
       // Create game state first
       this.gameState = new GameState(this.persistence);
 
-      // Try to load saved game
-      this.gameState.load();
+      // rejected saves must stay untouched until the player chooses recovery
+      let rawSave;
+      try {
+        rawSave = this.persistence.readSave();
+      } catch {
+        this.startupIssue = 'storage';
+        throw new Error('Save storage is unavailable');
+      }
+      if (rawSave !== null && rawSave !== undefined) {
+        this.rejectedSave = rawSave;
+        try {
+          this.gameState.loadParsedSave(JSON.parse(rawSave));
+        } catch {
+          this.startupIssue = 'save';
+          throw new Error('Stored save could not be loaded');
+        }
+        this.rejectedSave = null;
+      }
 
       // Initialize systems in dependency order
       this.initializeSystems();
@@ -188,6 +204,7 @@ export class GameManager {
         this.systems.offlineManager.applyOfflineProduction(this);
       if (offlineResult) {
         const resourceText = formatResourceList(offlineResult.produced);
+        this.logGameEvent({ name: 'Offline production', description: `Away ${offlineResult.offlineMinutes} minutes. Workers produced: ${resourceText || 'nothing; check support and inputs'}.` });
         this.showNotification(
           `Welcome back! (${offlineResult.offlineMinutes}m away) Workers produced: ${resourceText}`,
           "success",
@@ -321,7 +338,12 @@ export class GameManager {
     // Auto-save every interval
     this.autoSaveInterval = setInterval(() => {
       if (this.gameState && this.gameState.data.settings.autoSave) {
-        this.gameState.save();
+        const saved = this.gameState.save();
+        if (!saved && !this.autoSaveFailed) {
+          this.showNotification('Autosave failed. Your previous save is unchanged. Export this run to keep a copy.', 'error');
+          this.logGameEvent({ name: 'Autosave failed', description: 'Export this run to keep a copy, then check browser storage.' });
+        }
+        this.autoSaveFailed = !saved;
       }
     }, config.storage.autoSaveInterval);
   }
@@ -904,7 +926,7 @@ export class GameManager {
   resetGame() {
     if (
       this.persistence.confirm(
-        "Reset this run and clear the local save, achievements, wonders, and offline timer? This cannot be undone.",
+        "Reset all progress, including prestige points and perks, achievements, wonders, paths, trade routes, the local save and pre-import backup? Export first to keep a copy. This cannot be undone.",
       )
     ) {
       try {
@@ -951,7 +973,7 @@ export class GameManager {
     const epGain = pm.calculateEPGain();
     if (
       !this.persistence.confirm(
-        `Prestige for ${epGain} Evolution Points? All resources, workers, and upgrades will be reset.`,
+        `Prestige for ${epGain} Evolution Points? Return to Paleolithic and reset resources, population, workers, upgrades, paths and trade routes. Prestige points, perks, achievements and wonders stay.`,
       )
     ) {
       return;
@@ -1021,13 +1043,15 @@ export class GameManager {
     });
 
     this.restartWorkerAutomation();
+    return earned;
   }
 
   purchasePrestigePerk(perkId) {
     const purchased =
       this.systems.prestigeManager?.purchasePerk(perkId) || false;
     if (purchased) {
-      this.showNotification("Perk purchased!", "success");
+      const perk = this.systems.prestigeManager.getTalentTree().find(perk => perk.id === perkId);
+      this.showNotification(`${perk?.name || "Perk"} purchased!`, "success");
     }
     return purchased;
   }
@@ -1036,20 +1060,20 @@ export class GameManager {
    * Export save as base64 string to clipboard
    */
   async exportSave() {
+    let encoded;
     try {
-      const saveData = this.gameState?.getSaveData();
-      if (!saveData) {
-        this.showNotification("No save data to export", "warning");
-        return;
-      }
-
-      const encoded = btoa(JSON.stringify(saveData));
-      await this.persistence.copyText(encoded);
-      this.showNotification("Save exported to clipboard!", "success");
-    } catch (error) {
-      console.error("Export failed:", error);
-      this.showNotification("Export failed", "error");
+      encoded = btoa(JSON.stringify(this.gameState.getSaveData()));
+    } catch {
+      this.showNotification('Could not create an export. Your run is unchanged.', 'error');
+      return null;
     }
+    try {
+      await this.persistence.copyText(encoded);
+      this.showNotification('Save copied. A selectable copy is also available in Export.', 'success');
+    } catch {
+      this.showNotification('Clipboard unavailable. Select and copy the export below, or download it.', 'warning');
+    }
+    return encoded;
   }
 
   /**
@@ -1058,6 +1082,8 @@ export class GameManager {
   importSave(encoded) {
     const maxEncodedLength = 512 * 1024;
     const maxDecodedLength = 384 * 1024;
+    let writing = false;
+    this.importFeedback = 'Import cancelled. Your run is unchanged.';
 
     try {
       const trimmed = typeof encoded === "string" ? encoded.trim() : "";
@@ -1098,6 +1124,7 @@ export class GameManager {
         return false;
       }
 
+      writing = true;
       this.persistence.writeImportBackup(this.gameState.getSaveData());
       this.persistence.writeSave(saveData);
       if (!this.loadGame()) {
@@ -1110,8 +1137,9 @@ export class GameManager {
       );
       return true;
     } catch (error) {
-      console.error("Import failed:", error);
-      this.showNotification("Invalid save data", "error");
+      console.error("Save import failed");
+      this.importFeedback = writing ? 'Import could not be saved. Export your current run and check browser storage.' : 'Invalid save data. Your current run is unchanged.';
+      this.showNotification(this.importFeedback, 'error');
       return false;
     }
   }

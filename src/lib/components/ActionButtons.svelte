@@ -1,152 +1,60 @@
 <script>
-  import { onMount } from 'svelte';
   import { gameStore } from '../stores/gameStore.js';
-  import { formatAmount, formatCost, getResourceIcon } from '../utils/gameFormatting.js';
+  import { formatNamedCost, getMissingCost } from '../utils/gameFormatting.js';
 
   let actions = $derived($gameStore.actions);
+  let resultMessage = $state('');
+  let resultNumber = $state(0);
+  let actionGroup;
 
-  // transient "+N" labels spawned from the actual performAction result
-  let gainLabels = $state([]);
-  let nextLabelId = 0;
-
-  function spawnGainLabels(actionId, result) {
-    if (!result || result.failed) return;
-    for (const [resource, amount] of Object.entries(result)) {
-      const id = ++nextLabelId;
-      gainLabels.push({ id, actionId, icon: getResourceIcon(resource, ''), amount });
-      setTimeout(() => {
-        gainLabels = gainLabels.filter((label) => label.id !== id);
-      }, 900);
-    }
+  function performAction(action) {
+    if (!action.canAfford || action.isOnCooldown) return;
+    const result = gameStore.performAction(action.id);
+    if (!result) return;
+    resultNumber++;
+    resultMessage = result.failed
+      ? `${action.name}: no resources gained. Try again when ready.`
+      : `${action.name}: gained ${formatNamedCost(result)}.`;
   }
 
-  function performAction(actionId) {
-    const result = gameStore.performAction(actionId);
-    spawnGainLabels(actionId, result);
-  }
-
-  // number keys 1..N fire the Nth visible action
   function handleKeydown(event) {
     if (event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
-    const target = event.target;
-    if (
-      target &&
-      (target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable)
-    ) {
-      return;
+    if (!/^[1-9]$/.test(event.key) || !actionGroup?.contains(event.target)) return;
+    if (event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    const action = actions[Number(event.key) - 1];
+    if (action) {
+      event.preventDefault();
+      performAction(action);
     }
-    const index = Number.parseInt(event.key, 10) - 1;
-    if (!Number.isInteger(index) || index < 0) return;
-    const action = actions[index];
-    if (action && action.canAfford && !action.isOnCooldown) performAction(action.id);
   }
-
-  onMount(() => {
-    window.addEventListener('keydown', handleKeydown);
-    return () => window.removeEventListener('keydown', handleKeydown);
-  });
 </script>
 
-<div class="space-y-2">
+<svelte:window onkeydown={handleKeydown} />
+<div class="space-y-3" bind:this={actionGroup}>
+  <p class="text-sm text-ink-muted">Use Enter or Space on an action. Number keys work while focus is in this action list.</p>
   {#each actions as action, index (action.id)}
     <button
-      class="group relative w-full flex items-center gap-4 p-4 rounded-lg bg-surface-2 border border-ink/10
-             text-left transition-all duration-150 overflow-hidden active:scale-[0.98]
-             hover:bg-surface-3 hover:border-accent/30 hover:-translate-y-0.5
-             disabled:hover:translate-y-0 disabled:hover:border-ink/10 disabled:hover:bg-surface-2"
-      class:opacity-60={!action.canAfford && !action.isOnCooldown}
-      disabled={action.isOnCooldown || !action.canAfford}
-      title={action.description}
-      onclick={() => performAction(action.id)}
+      class="action-control relative w-full flex items-start gap-3 p-4 rounded-lg bg-surface-2 border border-ink/15 text-left hover:bg-surface-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      aria-disabled={action.isOnCooldown || !action.canAfford}
+      aria-labelledby={`action-name-${action.id}`}
+      aria-describedby={`action-description-${action.id} action-state-${action.id}`}
+      aria-keyshortcuts={`${index + 1}`}
+      onclick={() => performAction(action)}
     >
-      {#if action.isOnCooldown}
-        <div
-          class="absolute inset-0 bg-accent/20 origin-left animate-cooldown"
-          style={`--cooldown-duration: ${action.cooldownRemaining}ms; --cooldown-progress: ${action.cooldownRemaining / action.cooldownMs}`}
-        ></div>
-      {/if}
-
-      {#each gainLabels.filter((label) => label.actionId === action.id) as label (label.id)}
-        <span
-          class="animate-float-up pointer-events-none absolute right-4 top-2 z-10 text-sm font-bold text-success tabular-nums drop-shadow"
-        >
-          +{formatAmount(label.amount)} {label.icon}
+      <span aria-hidden="true" class="w-10 h-10 flex items-center justify-center bg-ink/5 rounded-lg text-xl shrink-0">{action.icon}</span>
+      <span class="min-w-0 flex-1">
+        <span id={`action-name-${action.id}`} class="block text-paper font-semibold">{action.name}</span>
+        <span id={`action-description-${action.id}`} class="block text-sm text-ink-muted leading-relaxed">
+          {action.description}{action.description.endsWith('.') ? '' : '.'}
+          {#if action.produces} Produces {formatNamedCost(action.produces)}.{/if}
+          {#if action.consumes} Uses {formatNamedCost(action.consumes)}.{/if}
         </span>
-      {/each}
-
-      <span
-        class="absolute right-3 bottom-2 text-[0.7rem] leading-none text-ink-muted border border-ink/15 rounded px-1 tabular-nums"
-        aria-hidden="true"
-      >
-        {index + 1}
-      </span>
-
-      <span class="relative w-10 h-10 flex items-center justify-center bg-ink/5 border border-ink/10 rounded-lg text-xl shrink-0 transition-transform group-hover:scale-105">
-        {action.icon}
-      </span>
-      <div class="relative min-w-0 flex-1">
-        <span class="block text-paper font-semibold">{action.name}</span>
-        <span class="block text-xs text-ink-muted truncate">{action.description}</span>
-        <span class="mt-2 flex flex-wrap gap-1.5 text-xs leading-none">
-          {#if action.produces}
-            <span class="px-1.5 py-1 rounded bg-success/10 text-success border border-success/20">
-              + {formatCost(action.produces)}
-            </span>
-          {/if}
-          {#if action.consumes}
-            <span
-              class="px-1.5 py-1 rounded border {action.canAfford ? 'bg-ink/5 text-ink-muted border-ink/10' : 'bg-danger/10 text-danger border-danger/20'}"
-            >
-              - {formatCost(action.consumes)}
-            </span>
-          {/if}
+        <span id={`action-state-${action.id}`} class="block mt-2 text-sm {action.canAfford ? 'text-accent' : 'text-warning'}">
+          {action.isOnCooldown ? 'Cooling down…' : !action.canAfford ? `Needs ${getMissingCost(action.consumes, $gameStore.resources)}` : 'Ready'}
         </span>
-      </div>
+      </span>
+      <span aria-hidden="true" class="text-sm text-ink-muted">{index + 1}</span>
     </button>
   {/each}
+  <p role="status" aria-live="polite" aria-atomic="true" class="text-sm text-ink-soft min-h-6">{#if resultNumber > 0}<span class="sr-only">Result {resultNumber}: </span>{/if}{resultMessage}</p>
 </div>
-
-<style>
-  @keyframes cooldown-sweep {
-    from {
-      transform: scaleX(var(--cooldown-progress));
-    }
-    to {
-      transform: scaleX(0);
-    }
-  }
-
-  .animate-cooldown {
-    transform: scaleX(var(--cooldown-progress));
-    animation: cooldown-sweep var(--cooldown-duration) linear forwards;
-  }
-
-  @keyframes float-up {
-    from {
-      transform: translateY(0);
-      opacity: 1;
-    }
-    to {
-      transform: translateY(-16px);
-      opacity: 0;
-    }
-  }
-
-  .animate-float-up {
-    animation: float-up 0.9s ease-out forwards;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-cooldown {
-      animation: none;
-      transform: scaleX(0);
-    }
-
-    .animate-float-up {
-      animation: none;
-      opacity: 0;
-    }
-  }
-</style>

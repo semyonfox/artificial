@@ -1,28 +1,17 @@
 <script>
+  import { tick } from "svelte";
   import { gameStore } from '../stores/gameStore.js';
-  import { formatCost, formatId, getPurchaseButtonClasses } from '../utils/gameFormatting.js';
+  import { formatNamedCost, formatId, getPurchaseButtonClasses } from '../utils/gameFormatting.js';
 
   let upgradeDefs = $derived($gameStore.upgradeViews);
 
-  // scannable order: affordable first, then locked, purchased sink to bottom
-  let sortedUpgrades = $derived.by(() => {
-    const rank = (upgrade) => {
-      if (upgrade.isUnlocked) return 3;
-      if (upgrade.canBuy) return 0;
-      if (!upgrade.hasRequiredUpgrade) return 2;
-      return 1;
-    };
-    return upgradeDefs
-      .map((upgrade, index) => ({ upgrade, index }))
-      .sort((a, b) => {
-        const diff = rank(a.upgrade) - rank(b.upgrade);
-        return diff !== 0 ? diff : a.index - b.index;
-      })
-      .map(({ upgrade }) => upgrade);
-  });
+  let sortedUpgrades = $derived(upgradeDefs);
 
-  function buyUpgrade(upgradeId) {
-    gameStore.buyUpgrade(upgradeId);
+  async function buyUpgrade(upgradeId) {
+    if (gameStore.buyUpgrade(upgradeId)) {
+      await tick();
+      document.getElementById(`upgrade-${upgradeId}`)?.focus();
+    }
   }
 </script>
 
@@ -39,12 +28,12 @@
       class:purchased={isUnlocked}
       class:affordable={canBuy}
     >
-      <h4 class="text-sm font-bold text-paper mb-1">{upgrade.name}</h4>
-      <p class="text-xs text-ink-muted mb-2 line-clamp-2">{upgrade.description}</p>
+      <h3 id={`upgrade-${upgrade.id}`} tabindex="-1" class="text-sm font-bold text-paper mb-1">{upgrade.name}</h3>
+      <p class="text-xs text-ink-muted mb-2 leading-relaxed">{upgrade.description}</p>
 
       <div class="space-y-1 text-xs text-ink-muted mb-3">
         <p>
-          Cost: {formatCost(adjustedCost)}
+          Cost: {formatNamedCost(adjustedCost)}
           {#if hasDiscount}
             <span class="text-success"> discounted</span>
           {/if}
@@ -57,7 +46,7 @@
       {/if}
 
       {#if upgrade.historical}
-        <p class="text-[0.6rem] text-ink-muted italic mb-2 line-clamp-2">{upgrade.historical}</p>
+        <p class="text-xs text-ink-muted italic mb-2 leading-relaxed">{upgrade.historical}</p>
       {/if}
 
       <div class="mt-auto">
@@ -66,7 +55,7 @@
           disabled={isUnlocked || !canBuy}
           onclick={() => buyUpgrade(upgrade.id)}
         >
-          {isUnlocked ? '✓ Purchased' : 'Buy'}
+          {isUnlocked ? '✓ Purchased' : `Buy ${upgrade.name}`}
         </button>
       </div>
     </div>

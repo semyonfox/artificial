@@ -100,7 +100,7 @@
   }
 
   .section-label {
-    @apply text-[0.65rem] font-bold uppercase tracking-wider text-ink-muted;
+    @apply text-xs font-bold uppercase tracking-wider text-ink-muted;
   }
 
   .panel-title {
@@ -125,7 +125,7 @@
   }
 
   .item-card.locked {
-    @apply opacity-50;
+    @apply border-warning/30;
   }
 
   .progress-bar {
@@ -135,4 +135,27 @@
   .progress-fill {
     @apply h-full bg-gradient-to-r from-accent to-warning rounded-full transition-all duration-300;
   }
+}
+
+@layer base {
+  button, input, textarea, select, a.btn { min-height: 44px; }
+  textarea, input { font-size: 16px; }
+  [id] { scroll-margin-top: var(--section-offset, 5rem); }
+  :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+  p, h1, h2, h3, h4, .stat-box, .btn, .action-control { overflow-wrap: anywhere; }
+  .btn { min-width: 0; max-width: 100%; white-space: normal; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn, .item-card, .progress-fill { transition: none; transform: none !important; }
+  .animate-spin { animation: none; }
+}
+
+.section-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 6em), 1fr));
+}
+
+.brand-title, .era-summary-name {
+  flex: 1;
+  min-width: min(100%, 10em);
 }

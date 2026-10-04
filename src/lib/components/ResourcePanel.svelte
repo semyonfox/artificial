@@ -7,19 +7,24 @@
     getResourceIcon,
   } from '../utils/gameFormatting.js';
 
+  function resourceIn(cost, key) { return Object.hasOwn(cost || {}, key); }
+
   let relevantResources = $derived(getRelevantResources($gameStore.currentEra));
 
-  // estimated worker-driven flows; production is zero while inputs are out
-  function formatRate(value) {
-    const magnitude = Math.abs(value);
-    if (magnitude < 0.05) return '±0.0/s';
-    return `${value > 0 ? '+' : '−'}${magnitude.toFixed(1)}/s`;
-  }
-
   let visibleResources = $derived(
-    Object.entries($gameStore.resources)
+    [...new Set([
+      ...Object.keys($gameStore.resources),
+      ...$gameStore.advancementRequirements.map(req => req.resource),
+      ...$gameStore.actions.flatMap(action => Object.keys(action.consumes || {})),
+      ...$gameStore.workerViews.filter(worker => worker.count > 0).flatMap(worker => Object.keys(worker.consumes || {})),
+    ])].map(key => [key, $gameStore.resources[key] || 0])
       .filter(([key, value]) => {
-        if (value <= 0) return false;
+        if (value <= 0) {
+          const needed = $gameStore.workerViews.some(worker => worker.count > 0 && (resourceIn(worker.consumes, key) || resourceIn(worker.cost, key)))
+            || $gameStore.advancementRequirements.some(req => req.resource === key)
+            || $gameStore.actions.some(action => resourceIn(action.consumes, key));
+          if (!needed) return false;
+        }
         if (key === 'fire') return false;
         // only show resources relevant to current or past eras
         return relevantResources.has(key);
@@ -27,8 +32,6 @@
       .map(([key, value]) => {
         const capMult = $gameStore.resourceSoftCapMultipliers[key] ?? 1;
         const lifetime = $gameStore.lifetimeProduced?.[key] || 0;
-        const flow = $gameStore.resourceFlows?.[key];
-        const net = flow ? flow.producePerSec - flow.consumePerSec : null;
         return {
           key,
           value: Math.floor(value),
@@ -37,9 +40,6 @@
           capped: capMult < 1,
           capPercent: Math.round(capMult * 100),
           lifetime: lifetime > value ? Math.floor(lifetime) : null,
-          flow,
-          net,
-          hasFlow: Boolean(flow && flow.producePerSec + flow.consumePerSec >= 0.05),
         };
       })
   );
@@ -58,25 +58,16 @@
             <span class="w-7 h-7 flex items-center justify-center bg-ink/5 border border-ink/10 rounded-md text-sm shrink-0">
               {res.icon}
             </span>
-            <span class="text-sm font-medium text-ink-soft truncate">{res.name}</span>
+            <span class="text-sm font-medium text-ink-soft min-w-0 break-words">{res.name}</span>
             {#if res.capped}
-              <span class="text-[0.7rem] px-1.5 py-0.5 bg-warning/20 text-warning rounded" title="Production at {res.capPercent}%">
-                capped
+              <span class="text-xs px-1.5 py-0.5 bg-warning/20 text-warning rounded" >
+                production {res.capPercent}%
               </span>
             {/if}
           </div>
           <div class="flex flex-col items-end leading-tight shrink-0">
             <span class="text-paper font-bold tabular-nums">{formatNumber(res.value)}</span>
-            <span
-              class="text-[0.7rem] tabular-nums {res.hasFlow
-                ? (res.net > 0.05 ? 'text-success' : res.net < -0.05 ? 'text-danger' : 'text-ink-muted')
-                : 'invisible'}"
-              title="Estimated worker rates — production may differ with bonuses"
-            >
-              {#if res.hasFlow}
-                {formatRate(res.net)}
-              {/if}
-            </span>
+
           </div>
         </div>
       {/each}

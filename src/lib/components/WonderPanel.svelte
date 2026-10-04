@@ -1,7 +1,7 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
   import {
-    formatCost,
+    formatNamedCost,
     formatCivName,
     formatEraName,
     getPurchaseButtonClasses,
@@ -32,7 +32,7 @@
     </p>
   {:else}
     <div>
-      <h3 class="panel-title">Wonders of the World</h3>
+      <h2 class="panel-title">Wonders of the World</h2>
       <p class="text-xs text-ink-muted mt-1 mb-3 leading-tight">Build monumental wonders for permanent production bonuses. Wonders persist through prestige.</p>
     </div>
 
@@ -61,7 +61,7 @@
             <div class="flex items-center gap-2 mb-1">
               <span class="text-xl">{wonder.icon || '🏛️'}</span>
               <div>
-                <h4 class="text-sm font-bold text-paper">{wonder.name}</h4>
+                <h3 class="text-sm font-bold text-paper">{wonder.name}</h3>
                 <span class="text-xs text-ink-muted">{formatCivName(wonder.civilization)} • {formatEraName(wonder.era)}</span>
               </div>
             </div>
@@ -69,7 +69,7 @@
             <p class="text-xs text-ink-muted mb-2 leading-tight">{wonder.description}</p>
 
             <div class="space-y-1 text-xs text-ink-muted mb-3 leading-tight">
-              <p><span class="font-semibold">Cost:</span> {formatCost(wonder.cost)}</p>
+              <p><span class="font-semibold">Cost:</span> {formatNamedCost(wonder.cost)}</p>
               <div>
                 <span class="font-semibold">Bonuses:</span>
                 {#each Object.entries(wonder.bonuses || {}) as [resource, mult]}
@@ -81,7 +81,7 @@
             </div>
 
             {#if wonder.historical}
-              <p class="text-[0.7rem] text-ink-muted italic mb-2 line-clamp-2 leading-tight">{wonder.historical}</p>
+              <p class="text-xs text-ink-muted italic mb-2 leading-relaxed leading-tight">{wonder.historical}</p>
             {/if}
 
             <div class="mt-auto">
@@ -90,7 +90,7 @@
                 disabled={isBuilt || !wonder.canBuild}
                 onclick={() => buildWonder(wonder.id)}
               >
-                {isBuilt ? '✓ Built' : 'Build Wonder'}
+                {isBuilt ? '✓ Built' : `Build ${wonder.name}`}
               </button>
             </div>
           </div>

@@ -44,7 +44,7 @@
             <span class="block text-xs font-semibold text-ink truncate">
               {ach.unlocked ? ach.name : '???'}
             </span>
-            <span class="block text-[0.7rem] text-ink-muted truncate">
+            <span class="block text-xs text-ink-muted truncate">
               {ach.unlocked ? ach.description : 'Locked'}
             </span>
           </div>

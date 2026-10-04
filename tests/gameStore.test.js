@@ -149,3 +149,35 @@ test('the store receives notifications emitted before the Svelte surface attache
     console.info = originalConsoleInfo;
   }
 });
+
+test('save failure preserves its return value and reports only a fixed category', async () => {
+  const { telemetry } = await import('../src/lib/utils/telemetry.js');
+  const originalSend = telemetry.send;
+  const calls = [];
+  telemetry.send = async (...args) => { calls.push(args); return false; };
+  const manager = createGameManager({ current: {} });
+  manager.saveGame = () => false;
+  const store = createGameStore();
+  try {
+    store.initialize(manager);
+    assert.equal(store.saveGame(), false);
+    assert.deepEqual(calls, [['error', 'storage_failed', 'game']]);
+    manager.saveGame = () => true;
+    assert.equal(store.saveGame(), true);
+    assert.equal(calls.length, 1);
+  } finally { store.dispose(manager); telemetry.send = originalSend; }
+});
+
+
+test('events logged in the same millisecond retain distinct render keys', () => {
+  const now = Date.now;
+  Date.now = () => 123456;
+  const store = createGameStore();
+  try {
+    store.logEvent({ name: 'Offline production' });
+    store.logEvent({ name: 'Era begun' });
+    const events = get(store).eventLog;
+    assert.equal(events[0].timestamp, events[1].timestamp);
+    assert.notEqual(events[0].id, events[1].id);
+  } finally { Date.now = now; store.dispose(); }
+});

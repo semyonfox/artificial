@@ -1,116 +1,42 @@
 <script>
+  import { tick } from "svelte";
   import { gameStore } from '../stores/gameStore.js';
-  import {
-    formatCost,
-    formatId,
-    formatResourceName,
-    getResourceIcon,
-  } from '../utils/gameFormatting.js';
-  import { getWorkerFoodResource } from '../utils/populationSupport.js';
-
+  import { formatNamedCost, formatId, formatResourceName, getMissingCost } from '../utils/gameFormatting.js';
   let workerDefs = $derived($gameStore.workerViews);
-  let eraFood = $derived(getWorkerFoodResource($gameStore.currentEra));
-  let eraFoodLabel = $derived(`${getResourceIcon(eraFood, '')} ${formatResourceName(eraFood)}`.trim());
-
-  function hireWorker(workerId) {
-    gameStore.hireWorker(workerId);
+  let supportLabel = $derived($gameStore.populationView.supportResources.map(formatResourceName).join(' or '));
+  async function hireWorker(workerId) {
+    if (gameStore.hireWorker(workerId)) {
+      await tick();
+      document.getElementById(`worker-${workerId}`)?.focus();
+    }
   }
-
-  let workerStatus = $derived(() => {
-    const entries = Object.entries($gameStore.workers).filter(([_, count]) => count > 0);
-    const available = $gameStore.availablePopulation;
-    if (entries.length === 0) return `Available population: ${available}`;
-    return `${entries.map(([type, count]) => `${formatResourceName(type)}: ${count}`).join(', ')} - Available: ${available}`;
-  });
 </script>
 
-<div class="space-y-4">
-  <div class="flex items-center justify-between">
-    <h2 class="panel-title">Workers</h2>
-    <span class="text-xs text-ink-muted">{workerStatus()}</span>
-  </div>
-
-  <div class="space-y-3">
-    {#each workerDefs as worker (worker.id)}
-      {@const workerCount = worker.count || 0}
-      {@const actualCost = worker.cost}
-      {@const canAfford = worker.canAfford}
-      {@const hasRequiredUpgrade = worker.requirementMet}
-      {@const hasPopulation = worker.hasAvailablePopulation}
-      {@const canHire = worker.canHire}
-      {@const isStarving = workerCount > 0 && worker.foodStatus === 'starving'}
-      {@const isHungry = workerCount > 0 && worker.foodStatus === 'hungry'}
-
-      <div
-        class="item-card"
-        class:locked={!hasRequiredUpgrade}
-        class:border-danger-muted={worker.inputStarved || isStarving}
-      >
-        <div class="flex justify-between gap-3">
-          <div class="flex-1 min-w-0">
-            <h4 class="text-sm font-bold text-paper mb-1 flex items-center gap-2 flex-wrap">
-              {worker.name}
-              {#if worker.inputStarved}
-                <span class="text-[0.7rem] font-semibold px-1.5 py-0.5 rounded bg-danger/15 border border-danger-muted text-danger">
-                  Idle
-                </span>
-              {:else if isStarving}
-                <span class="text-[0.7rem] font-semibold px-1.5 py-0.5 rounded bg-danger/15 border border-danger-muted text-danger">
-                  Starving — feed {eraFoodLabel}
-                </span>
-              {:else if isHungry}
-                <span class="text-[0.7rem] font-semibold px-1.5 py-0.5 rounded bg-warning/15 border border-warning/30 text-warning">
-                  Hungry
-                </span>
-              {/if}
-            </h4>
-            <p class="text-xs text-ink-muted line-clamp-2 mb-2 leading-tight">{worker.description}</p>
-
-            <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted leading-tight">
-              <span>Cost: {formatCost(actualCost)}</span>
-              <span class="flex items-center gap-1">
-                Owned: {workerCount}
-                {#if workerCount > 0 && !worker.inputStarved && !isStarving}
-                  {@const eff = worker.efficiencyPct || 100}
-                  <span
-                    class="font-medium"
-                    class:text-success={!isHungry}
-                    class:text-warning={isHungry}
-                  >
-                    {eff}%
-                  </span>
-                {/if}
-              </span>
-            </div>
-          </div>
-
-          <div class="flex flex-col items-end justify-between shrink-0">
-            {#if worker.inputStarved}
-              <span class="text-xs text-danger font-semibold text-right leading-tight">
-                Idle — out of {getResourceIcon(worker.starvedInput, '')}
-                {formatResourceName(worker.starvedInput)}
-              </span>
-            {:else if !hasRequiredUpgrade}
-              <span class="text-xs text-warning">Requires: {formatId(worker.requiresUpgrade)}</span>
-            {:else if !hasPopulation}
-              <span class="text-xs text-warning leading-tight text-right">Need population</span>
-            {:else if !canAfford}
-              <span class="text-xs text-ink-muted">Need resources</span>
-            {:else}
-              <span></span>
-            {/if}
-            <button
-              class="btn btn-sm"
-              class:btn-primary={canHire}
-              class:btn-secondary={!canHire}
-              disabled={!canHire}
-              onclick={() => hireWorker(worker.id)}
-            >
-              {!hasRequiredUpgrade ? 'Locked' : 'Hire'}
-            </button>
-          </div>
-        </div>
+<section class="space-y-4" aria-labelledby="workers-title">
+  <h2 id="workers-title" class="panel-title">Workers</h2>
+  <p class="text-sm text-ink-muted leading-relaxed">{$gameStore.availablePopulation} people available. Hiring assigns one person; population grows automatically. Workers use {supportLabel} for support and recover automatically on their next support cycle.</p>
+  {#each workerDefs as worker (worker.id)}
+    <div class="item-card" class:locked={!worker.requirementMet}>
+      <h3 id={`worker-${worker.id}`} tabindex="-1" class="text-paper font-bold">{worker.name}</h3>
+      <p class="text-sm text-ink-muted leading-relaxed mt-1">{worker.description}</p>
+      <p class="text-sm text-ink-soft mt-2">Owned: {worker.count}. Duplicate-worker efficiency: {worker.efficiencyPct ?? 100}%.</p>
+      <p class="text-sm text-ink-muted leading-relaxed">Base output per worker: {formatNamedCost(worker.produces)} per {(worker.effectiveInterval / 1000).toFixed(1)}s cycle. Bonuses, support and caps affect actual output.
+        {#if worker.consumes}Inputs per worker per cycle: {formatNamedCost(worker.consumes)}.{/if}
+      </p>
+      {#if worker.inputStarved}<p class="text-sm text-warning mt-2">Idle — out of {formatResourceName(worker.starvedInput)}. Replenish inputs to resume.</p>
+      {:else if worker.inputStatus === 'partialInputs'}<p class="text-sm text-warning mt-2">Limited inputs — only some workers can work.</p>{/if}
+      {#if worker.count > 0 && worker.foodStatus !== 'wellFed'}<p class="text-sm text-warning mt-2">{worker.foodStatus === 'starving' ? 'Starving' : 'Hungry'} — replenish {supportLabel}. Output is reduced.</p>{/if}
+      <div class="mt-3 flex flex-col gap-2 items-start">
+        <p id={`worker-cost-${worker.id}`} class="text-sm text-ink-muted">Hire cost: {formatNamedCost(worker.cost)}.</p>
+        <p id={`worker-state-${worker.id}`} class="text-sm text-warning">
+          {#if !worker.requirementMet}Requires {formatId(worker.requiresUpgrade)}.{/if}
+          {#if !worker.hasAvailablePopulation}No available person. Wait for population growth.{/if}
+          {#if !worker.canAfford}Needs {getMissingCost(worker.cost, $gameStore.resources)}.{/if}
+        </p>
+        <button class="btn btn-sm {worker.canHire ? 'btn-primary' : 'btn-secondary'}"
+          disabled={!worker.canHire} aria-describedby={`worker-cost-${worker.id} worker-state-${worker.id}`}
+          onclick={() => hireWorker(worker.id)}>Hire {worker.name}</button>
       </div>
-    {/each}
-  </div>
-</div>
+    </div>
+  {/each}
+</section>

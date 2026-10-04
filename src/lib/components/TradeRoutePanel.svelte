@@ -1,6 +1,6 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
-  import { formatCost, formatEraName, getPurchaseButtonClasses, getResourceIcon } from '../utils/gameFormatting.js';
+  import { formatNamedCost, formatEraName, getPurchaseButtonClasses, getResourceIcon } from '../utils/gameFormatting.js';
 
   let availableRoutes = $derived($gameStore.availableRoutes);
   let activeRoutes = $derived($gameStore.tradeRoutes?.activeRoutes || []);
@@ -25,7 +25,7 @@
     </p>
   {:else}
     <div>
-      <h3 class="panel-title">Trade Routes</h3>
+      <h2 class="panel-title">Trade Routes</h2>
       <p class="text-xs text-ink-muted mt-1 mb-3 leading-tight">Establish trade routes to boost resource production. Routes reset on prestige.</p>
     </div>
 
@@ -40,14 +40,14 @@
         >
           <div class="flex items-center gap-2 mb-1">
             <span class="text-lg">{route.icon || '🛤️'}</span>
-            <h4 class="text-sm font-bold text-paper">{route.name || route.id}</h4>
+            <h3 class="text-sm font-bold text-paper">{route.name || route.id}</h3>
           </div>
           <p class="text-xs text-ink-muted mb-2">{route.description}</p>
 
           <p class="text-xs text-ink-muted mb-2"><span class="font-semibold">Era:</span> {formatEraName(route.unlockEra)}</p>
 
           <div class="space-y-1 text-xs text-ink-muted mb-3 leading-tight">
-            <p><span class="font-semibold">Cost:</span> {formatCost(route.cost)}</p>
+            <p><span class="font-semibold">Cost:</span> {formatNamedCost(route.cost)}</p>
             <div>
               <span class="font-semibold">Bonuses:</span>
               {#each Object.entries(route.bonuses || {}) as [resource, mult]}
@@ -59,7 +59,7 @@
           </div>
 
           {#if route.historical}
-            <p class="text-[0.6rem] text-ink-muted italic mb-2 line-clamp-2">{route.historical}</p>
+            <p class="text-xs text-ink-muted italic mb-2 leading-relaxed">{route.historical}</p>
           {/if}
 
           {#if !isActive && !route.canUnlock && route.reason}
@@ -72,7 +72,7 @@
               disabled={isActive || !route.canUnlock}
               onclick={() => establishRoute(route.id)}
             >
-              {isActive ? '✓ Established' : 'Establish'}
+              {isActive ? '✓ Established' : `Establish ${route.name || route.id}`}
             </button>
           </div>
         </div>
