@@ -5,6 +5,7 @@ import { GameManager } from '../js/GameManager.js';
 import { BrowserSaveAdapter } from '../js/core/BrowserSaveAdapter.js';
 import { GameState } from '../js/core/GameState.js';
 import { config } from '../js/core/config.js';
+import { PrestigeManager } from '../js/systems/PrestigeManager.js';
 
 function encodeSave(save) {
   return Buffer.from(JSON.stringify(save), 'utf8').toString('base64');
@@ -192,6 +193,34 @@ test('importSave clamps hostile numeric state before writing localStorage', () =
   assert.deepEqual(persisted.prestige.purchasedPerks, []);
   assert.deepEqual(persisted.prestige.completedEras, []);
   }));
+
+test('importSave discards malformed upgrade and prestige entries before gameplay', () => {
+  const { manager, storage } = makeImportHarness();
+  const save = {
+    schemaVersion: 2,
+    resources: { sticks: 100, population: 1 },
+    upgrades: { hasOwnProperty: true, fireControl: 'yes', stoneKnapping: true },
+    prestige: {
+      evolutionPoints: 0,
+      lifetimeEP: 0,
+      totalResets: 0,
+      highestEra: 'paleolithic',
+      purchasedPerks: [null, 'offlineMaster'],
+      completedEras: [null, 'paleolithic'],
+    },
+    unlockedUpgrades: ['fireControl'],
+  };
+
+  assert.equal(manager.importSave(encodeSave(save)), true);
+  const persisted = JSON.parse(storage.getItem(config.storage.saveKey));
+  assert.equal(Object.hasOwn(persisted.upgrades, 'hasOwnProperty'), false);
+  assert.equal(manager.gameState.hasUpgrade('fireControl'), true);
+  assert.equal(manager.gameState.hasUpgrade('stoneKnapping'), true);
+  assert.deepEqual(persisted.prestige.purchasedPerks, ['offlineMaster']);
+  assert.deepEqual(persisted.prestige.completedEras, ['paleolithic']);
+  assert.doesNotThrow(() => new PrestigeManager(manager.gameState).getPrestigeData());
+  assert.equal(manager.gameState.unlockUpgrade('clothing'), true);
+});
 
 test('importSave requires confirmation before changing or backing up a run', () => {
   const { manager, storage } = makeImportHarness({ confirmAction: () => false });

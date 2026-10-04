@@ -7,20 +7,6 @@ import { OfflineManager } from "../js/systems/OfflineManager.js";
 import { PrestigeManager } from "../js/systems/PrestigeManager.js";
 import { WorkerManager } from "../js/systems/WorkerManager.js";
 
-// live findings referenced by skipped tests below (verified against real modules):
-//
-// FINDING-1 (herder/livestock, neolithic): livestock's only producer anywhere
-// in config is the herder worker itself, whose hire cost includes 2 livestock.
-// hiring one works only because the one-time neolithic starter pack grants
-// floor(12 x 0.55) = 6 livestock; no renewable seed producer exists.
-//
-// FINDING-2 (miller/mills, medieval): mills' only producer is the miller
-// itself. the medieval pack grant is floor(8 x 0.55) = 4 < 5 mills needed for
-// the first hire, so the miller is unhireable in normal play (only the random
-// "Watermills Spread" event ever adds mills). dead content, and it starves the
-// medieval population-support pool of its intended automated agriculture/mills
-// producer.
-
 test("config references resolve: every cost, output, and prerequisite names a real thing", () => {
   const knownResources = new Set(Object.keys(config.resourceEra));
   const knownUpgrades = new Set();
@@ -178,12 +164,6 @@ test("config references resolve: every cost, output, and prerequisite names a re
 
 test(
   "every costed resource has display metadata",
-  {
-    // FINDING-3: electricity is produced, spent, and part of the population
-    // support pool from industrial onward, but appears in no resourcesByEra
-    // list, so ResourcePanel (which filters on getRelevantResources) never
-    // renders it. unskip once electricity is added to a resourcesByEra list.
-  },
   () => {
     const displayedResources = new Set();
     for (const resources of Object.values(config.resourcesByEra)) {
@@ -224,11 +204,6 @@ test(
 
 test(
   "every upgrade and worker is purchasable in the era that sells it",
-  {
-    // FINDING-1 / FINDING-2: this walk flags the neolithic herder (livestock has
-    // no producer except the self-gated herder) and the medieval miller (mills
-    // ditto). unskip once those chains gain an independent renewable producer.
-  },
   () => {
     const reachable = new Set(["population"]);
     const unlocked = new Set();
@@ -341,11 +316,6 @@ test(
 
 test(
   "production chains never depend on their own output without a renewable seed",
-  {
-    // FINDING-1 / FINDING-2: sole producers of livestock (neolithic herder) and
-    // mills (medieval miller) are gated behind their own purchase. unskip once
-    // independent producers exist.
-  },
   () => {
     const producersOf = new Map();
     const addProducer = (resource, producer) => {
