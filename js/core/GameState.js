@@ -488,7 +488,7 @@ export class GameState {
    * Unlock an upgrade
    */
   unlockUpgrade(upgradeId) {
-    if (this.data.upgrades.hasOwnProperty(upgradeId)) {
+    if (Object.hasOwn(this.data.upgrades, upgradeId)) {
       const wasUnlocked = this.data.upgrades[upgradeId];
       this.data.upgrades[upgradeId] = true;
 
@@ -838,9 +838,12 @@ export class GameState {
     this.data.workers = parsedData.workers && typeof parsedData.workers === "object" && !Array.isArray(parsedData.workers)
       ? { ...initial.workers, ...parsedData.workers }
       : { ...initial.workers };
-    this.data.upgrades = parsedData.upgrades && typeof parsedData.upgrades === "object" && !Array.isArray(parsedData.upgrades)
-      ? { ...initial.upgrades, ...parsedData.upgrades }
-      : { ...initial.upgrades };
+    this.data.upgrades = { ...initial.upgrades };
+    if (parsedData.upgrades && typeof parsedData.upgrades === "object" && !Array.isArray(parsedData.upgrades)) {
+      for (const upgradeId of Object.keys(initial.upgrades)) {
+        this.data.upgrades[upgradeId] = parsedData.upgrades[upgradeId] === true;
+      }
+    }
     this.data.progression = parsedData.progression && typeof parsedData.progression === "object" && !Array.isArray(parsedData.progression)
       ? { ...initial.progression, ...parsedData.progression }
       : { ...initial.progression };
@@ -865,10 +868,10 @@ export class GameState {
       this.data.prestige = {
         ...parsedData.prestige,
         purchasedPerks: Array.isArray(parsedData.prestige.purchasedPerks)
-          ? [...parsedData.prestige.purchasedPerks]
+          ? parsedData.prestige.purchasedPerks.filter((id) => typeof id === "string")
           : [],
         completedEras: Array.isArray(parsedData.prestige.completedEras)
-          ? [...parsedData.prestige.completedEras]
+          ? parsedData.prestige.completedEras.filter((era) => typeof era === "string")
           : [],
       };
     }
@@ -916,7 +919,7 @@ export class GameState {
     // 1) unlockedUpgrades array -> boolean flags in upgrades
     if (Array.isArray(parsedData.unlockedUpgrades)) {
       parsedData.unlockedUpgrades.forEach((upgradeId) => {
-        if (upgradeId && this.data.upgrades.hasOwnProperty(upgradeId)) {
+        if (typeof upgradeId === "string" && Object.hasOwn(this.data.upgrades, upgradeId)) {
           this.data.upgrades[upgradeId] = true;
         }
       });

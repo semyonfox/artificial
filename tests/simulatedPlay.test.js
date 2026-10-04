@@ -4,25 +4,7 @@ import test from "node:test";
 import { GameManager, ERA_STARTER_PACKS } from "../js/GameManager.js";
 import { config } from "../js/core/config.js";
 
-// live finding referenced by skipped tests and horizon comments below:
-//
-// FINDING-4 (medieval stall): driving the real GameManager under the greedy
-// policy below reliably stalls in the medieval era. root causes:
-//   - FINDING-2's miller lock removes the era's only automated agriculture
-//     producer; releaseWorkersOutsideEra also drops the neolithic farmers on
-//     entry, leaving the [agriculture, grain, mills] support pool fed solely
-//     by manual plow clicks (+3 per step here).
-//   - monks are the sole religion producer, so the religion >= 20 advancement
-//     requirement forces hiring them, and their fleet upkeep drains the same
-//     pool the agriculture >= 60 requirement needs.
-//   - one-time seed budgets stay tight earlier too: under a deterministic
-//     random of 0.5 (the report's suggested stub) the digClay tools bonus
-//     (0.25) never fires and the run already deadlocks inside neolithic.
-//
-// RANDOM_CONSTANT is chosen as 0.1 so every configured bonusChance producer
-// fires deterministically (lowest configured probability is 0.2), no
-// failChance exists anywhere in config, and events cannot fire (the single
-// event check happens at population < 2 and bails before rolling).
+// 0.1 makes configured bonus drops deterministic for the greedy play policy
 
 const RANDOM_CONSTANT = 0.1;
 const STEP_CAP_PER_ERA = 4000;
@@ -274,11 +256,7 @@ test("no code path drives a resource negative or non-finite during simulated pla
           result.totalSteps > 100,
           "driven horizon too short to be meaningful",
         );
-        if (!result.complete) {
-          // the horizon currently ends at the FINDING-4 medieval stall; the
-          // invariant guard still covers paleolithic through medieval.
-          assert.equal(result.stuckAt, "medieval");
-        }
+        assert.equal(result.complete, true, `playthrough stopped in ${result.stuckAt}`);
       } finally {
         manager.destroy();
       }
