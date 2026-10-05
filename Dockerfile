@@ -1,4 +1,4 @@
-FROM node:26-bookworm-slim@sha256:367679cf9792759492a486e4aa4b421764d71a9546a6dae8aab81a99eb797b3e AS build
+FROM node:26-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2 AS build
 WORKDIR /app
 RUN npm install --global pnpm@11.18.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
