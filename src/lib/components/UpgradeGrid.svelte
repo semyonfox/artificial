@@ -1,19 +1,28 @@
 <script>
+  import { tick } from 'svelte';
   import { gameStore } from '../stores/gameStore.js';
   import { formatCost, formatId, getMissingCost } from '../utils/gameFormatting.js';
 
   let upgrades = $derived($gameStore.upgradeViews);
   let pending = $derived(upgrades.filter((upgrade) => !upgrade.isUnlocked));
   let owned = $derived(upgrades.filter((upgrade) => upgrade.isUnlocked));
+  let list;
+
+  // the bought row disappears, so keep keyboard focus in the store
+  async function buy(upgradeId) {
+    if (!gameStore.buyUpgrade(upgradeId)) return;
+    await tick();
+    (list?.querySelector('button:not(:disabled)') ?? document.getElementById('upgrades-title'))?.focus();
+  }
 </script>
 
 <section aria-labelledby="upgrades-title">
-  <h2 id="upgrades-title" class="section-label mb-2">Upgrades</h2>
+  <h2 id="upgrades-title" tabindex="-1" class="section-label mb-2">Upgrades</h2>
 
   {#if pending.length === 0}
     <p class="text-xs text-ink-muted px-1">All upgrades for this era bought.</p>
   {:else}
-    <ul class="space-y-1.5">
+    <ul class="space-y-1.5" bind:this={list}>
       {#each pending as upgrade (upgrade.id)}
         <li>
           <button
@@ -21,7 +30,7 @@
             class:ready={upgrade.canBuy}
             disabled={!upgrade.canBuy}
             title={upgrade.description}
-            onclick={() => gameStore.buyUpgrade(upgrade.id)}
+            onclick={() => buy(upgrade.id)}
           >
             <span class="min-w-0 flex-1">
               <span class="flex items-baseline justify-between gap-2">

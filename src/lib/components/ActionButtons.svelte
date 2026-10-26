@@ -4,6 +4,8 @@
 
   let actions = $derived($gameStore.actions);
   let resultMessage = $state('');
+  // bumps every result so identical messages are still announced
+  let resultNumber = $state(0);
   let floaters = $state([]);
   let floaterId = 0;
   let actionGroup;
@@ -12,6 +14,7 @@
     if (!action.canAfford || action.isOnCooldown) return;
     const result = gameStore.performAction(action.id);
     if (!result) return;
+    resultNumber++;
     if (result.failed) {
       resultMessage = `${action.name}: nothing gained.`;
       return;
@@ -68,7 +71,12 @@
         <span class="action-icon" aria-hidden="true">{action.icon}</span>
         <span class="action-name">{action.name}</span>
         <span id={`action-state-${action.id}`} class="action-yield" class:text-warning={blocked}>
-          {blocked ? `Needs ${getMissingCost(action.consumes, $gameStore.resources)}` : `+${formatCost(action.produces)}`}
+          {#if blocked}
+            Needs {getMissingCost(action.consumes, $gameStore.resources)}
+          {:else}
+            <span aria-hidden="true">+{formatCost(action.produces)}{#if action.consumes}{' for '}{formatCost(action.consumes)}{/if}</span>
+            <span class="sr-only">Makes {formatNamedCost(action.produces)}{#if action.consumes}, uses {formatNamedCost(action.consumes)}{/if}</span>
+          {/if}
         </span>
         {#each floaters.filter((floater) => floater.actionId === action.id) as floater (floater.id)}
           <span class="floater" aria-hidden="true">{floater.text}</span>
@@ -76,6 +84,6 @@
       </button>
     {/each}
   </div>
-  <p role="status" aria-live="polite" class="sr-only">{resultMessage}</p>
+  <p role="status" aria-live="polite" class="sr-only">{#if resultNumber > 0}Result {resultNumber}: {/if}{resultMessage}</p>
   <p class="mt-3 text-center text-xs text-ink-muted">Tip: number keys trigger actions.</p>
 </section>
