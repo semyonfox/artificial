@@ -231,25 +231,22 @@ export class WorkerManager {
     if (shouldConsumeFood) {
       const baseConsumption = config.gameVariables?.workerFoodConsumption || 1;
       const requiredFood = workerCount * baseConsumption;
-      const totalAvailable = pool.reduce(
-        (sum, res) => sum + this.gameState.getResource(res),
-        0,
-      );
+      const spare = this.getSpareFood(pool);
+      const totalAvailable = Object.values(spare).reduce((a, b) => a + b, 0);
 
-      if (totalAvailable >= requiredFood) {
+      if (totalAvailable > 0) {
+        // eat the most plentiful resource first so upkeep does not drain a
+        // scarce one the player is saving up, like classical cities for
+        // architects while medicine piles up
         let remaining = requiredFood;
-        for (const res of pool) {
-          const take = Math.min(this.gameState.getResource(res), remaining);
+        const byPlenty = [...pool].sort((a, b) => spare[b] - spare[a]);
+        for (const res of byPlenty) {
+          const take = Math.min(spare[res], remaining);
           if (take > 0) this.gameState.addResource(res, -take);
           remaining -= take;
           if (remaining <= 0) break;
         }
-        status = "wellFed";
-      } else if (totalAvailable > 0) {
-        for (const res of pool) {
-          this.gameState.addResource(res, -this.gameState.getResource(res));
-        }
-        status = "hungry";
+        status = totalAvailable >= requiredFood ? "wellFed" : "hungry";
       } else {
         status = "starving";
       }
@@ -346,6 +343,21 @@ export class WorkerManager {
         this.gameState.addResource(resource, whole);
       }
     }
+  }
+
+  /**
+   * Food each support resource can give up. Most pools share resources with
+   * the era's advancement cost, so upkeep stops at that amount instead of
+   * quietly eating the player's progress towards the next era.
+   */
+  getSpareFood(pool) {
+    const reserved = this.getCurrentEraData()?.advancementCost || {};
+    return Object.fromEntries(
+      pool.map((res) => [
+        res,
+        Math.max(0, this.gameState.getResource(res) - (reserved[res] || 0)),
+      ]),
+    );
   }
 
   /**

@@ -386,6 +386,11 @@ test(
           gates.push({ kind: "action upkeep", id: action.id, resource: r });
         }
       }
+      for (const worker of eraData.workers || []) {
+        for (const r of Object.keys(worker.consumes || {})) {
+          gates.push({ kind: "worker input", id: worker.id, resource: r });
+        }
+      }
 
       for (const gate of gates) {
         const producers = producersOf.get(gate.resource) || [];
@@ -419,15 +424,29 @@ test(
           );
           continue;
         }
+        // earlier eras' workers and actions are gone after advancing, so a
+        // worker input needs a source in its own era or the fleet idles for
+        // good once carried stock runs out
+        const inEra = external.filter(
+          (p) => p.era === eraId && p.kind !== "route",
+        );
+        if (gate.kind === "worker input" && inEra.length === 0) {
+          problems.push(
+            `${label}: nothing in ${eraId} produces it, so the worker idles once carried stock is spent`,
+          );
+        }
+        // a worker that is the only thing in its era making its own hire cost
+        // locks itself out as soon as that stock is spent elsewhere
+        const selfInEra = producers.filter(
+          (p) => p.era === eraId && p.kind !== "route",
+        );
         if (
           gate.kind === "worker hire" &&
-          external.length === 1 &&
-          external[0].kind === "worker" &&
-          external[0].id === gate.id
+          selfInEra.length > 0 &&
+          selfInEra.every((p) => p.kind === "worker" && p.id === gate.id)
         ) {
           problems.push(
-            `${label}: the only independent producer is the same worker being hired; ` +
-              "the chain relies on a non-renewable one-time grant",
+            `${label}: the only ${eraId} producer is the worker being hired`,
           );
         }
       }

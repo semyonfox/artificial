@@ -77,7 +77,7 @@ export class AchievementManager {
 	update(deltaTime) {
 		this.checkAccum += deltaTime;
 		if (this.checkAccum < 2000) return;
-		this.checkAccum -= 2000;
+		this.checkAccum %= 2000;
 
 		this.checkAchievements();
 	}

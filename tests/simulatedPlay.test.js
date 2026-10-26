@@ -264,6 +264,35 @@ test("no code path drives a resource negative or non-finite during simulated pla
   });
 });
 
+test("every era can be cleared from its starter pack alone", async () => {
+  // a player who advances the moment they can, or spends their surplus on
+  // wonders and routes, arrives with nothing carried over. wiping all stock
+  // on entry proves no era depends on leftovers to reach its own producers
+  await withGameBrowser(async () => {
+    await withDeterministicRandom(async () => {
+      const manager = await createManager();
+      const grantPack = manager.onEraTransition.bind(manager);
+      manager.onEraTransition = (toEra) => {
+        const { resources } = manager.gameState.data;
+        for (const resource of Object.keys(resources)) {
+          if (resource !== "population") delete resources[resource];
+        }
+        grantPack(toEra);
+      };
+      try {
+        const result = drivePlaythrough(manager);
+        assert.equal(
+          result.stuckAt,
+          null,
+          `playthrough without carried stock stalled in ${result.stuckAt}:\n${result.dump}`,
+        );
+      } finally {
+        manager.destroy();
+      }
+    });
+  });
+});
+
 // plays paleolithic from scratch until the advancement threshold is met
 function bootstrapToAdvancement(manager, label) {
   for (let step = 0; step < STEP_CAP_PER_ERA; step++) {

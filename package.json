@@ -9,6 +9,7 @@
 		"build": "vite build",
 		"test": "node --test",
 		"check": "pnpm test && pnpm build",
+		"simulate": "node scripts/simulate-play.js",
 		"preview": "vite preview"
 	},
 	"keywords": [

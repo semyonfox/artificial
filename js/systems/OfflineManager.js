@@ -19,10 +19,10 @@ export class OfflineManager {
     this.persistence = persistence;
     this.browserWindow = typeof window === "undefined" ? null : window;
     this.beforeUnloadHandler = () => this.recordLastActive();
-    this.browserWindow?.addEventListener(
-      "beforeunload",
-      this.beforeUnloadHandler,
-    );
+    // pagehide also covers mobile browsers and bfcache, which skip beforeunload
+    for (const event of ["beforeunload", "pagehide"]) {
+      this.browserWindow?.addEventListener(event, this.beforeUnloadHandler);
+    }
   }
 
   recordLastActive() {
@@ -257,9 +257,8 @@ export class OfflineManager {
   }
 
   destroy() {
-    this.browserWindow?.removeEventListener(
-      "beforeunload",
-      this.beforeUnloadHandler,
-    );
+    for (const event of ["beforeunload", "pagehide"]) {
+      this.browserWindow?.removeEventListener(event, this.beforeUnloadHandler);
+    }
   }
 }

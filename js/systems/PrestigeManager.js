@@ -95,9 +95,8 @@ export class PrestigeManager {
 	 */
 	getMultiplier() {
 		const prestige = this.getPrestigeData();
-		const scaling = config.prestigeScaling || { multBase: 0.3 };
-		let multBase = scaling.multBase || 0.3;
-		if (this.hasPerk('compoundGrowth')) multBase = 0.4;
+		let multBase = config.prestigeScaling?.multBase || 0.1;
+		if (this.hasPerk('compoundGrowth')) multBase *= 4 / 3;
 		return 1 + Math.sqrt(Math.max(0, prestige.lifetimeEP)) * multBase;
 	}
 
