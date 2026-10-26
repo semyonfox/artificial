@@ -150,12 +150,189 @@
   .animate-spin { animation: none; }
 }
 
-.section-nav {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 6em), 1fr));
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-paper: #1d1b16;
+    --color-ink: #24211b;
+    --color-ink-soft: #4a443a;
+    --color-ink-muted: #6b6354;
+    --color-surface-0: #efe9dc;
+    --color-surface-1: #faf7f0;
+    --color-surface-2: #f1ebdf;
+    --color-surface-3: #e7dfcf;
+    --color-surface-4: #dcd2bf;
+    --color-accent: #9c6a22;
+    --color-accent-muted: rgba(156, 106, 34, 0.35);
+    --color-success: #3a8049;
+    --color-success-muted: rgba(58, 128, 73, 0.3);
+    --color-danger: #b8423a;
+    --color-danger-muted: rgba(184, 66, 58, 0.3);
+    --color-warning: #8f6512;
+  }
 }
 
-.brand-title, .era-summary-name {
-  flex: 1;
-  min-width: min(100%, 10em);
+@layer components {
+  .topbar {
+    @apply flex items-center justify-between gap-3 mb-3 px-4 py-2.5 bg-surface-1 border border-ink/10 rounded-card;
+  }
+
+  .menu-btn {
+    @apply relative inline-flex items-center gap-1.5 px-3 rounded-button text-sm font-semibold
+           text-ink-soft border border-ink/10 hover:bg-ink/8 hover:text-paper
+           focus-visible:outline-2 focus-visible:outline-accent;
+  }
+
+  .menu-dot {
+    @apply absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-accent ring-2 ring-surface-0;
+  }
+
+  .game-layout {
+    @apply grid gap-3 items-start grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)_340px];
+  }
+
+  .panel {
+    @apply p-4 bg-surface-1 border border-ink/10 rounded-card;
+  }
+
+  .center-stage {
+    @apply py-5 lg:py-8 lg:min-h-[560px];
+  }
+
+  .action-grid {
+    @apply grid gap-3 grid-cols-2 sm:grid-cols-3 max-w-xl mx-auto;
+  }
+
+  .action-tile {
+    @apply relative overflow-hidden flex flex-col items-center justify-center gap-1 aspect-square p-3
+           rounded-2xl bg-surface-2 border border-ink/15 text-center select-none
+           transition-[transform,background-color,opacity] duration-100
+           hover:bg-surface-3 hover:border-accent/40 active:scale-95
+           focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+  }
+
+  /* cooling down reads as disabled until the sweep empties */
+  .action-tile.cooling {
+    @apply opacity-60 cursor-wait hover:bg-surface-2 hover:border-ink/15 active:scale-100;
+  }
+
+  .action-tile.blocked {
+    @apply opacity-50 cursor-not-allowed hover:bg-surface-2 hover:border-ink/15 active:scale-100;
+  }
+
+  .cooldown-sweep {
+    @apply absolute inset-0 bg-accent/30 origin-left pointer-events-none;
+    transform: scaleX(var(--cooldown-progress, 1));
+    animation: cooldown-drain var(--cooldown-duration, 1s) linear forwards;
+  }
+
+  .action-key {
+    @apply absolute top-2 left-2.5 text-[0.65rem] text-ink-muted tabular-nums;
+  }
+
+  .action-icon {
+    @apply relative text-4xl sm:text-5xl leading-none;
+  }
+
+  .action-name {
+    @apply relative mt-1 text-sm font-semibold text-paper;
+  }
+
+  .action-yield {
+    @apply relative text-xs text-ink-muted leading-tight;
+  }
+
+  .floater {
+    @apply absolute top-3 left-1/2 -translate-x-1/2 text-sm font-bold text-success pointer-events-none whitespace-nowrap;
+    animation: float-up 0.9s ease-out forwards;
+  }
+
+  .store-row {
+    @apply w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left bg-surface-2/60 border border-transparent
+           transition-colors disabled:cursor-not-allowed
+           focus-visible:outline-2 focus-visible:outline-accent;
+  }
+
+  .store-row:disabled {
+    @apply opacity-60;
+  }
+
+  .store-row.ready {
+    @apply bg-surface-2 border-accent/40 hover:bg-surface-3;
+  }
+
+  .store-row.locked-row {
+    @apply opacity-40;
+  }
+
+  .worker-icon {
+    @apply w-9 h-9 flex items-center justify-center shrink-0 rounded-lg bg-ink/5 text-xl;
+  }
+
+  .worker-count {
+    @apply text-2xl font-bold text-ink-muted/70 min-w-8 text-right;
+  }
+
+  .mini-bar {
+    @apply h-1 bg-surface-3 rounded-full overflow-hidden;
+  }
+
+  .mini-fill {
+    @apply h-full rounded-full transition-[width] duration-300;
+  }
+
+  .advance-ready {
+    animation: ready-pulse 1.6s ease-in-out infinite;
+  }
+
+  .modal {
+    @apply m-auto w-[min(720px,calc(100%-2rem))] max-h-[85vh] p-0 bg-surface-1 text-ink border border-ink/15 rounded-card shadow-2xl;
+  }
+
+  .modal::backdrop {
+    background: rgb(0 0 0 / 0.55);
+  }
+
+  .modal-header {
+    @apply sticky top-0 z-10 flex items-center justify-between px-5 py-3 bg-surface-1 border-b border-ink/10;
+  }
+
+  .modal-body {
+    @apply p-5;
+  }
+}
+
+@keyframes cooldown-drain {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes float-up {
+  from {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -28px);
+  }
+}
+
+@keyframes ready-pulse {
+  50% {
+    box-shadow: 0 0 0 4px var(--color-success-muted);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* keep the cooldown visible, just without movement */
+  .cooldown-sweep, .floater, .advance-ready {
+    animation: none;
+  }
+  .floater {
+    display: none;
+  }
+  .action-tile {
+    transition: none;
+  }
 }

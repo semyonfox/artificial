@@ -6,9 +6,10 @@
   import { telemetry } from './lib/utils/telemetry.js';
   import PrivacySettings from './lib/components/PrivacySettings.svelte';
 
-  import EraStrip from './lib/components/EraStrip.svelte';
-  import EraCard from './lib/components/EraCard.svelte';
-  import FlowPanel from './lib/components/FlowPanel.svelte';
+  import TopBar from './lib/components/TopBar.svelte';
+  import Modal from './lib/components/Modal.svelte';
+  import Objective from './lib/components/Objective.svelte';
+  import SaveSettings from './lib/components/SaveSettings.svelte';
   import ResourcePanel from './lib/components/ResourcePanel.svelte';
   import ActionButtons from './lib/components/ActionButtons.svelte';
   import UpgradeGrid from './lib/components/UpgradeGrid.svelte';
@@ -26,7 +27,15 @@
   let startupIssue = $state('');
   let recoveryError = $state('');
   let manager;
-  let navHeight = $state(0);
+  // which menu dialog is open, if any
+  let menu = $state(null);
+  const menuTitles = {
+    civilization: 'Civilization',
+    prestige: 'Prestige',
+    achievements: 'Achievements',
+    log: 'Log',
+    settings: 'Settings',
+  };
 
   function downloadRejectedSave() {
     if (typeof manager?.rejectedSave === 'string') downloadText(manager.rejectedSave, 'artificial-recovery.json');
@@ -112,126 +121,47 @@
     </div>
   </div>
 {:else}
-  <div class="max-w-[1680px] mx-auto p-4" style={`--section-offset: ${navHeight + 16}px`}>
-    <a class="btn btn-secondary mb-3" href="#actions">Skip to actions</a>
-    <!-- Top Bar -->
-    <header class="mb-4 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-surface-1/95 border border-ink/10 rounded-card shadow-xl shadow-black/25">
-      <div class="flex flex-wrap items-center gap-3 min-w-0 max-w-full">
-        <img src="/logo.png" alt="Artificial" class="w-10 h-10 rounded-lg border border-accent/50" />
-        <div class="brand-title">
-          <h1 class="text-paper font-bold uppercase tracking-tight">Artificial</h1>
-          <p class="text-ink-muted text-xs">Civilization Engine</p>
-        </div>
-      </div>
-
-      <div class="w-full sm:flex-1 sm:min-w-0">
-        <EraStrip />
-      </div>
-    </header>
-
-    <nav aria-label="Game sections" bind:clientHeight={navHeight} class="section-nav sticky top-0 z-20 gap-2 p-2 mb-2 bg-surface-1 border border-ink/15 rounded-lg">
-      <a class="btn btn-ghost px-2 text-xs sm:text-sm" href="#resources">Resources</a>
-      <a class="btn btn-ghost px-2 text-xs sm:text-sm" href="#actions">Actions</a>
-      <a class="btn btn-ghost px-2 text-xs sm:text-sm" href="#workers">Workers</a>
-    </nav>
-    <nav aria-label="Progress and recovery" class="flex flex-wrap gap-2 mb-4">
-      <a class="btn btn-ghost" href="#upgrades">Upgrades</a>
-      <a class="btn btn-ghost" href="#save-tools">Save &amp; recovery</a>
-    </nav>
+  <div class="max-w-[1400px] mx-auto p-3 sm:p-4">
+    <TopBar onOpen={(id) => (menu = id)} />
     <NotificationToast />
-    <!-- Main Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 items-start">
-      <!-- Sidebar -->
-      <aside class="card lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-        <div class="card-header">
-          <h2 id="resources" tabindex="-1" class="panel-title">Resources</h2>
-        </div>
-        <div class="p-4 space-y-4">
-          <EraCard />
-          <ResourcePanel />
-        </div>
+
+    <main class="game-layout">
+      <aside class="panel space-y-5 order-2 lg:order-none" aria-label="Goal and stockpile">
+        <Objective />
+        <ResourcePanel />
       </aside>
 
-      <!-- Main Content -->
-      <main class="min-w-0">
-        <div class="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-4 items-start">
-          <!-- Left Column -->
-          <div class="space-y-4">
-            <div class="card">
-              <div class="card-body">
-                <FlowPanel />
-              </div>
-            </div>
+      <section class="panel center-stage order-1 lg:order-none" aria-labelledby="era-title">
+        <h2 id="era-title" class="text-2xl font-bold text-paper text-center">{$gameStore.currentEraData?.name}</h2>
+        <p class="text-sm text-ink-muted text-center mt-1 mb-6 max-w-md mx-auto">{$gameStore.currentEraData?.description}</p>
+        <ActionButtons />
+      </section>
 
-            <div class="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_420px] gap-4 items-start">
-              <div class="card">
-                <div class="card-header">
-                  <h2 id="actions" tabindex="-1" class="panel-title">Actions</h2>
-                </div>
-                <div class="card-body">
-                  <ActionButtons />
-                </div>
-              </div>
-
-              <div class="card">
-                <div class="card-body">
-                  <div id="workers" tabindex="-1"><WorkerPanel /></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card">
-              <div class="card-header">
-                <h2 id="upgrades" tabindex="-1" class="panel-title">Upgrades</h2>
-              </div>
-              <div class="card-body">
-                <UpgradeGrid />
-              </div>
-            </div>
-
-            <div class="card">
-              <div class="card-body">
-                <CivSpecializationPanel />
-              </div>
-            </div>
-
-            <div class="card">
-              <div class="card-body">
-                <TradeRoutePanel />
-              </div>
-            </div>
-
-            <div class="card">
-              <div class="card-body">
-                <WonderPanel />
-              </div>
-            </div>
-          </div>
-
-          <!-- Right Column -->
-          <div class="space-y-4">
-            <div class="card">
-              <div class="card-body">
-                <AchievementGrid />
-              </div>
-            </div>
-
-            <div class="card">
-              <div class="card-body">
-                <PrestigePanel />
-              </div>
-            </div>
-
-            <div class="card">
-              <div class="card-body">
-                <LogPanel />
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
+      <aside class="panel space-y-5 order-3 lg:order-none" aria-label="Store">
+        <UpgradeGrid />
+        <WorkerPanel />
+      </aside>
+    </main>
   </div>
 
-  <PrivacySettings />
+  {#each Object.entries(menuTitles) as [id, title] (id)}
+    <Modal {title} bind:open={() => menu === id, (value) => (menu = value ? id : null)}>
+      {#if id === 'civilization'}
+        <div class="space-y-6">
+          <CivSpecializationPanel />
+          <TradeRoutePanel />
+          <WonderPanel />
+        </div>
+      {:else if id === 'prestige'}
+        <PrestigePanel />
+      {:else if id === 'achievements'}
+        <AchievementGrid />
+      {:else if id === 'log'}
+        <LogPanel />
+      {:else}
+        <SaveSettings />
+        <PrivacySettings />
+      {/if}
+    </Modal>
+  {/each}
 {/if}

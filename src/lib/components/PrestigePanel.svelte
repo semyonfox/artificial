@@ -29,9 +29,8 @@
     6: 'Deep Production',
   };
 
-  async function doPrestige() {
-    const result = gameStore.performPrestige();
-    if (typeof result === "number") { await tick(); document.getElementById("prestige-title")?.focus(); }
+  function doPrestige() {
+    gameStore.performPrestige();
   }
 
   async function buyPerk(perkId) {
@@ -40,7 +39,6 @@
 </script>
 
 <div class="space-y-4">
-  <h2 id="prestige-title" tabindex="-1" class="panel-title">Prestige</h2>
 
   {#if !hasPrestigeContent}
     <p class="text-xs text-ink-muted py-1">

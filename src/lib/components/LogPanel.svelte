@@ -1,12 +1,6 @@
 <script>
   import { gameStore } from '../stores/gameStore.js';
 
-  let visible = $state(true);
-
-  function toggle() {
-    visible = !visible;
-  }
-
   let hasEvents = $derived($gameStore.eventLog.length > 0);
   let hasDisasters = $derived($gameStore.disasterLog.length > 0);
 
@@ -23,20 +17,9 @@
 </script>
 
 <div class="space-y-3">
-  <div class="flex items-center justify-between">
-    <h2 class="panel-title">Logs</h2>
-    <button
-      class="btn btn-ghost btn-sm"
-      aria-label={visible ? "Hide logs" : "Show logs"}
-      aria-expanded={visible}
-      aria-controls="game-log-content"
-      onclick={toggle}
-    >
-      {visible ? 'Hide' : 'Show'}
-    </button>
-  </div>
-
-  {#if visible}
+  {#if !hasEvents && !hasDisasters}
+    <p class="text-sm text-ink-muted">Nothing has happened yet.</p>
+  {:else}
     <div id="game-log-content" class={`grid grid-cols-1 gap-4 ${hasEvents && hasDisasters ? 'md:grid-cols-2' : ''}`}>
       {#if hasEvents}
         <div>
