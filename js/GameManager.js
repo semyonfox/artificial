@@ -28,14 +28,14 @@ import {
 // consciousnessTransfer cost of late-era upgrades after ×1.2 scaling.
 export const ERA_STARTER_PACKS = {
   neolithic: { grain: 80, clay: 50, tools: 25, pottery: 10, livestock: 12 },
-  bronze: { copper: 40, tin: 20, tools: 15 },
+  bronze: { copper: 40, tin: 20, tools: 15, pottery: 45, stones: 25 },
   iron: { iron: 80, coal: 20, bronze: 60, stones: 30, knowledge: 30 },
   classical: {
     cities: 15,
     knowledge: 30,
-    coins: 12,
-    writing: 12,
-    iron: 20,
+    coins: 25,
+    writing: 50,
+    iron: 75,
   },
   medieval: {
     agriculture: 25,
@@ -43,8 +43,12 @@ export const ERA_STARTER_PACKS = {
     manuscripts: 15,
     religion: 8,
     guilds: 10,
-    coins: 20,
+    coins: 30,
     trade: 15,
+    iron: 45,
+    tools: 25,
+    stones: 35,
+    knowledge: 45,
   },
   renaissance: {
     printing: 20,
@@ -54,14 +58,19 @@ export const ERA_STARTER_PACKS = {
     coins: 25,
     trade: 20,
     optics: 15,
+    iron: 25,
+    knowledge: 50,
   },
   enlightenment: {
     reason: 40,
-    knowledge: 30,
-    printing: 25,
+    knowledge: 150,
+    printing: 50,
     clockwork: 15,
     academies: 10,
-    ships: 20,
+    ships: 30,
+    bronze: 115,
+    navigation: 50,
+    banking: 40,
   },
   industrial: {
     coal: 120,
@@ -74,10 +83,15 @@ export const ERA_STARTER_PACKS = {
   electric: {
     dynamo: 60,
     electricity: 50,
-    steel: 50,
+    steel: 140,
     telephone: 20,
     chemicals: 30,
     oil: 40,
+    copper: 120,
+    knowledge: 50,
+    factories: 70,
+    coal: 80,
+    iron: 60,
   },
   atomic: {
     uranium: 30,
@@ -107,8 +121,8 @@ export const ERA_STARTER_PACKS = {
     robotics: 60,
     solarPanels: 80,
     computers: 100,
-    satellites: 40,
-    fusion: 50,
+    satellites: 50,
+    fusion: 100,
     quantumComputers: 20,
   },
   universal: {
@@ -326,16 +340,13 @@ export class GameManager {
    * Set up event listeners for cross-system communication
    */
   setupEventListeners() {
-    // Listen for upgrade unlocks
-    this.gameState.addListener("upgradeUnlocked", (data) => {
-      this.showNotification(`Unlocked: ${data.upgradeId}`, "success");
-    });
-
     this.gameState.addListener("progressionChange", () => {
       this.systems.achievementManager?.checkAchievements();
     });
 
-    // Auto-save every interval
+    // Auto-save every interval. lastActive is refreshed here too because
+    // beforeunload never fires when a mobile browser or a crash kills the tab,
+    // and a stale timestamp would pay out time spent playing as offline time.
     this.autoSaveInterval = setInterval(() => {
       if (this.gameState && this.gameState.data.settings.autoSave) {
         const saved = this.gameState.save();
@@ -345,6 +356,7 @@ export class GameManager {
         }
         this.autoSaveFailed = !saved;
       }
+      this.systems.offlineManager?.recordLastActive();
     }, config.storage.autoSaveInterval);
   }
 
@@ -388,16 +400,18 @@ export class GameManager {
     }
 
     // Check for era advancement (every 10 seconds)
+    // modulo rather than subtraction so a long frame after a background tab
+    // runs each periodic task once, not once per frame until it catches up
     this.eraCheckAccum += deltaTime;
     if (this.eraCheckAccum >= 10000) {
-      this.eraCheckAccum -= 10000;
+      this.eraCheckAccum %= 10000;
       this.checkEraAdvancement();
     }
 
     // Validate game state periodically (every 5 seconds)
     this.validateAccum += deltaTime;
     if (this.validateAccum >= 5000) {
-      this.validateAccum -= 5000;
+      this.validateAccum %= 5000;
       this.gameState.validate();
     }
 
@@ -1018,6 +1032,7 @@ export class GameManager {
     if (pm.hasPerk("culturalMemory")) {
       const eraOrder = config.eraOrder;
       const highestIdx = getEraIndex(pm.getPrestigeData().highestEra);
+      const remembered = [];
       for (let i = 0; i < highestIdx; i++) {
         const eraKey = eraOrder[i];
         const eraConfig = config.eraData[eraKey];
@@ -1027,8 +1042,17 @@ export class GameManager {
             (a, b) => (a.priority < b.priority ? a : b),
             eraConfig.upgrades[0],
           );
-          this.gameState.unlockUpgrade(firstUpgrade.id);
+          if (this.gameState.unlockUpgrade(firstUpgrade.id)) {
+            remembered.push(firstUpgrade.name);
+          }
         }
+      }
+      if (remembered.length > 0) {
+        this.showNotification(
+          `Cultural Memory: ${remembered.join(", ")}`,
+          "info",
+          5000,
+        );
       }
     }
 

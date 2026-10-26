@@ -6,9 +6,9 @@
   let focusedId = $state(null);
   let returnFocus;
   let visibleNotifications = $derived.by(() => {
-    const recent = $gameStore.notifications.slice(0, 4);
+    const recent = $gameStore.notifications.slice(0, 3);
     const focused = $gameStore.notifications.find(notif => notif.id === focusedId);
-    return focused && !recent.includes(focused) ? [...recent.slice(0, 3), focused] : recent;
+    return focused && !recent.includes(focused) ? [...recent.slice(0, 2), focused] : recent;
   });
   async function dismiss(id) {
     const hadFocus = focusedId === id;
@@ -37,7 +37,7 @@
 </script>
 
 <div
-  class="relative mb-4 sm:fixed sm:top-4 sm:right-4 z-50 flex flex-col gap-2 pointer-events-none sm:max-w-sm sm:w-[calc(100%-2rem)]"
+  class="fixed bottom-3 right-3 left-3 sm:left-auto z-50 flex flex-col-reverse gap-2 pointer-events-none sm:w-80"
   role="status"
   aria-live="polite"
   aria-atomic="false"
@@ -45,7 +45,7 @@
   {#each visibleNotifications as notif (notif.id)}
     <button
       type="button"
-      class="relative px-4 py-3 rounded-lg shadow-xl shadow-black/30 border backdrop-blur-sm
+      class="relative px-3 py-2 rounded-lg shadow-xl shadow-black/30 border backdrop-blur-sm
              animate-slide-in pointer-events-auto cursor-pointer text-left
              transition-transform motion-safe:hover:scale-[1.02] {getNotificationClasses(notif.type)}"
       data-notification-id={notif.id}
@@ -54,7 +54,7 @@
       onblur={() => { focusedId = null; }}
       onclick={() => dismiss(notif.id)}
     >
-      <p class="text-sm font-medium pr-4">{notif.message}</p>
+      <p class="text-xs font-medium pr-4 leading-snug">{notif.message}</p>
       <span class="absolute top-1.5 right-2 text-xs opacity-60" aria-hidden="true">✕</span>
     </button>
   {/each}
@@ -63,11 +63,11 @@
 <style>
   @keyframes slide-in {
     from {
-      transform: translateX(100%);
+      transform: translateY(100%);
       opacity: 0;
     }
     to {
-      transform: translateX(0);
+      transform: translateY(0);
       opacity: 1;
     }
   }

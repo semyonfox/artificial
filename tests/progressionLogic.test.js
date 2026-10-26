@@ -86,6 +86,40 @@ test('restoring workers schedules timers without granting a free work cycle', ()
   assert.deepEqual(starts[0][2], { runImmediately: false });
 });
 
+test('worker upkeep eats spare support stock, never the advancement reserve', () => {
+  const state = new GameState();
+  state.data.currentEra = 'classical';
+  state.data.workers = { philosopher: 3 };
+  // classical advancement reserves 30 aqueducts and 20 medicine
+  state.data.resources = { population: 50, medicine: 21, cities: 2, aqueducts: 39 };
+  const manager = new WorkerManager(state);
+  manager.setGameManager({
+    getCurrentEraData: () => config.eraData.classical,
+    getPopulationSupportResources: () => ['grain', 'aqueducts', 'cities', 'medicine'],
+    getSpecializationMultiplier: () => 1,
+    getWorkerSpecializationMultiplier: () => 1,
+  });
+  const philosopher = { id: 'philosopher', produces: {} };
+
+  for (let cycle = 0; cycle < 3; cycle++) manager.performWorkerWork('philosopher', philosopher);
+  // the plentiful aqueducts feed them, not the cities saved for architects
+  assert.equal(state.getResource('aqueducts'), 36);
+  assert.equal(state.getResource('cities'), 2);
+  assert.equal(manager.getFoodStatus('philosopher'), 'wellFed');
+
+  state.data.resources.aqueducts = 30;
+  delete state.data.resources.cities;
+  for (let cycle = 0; cycle < 3; cycle++) manager.performWorkerWork('philosopher', philosopher);
+  // one spare medicine above the 20 needed to advance
+  assert.equal(state.getResource('medicine'), 20);
+  assert.equal(manager.getFoodStatus('philosopher'), 'hungry');
+
+  for (let cycle = 0; cycle < 3; cycle++) manager.performWorkerWork('philosopher', philosopher);
+  assert.equal(state.getResource('medicine'), 20);
+  assert.equal(state.getResource('aqueducts'), 30);
+  assert.equal(manager.getFoodStatus('philosopher'), 'starving');
+});
+
 test('offline chain workers cannot produce without their required inputs', () =>
   withBrowserEnvironment(({ storage }) => {
     const state = new GameState();
@@ -207,6 +241,7 @@ test('offline timestamps are sanitized and unload listeners are cleaned up', () 
   withBrowserEnvironment(({ storage, listeners }) => {
     const offline = new OfflineManager(new GameState());
     assert.equal(listeners.get('beforeunload')?.size, 1);
+    assert.equal(listeners.get('pagehide')?.size, 1);
 
     const beforeInvalidTimestamp = Date.now();
     storage.set('lastActive', 'not-a-date');
@@ -226,4 +261,5 @@ test('offline timestamps are sanitized and unload listeners are cleaned up', () 
 
     offline.destroy();
     assert.equal(listeners.get('beforeunload')?.size, 0);
+    assert.equal(listeners.get('pagehide')?.size, 0);
   }));

@@ -13,12 +13,13 @@
 
   let visibleResources = $derived(
     [...new Set([
-      ...Object.keys($gameStore.resources),
+      ...Object.keys($gameStore.resources).filter(key => key !== 'population'),
       ...$gameStore.advancementRequirements.map(req => req.resource),
       ...$gameStore.actions.flatMap(action => Object.keys(action.consumes || {})),
       ...$gameStore.workerViews.filter(worker => worker.count > 0).flatMap(worker => Object.keys(worker.consumes || {})),
     ])].map(key => [key, $gameStore.resources[key] || 0])
       .filter(([key, value]) => {
+        if (key === 'population') return false;
         if (value <= 0) {
           const needed = $gameStore.workerViews.some(worker => worker.count > 0 && (resourceIn(worker.consumes, key) || resourceIn(worker.cost, key)))
             || $gameStore.advancementRequirements.some(req => req.resource === key)
@@ -31,7 +32,6 @@
       })
       .map(([key, value]) => {
         const capMult = $gameStore.resourceSoftCapMultipliers[key] ?? 1;
-        const lifetime = $gameStore.lifetimeProduced?.[key] || 0;
         return {
           key,
           value: Math.floor(value),
@@ -39,38 +39,39 @@
           name: formatResourceName(key),
           capped: capMult < 1,
           capPercent: Math.round(capMult * 100),
-          lifetime: lifetime > value ? Math.floor(lifetime) : null,
         };
       })
   );
+
+  let population = $derived($gameStore.populationView);
 </script>
 
-<div>
-  <h3 class="section-label mb-3">Resource Overview</h3>
+<section aria-labelledby="stock-title">
+  <h2 id="stock-title" class="section-label mb-2">Stockpile</h2>
+  <div class="flex items-center justify-between gap-2 px-2 py-2 mb-2 rounded-lg bg-surface-2">
+    <span class="flex items-center gap-2 text-sm text-ink-soft"><span aria-hidden="true">👥</span>Population</span>
+    <span class="text-right leading-tight">
+      <span class="block font-bold text-paper tabular-nums">{formatNumber(population.pop)}<span class="text-ink-muted font-normal"> / {formatNumber(population.cap)}</span></span>
+      <span class="block text-xs text-ink-muted tabular-nums">{$gameStore.availablePopulation} free</span>
+    </span>
+  </div>
 
   {#if visibleResources.length === 0}
-    <p class="text-sm text-ink-muted">No resources yet. Start gathering!</p>
+    <p class="text-sm text-ink-muted px-2">Nothing gathered yet.</p>
   {:else}
-    <div class="space-y-1">
+    <ul class="divide-y divide-ink/5">
       {#each visibleResources as res (res.key)}
-        <div class="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-2/50 hover:bg-surface-3 transition-colors group">
-          <div class="flex items-center gap-3 min-w-0">
-            <span class="w-7 h-7 flex items-center justify-center bg-ink/5 border border-ink/10 rounded-md text-sm shrink-0">
-              {res.icon}
-            </span>
-            <span class="text-sm font-medium text-ink-soft min-w-0 break-words">{res.name}</span>
+        <li class="flex items-center justify-between gap-2 px-2 py-1.5">
+          <span class="flex items-center gap-2 min-w-0 text-sm text-ink-soft">
+            <span aria-hidden="true" class="w-5 text-center">{res.icon}</span>
+            <span class="truncate">{res.name}</span>
             {#if res.capped}
-              <span class="text-xs px-1.5 py-0.5 bg-warning/20 text-warning rounded" >
-                production {res.capPercent}%
-              </span>
+              <span class="text-[0.65rem] px-1 rounded bg-warning/20 text-warning" title="Above the soft cap, production is reduced">cap</span>
             {/if}
-          </div>
-          <div class="flex flex-col items-end leading-tight shrink-0">
-            <span class="text-paper font-bold tabular-nums">{formatNumber(res.value)}</span>
-
-          </div>
-        </div>
+          </span>
+          <span class="font-semibold text-paper tabular-nums">{formatNumber(res.value)}</span>
+        </li>
       {/each}
-    </div>
+    </ul>
   {/if}
-</div>
+</section>

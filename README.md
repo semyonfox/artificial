@@ -40,6 +40,11 @@ and rebuilds the Docker image from the verified commit in its separate deploy
 checkout. The build made by `pnpm check` is a verification artifact; Jenkins
 does not deploy that exact `dist/` directory.
 
+For balance changes, `pnpm simulate` plays the real game on a virtual clock and
+reports minutes per era and where runs stall. `--wipe` starts every era from its
+starter pack alone, `--runs 4` prestiges between runs and `--cps 0.5` plays
+like a slower clicker.
+
 ## Repository map
 
 | Path | Purpose |

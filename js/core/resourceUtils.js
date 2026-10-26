@@ -7,7 +7,7 @@ export const POPULATION_SUPPORT_RESOURCES = {
   neolithic: ["grain", "livestock", "cookedMeat"],
   bronze: ["grain", "livestock", "trade"],
   iron: ["grain", "livestock", "cities", "trade"],
-  classical: ["grain", "cities", "medicine"],
+  classical: ["grain", "aqueducts", "cities", "medicine"],
   medieval: ["agriculture", "grain", "mills"],
   renaissance: ["agriculture", "trade", "banking"],
   enlightenment: ["clockwork", "naturalHistory", "calculus"],

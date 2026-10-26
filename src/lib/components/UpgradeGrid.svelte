@@ -1,63 +1,58 @@
 <script>
-  import { tick } from "svelte";
+  import { tick } from 'svelte';
   import { gameStore } from '../stores/gameStore.js';
-  import { formatNamedCost, formatId, getPurchaseButtonClasses } from '../utils/gameFormatting.js';
+  import { formatCost, formatId, getMissingCost } from '../utils/gameFormatting.js';
 
-  let upgradeDefs = $derived($gameStore.upgradeViews);
+  let upgrades = $derived($gameStore.upgradeViews);
+  let pending = $derived(upgrades.filter((upgrade) => !upgrade.isUnlocked));
+  let owned = $derived(upgrades.filter((upgrade) => upgrade.isUnlocked));
+  let list;
 
-  let sortedUpgrades = $derived(upgradeDefs);
-
-  async function buyUpgrade(upgradeId) {
-    if (gameStore.buyUpgrade(upgradeId)) {
-      await tick();
-      document.getElementById(`upgrade-${upgradeId}`)?.focus();
-    }
+  // the bought row disappears, so keep keyboard focus in the store
+  async function buy(upgradeId) {
+    if (!gameStore.buyUpgrade(upgradeId)) return;
+    await tick();
+    (list?.querySelector('button:not(:disabled)') ?? document.getElementById('upgrades-title'))?.focus();
   }
 </script>
 
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-  {#each sortedUpgrades as upgrade (upgrade.id)}
-    {@const isUnlocked = upgrade.isUnlocked}
-    {@const adjustedCost = upgrade.adjustedCost}
-    {@const hasDiscount = upgrade.hasPrestigeDiscount}
-    {@const hasRequiredUpgrade = upgrade.hasRequiredUpgrade}
-    {@const canBuy = upgrade.canBuy}
+<section aria-labelledby="upgrades-title">
+  <h2 id="upgrades-title" tabindex="-1" class="section-label mb-2">Upgrades</h2>
 
-    <div
-      class="item-card flex flex-col"
-      class:purchased={isUnlocked}
-      class:affordable={canBuy}
-    >
-      <h3 id={`upgrade-${upgrade.id}`} tabindex="-1" class="text-sm font-bold text-paper mb-1">{upgrade.name}</h3>
-      <p class="text-xs text-ink-muted mb-2 leading-relaxed">{upgrade.description}</p>
-
-      <div class="space-y-1 text-xs text-ink-muted mb-3">
-        <p>
-          Cost: {formatNamedCost(adjustedCost)}
-          {#if hasDiscount}
-            <span class="text-success"> discounted</span>
+  {#if pending.length === 0}
+    <p class="text-xs text-ink-muted px-1">All upgrades for this era bought.</p>
+  {:else}
+    <ul class="space-y-1.5" bind:this={list}>
+      {#each pending as upgrade (upgrade.id)}
+        <li>
+          <button
+            class="store-row"
+            class:ready={upgrade.canBuy}
+            disabled={!upgrade.canBuy}
+            title={upgrade.description}
+            onclick={() => buy(upgrade.id)}
+          >
+            <span class="min-w-0 flex-1">
+              <span class="flex items-baseline justify-between gap-2">
+                <span class="text-sm font-semibold text-paper">{upgrade.name}</span>
+                <span class="text-xs tabular-nums whitespace-nowrap {upgrade.canBuy ? 'text-paper' : 'text-ink-muted'}">
+                  {upgrade.hasRequiredUpgrade ? formatCost(upgrade.adjustedCost) : `after ${formatId(upgrade.requiresUpgrade)}`}
+                </span>
+              </span>
+              <span class="block text-xs text-ink-muted leading-snug">{upgrade.effect}</span>
+            </span>
+          </button>
+          {#if upgrade.hasRequiredUpgrade && !upgrade.canAfford}
+            <span class="sr-only">Needs {getMissingCost(upgrade.adjustedCost, $gameStore.resources)}</span>
           {/if}
-        </p>
-        <p>Effect: {upgrade.effect}</p>
-      </div>
+        </li>
+      {/each}
+    </ul>
+  {/if}
 
-      {#if !hasRequiredUpgrade}
-        <p class="text-xs text-warning leading-tight mb-2">Requires: {formatId(upgrade.requiresUpgrade)}</p>
-      {/if}
-
-      {#if upgrade.historical}
-        <p class="text-xs text-ink-muted italic mb-2 leading-relaxed">{upgrade.historical}</p>
-      {/if}
-
-      <div class="mt-auto">
-        <button
-          class="btn btn-sm {getPurchaseButtonClasses(isUnlocked, canBuy)}"
-          disabled={isUnlocked || !canBuy}
-          onclick={() => buyUpgrade(upgrade.id)}
-        >
-          {isUnlocked ? '✓ Purchased' : `Buy ${upgrade.name}`}
-        </button>
-      </div>
-    </div>
-  {/each}
-</div>
+  {#if owned.length > 0}
+    <p class="mt-2 px-1 text-xs text-ink-muted leading-relaxed">
+      <span class="text-success">✓</span> {owned.map((upgrade) => upgrade.name).join(' · ')}
+    </p>
+  {/if}
+</section>
