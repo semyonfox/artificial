@@ -62,7 +62,8 @@
               <span class="text-xl">{wonder.icon || '🏛️'}</span>
               <div>
                 <h3 class="text-sm font-bold text-paper">{wonder.name}</h3>
-                <span class="text-xs text-ink-muted">{formatCivName(wonder.civilization)} • {formatEraName(wonder.era)}</span>
+                <!-- renaissance onwards wonders have no civilization -->
+                <span class="text-xs text-ink-muted">{wonder.civilization ? `${formatCivName(wonder.civilization)} • ` : ''}{formatEraName(wonder.era)}</span>
               </div>
             </div>
 
